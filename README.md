@@ -1,3 +1,3 @@
-= Stereo Vision 
+# Stereo Vision
 
 _Daniel, Demetrios, Ezra_

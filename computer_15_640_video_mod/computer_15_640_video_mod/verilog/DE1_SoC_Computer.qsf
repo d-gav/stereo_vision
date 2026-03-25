@@ -953,7 +953,7 @@ set_instance_assignment -name PACKAGE_SKEW_COMPENSATION OFF -to HPS_DDR3_CK_N
 
 
 set_global_assignment -name LAST_QUARTUS_VERSION "18.1.0 Lite Edition"
-set_global_assignment -name PARTITION_NETLIST_TYPE POST_FIT -section_id Top
+set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id Top
 set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id Top
 set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name QIP_FILE Computer_System/synthesis/Computer_System.qip
@@ -972,31 +972,6 @@ set_instance_assignment -name FAST_INPUT_REGISTER ON -to *
 set_instance_assignment -name FAST_OUTPUT_ENABLE_REGISTER ON -to *
 set_global_assignment -name TIMEQUEST_MULTICORNER_ANALYSIS ON
 set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
-set_global_assignment -name PARTITION_NETLIST_TYPE POST_FIT -section_id "Computer_System:The_System"
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id "Computer_System:The_System"
-set_global_assignment -name PARTITION_COLOR 39423 -section_id "Computer_System:The_System"
 set_global_assignment -name VERILOG_FILE hex_decoder.v
-set_global_assignment -name PARTITION_NETLIST_TYPE SOURCE -section_id multi_hier
-set_global_assignment -name PARTITION_FITTER_PRESERVATION_LEVEL PLACEMENT_AND_ROUTING -section_id multi_hier
-set_global_assignment -name PARTITION_COLOR 52377 -section_id multi_hier
-set_global_assignment -name CROSS_BOUNDARY_OPTIMIZATIONS ON -section_id multi_hier
-set_global_assignment -name LL_ENABLED ON -section_id "Computer_System:The_System"
-set_global_assignment -name LL_AUTO_SIZE ON -section_id "Computer_System:The_System"
-set_global_assignment -name LL_STATE FLOATING -section_id "Computer_System:The_System"
-set_global_assignment -name LL_RESERVED OFF -section_id "Computer_System:The_System"
-set_global_assignment -name LL_CORE_ONLY OFF -section_id "Computer_System:The_System"
-set_global_assignment -name LL_SECURITY_ROUTING_INTERFACE OFF -section_id "Computer_System:The_System"
-set_global_assignment -name LL_IGNORE_IO_BANK_SECURITY_CONSTRAINT OFF -section_id "Computer_System:The_System"
-set_global_assignment -name LL_PR_REGION OFF -section_id "Computer_System:The_System"
-set_global_assignment -name LL_ROUTING_REGION_EXPANSION_SIZE 2147483647 -section_id "Computer_System:The_System"
-set_global_assignment -name LL_WIDTH 1 -section_id "Computer_System:The_System"
-set_global_assignment -name LL_HEIGHT 1 -section_id "Computer_System:The_System"
-set_global_assignment -name LL_ORIGIN X1_Y1 -section_id "Computer_System:The_System"
-set_instance_assignment -name LL_MEMBER_OF "Computer_System:The_System" -to "Computer_System:The_System" -section_id "Computer_System:The_System"
 set_global_assignment -name FITTER_EFFORT "AUTO FIT"
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
-set_instance_assignment -name PARTITION_HIERARCHY thesy_eb451 -to "Computer_System:The_System" -section_id "Computer_System:The_System"
-set_instance_assignment -name PARTITION_HIERARCHY multi_42ab1 -to "HexDigit:Digit0" -section_id multi_hier
-set_instance_assignment -name PARTITION_HIERARCHY multi_42ab1 -to "HexDigit:Digit1" -section_id multi_hier
-set_instance_assignment -name PARTITION_HIERARCHY multi_42ab1 -to "HexDigit:Digit2" -section_id multi_hier
-set_instance_assignment -name PARTITION_HIERARCHY multi_42ab1 -to "HexDigit:Digit3" -section_id multi_hier

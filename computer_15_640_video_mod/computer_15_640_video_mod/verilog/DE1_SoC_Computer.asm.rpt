@@ -1,6 +1,6 @@
 Assembler report for DE1_SoC_Computer
-Wed Mar 23 11:28:57 2022
-Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Standard Edition
+Wed Mar 25 19:04:54 2026
+Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
 ---------------------
@@ -10,7 +10,7 @@ Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Standard Edition
   2. Assembler Summary
   3. Assembler Settings
   4. Assembler Generated Files
-  5. Assembler Device Options: G:/quartus18_projects/video_input/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof
+  5. Assembler Device Options: C:/Users/deg273/Downloads/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof
   6. Assembler Messages
 
 
@@ -37,7 +37,7 @@ refer to the applicable agreement for further details.
 +---------------------------------------------------------------+
 ; Assembler Summary                                             ;
 +-----------------------+---------------------------------------+
-; Assembler Status      ; Successful - Wed Mar 23 11:28:57 2022 ;
+; Assembler Status      ; Successful - Wed Mar 25 19:04:54 2026 ;
 ; Revision Name         ; DE1_SoC_Computer                      ;
 ; Top-level Entity Name ; DE1_SoC_Computer                      ;
 ; Family                ; Cyclone V                             ;
@@ -52,23 +52,23 @@ refer to the applicable agreement for further details.
 +--------+---------+---------------+
 
 
-+------------------------------------------------------------------------------------------+
-; Assembler Generated Files                                                                ;
-+------------------------------------------------------------------------------------------+
-; File Name                                                                                ;
-+------------------------------------------------------------------------------------------+
-; G:/quartus18_projects/video_input/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof ;
-+------------------------------------------------------------------------------------------+
++--------------------------------------------------------------------------------------------------------------------------+
+; Assembler Generated Files                                                                                                ;
++--------------------------------------------------------------------------------------------------------------------------+
+; File Name                                                                                                                ;
++--------------------------------------------------------------------------------------------------------------------------+
+; C:/Users/deg273/Downloads/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof ;
++--------------------------------------------------------------------------------------------------------------------------+
 
 
-+--------------------------------------------------------------------------------------------------------------------+
-; Assembler Device Options: G:/quartus18_projects/video_input/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof ;
-+----------------+---------------------------------------------------------------------------------------------------+
-; Option         ; Setting                                                                                           ;
-+----------------+---------------------------------------------------------------------------------------------------+
-; JTAG usercode  ; 0x0442C856                                                                                        ;
-; Checksum       ; 0x0442C856                                                                                        ;
-+----------------+---------------------------------------------------------------------------------------------------+
++----------------------------------------------------------------------------------------------------------------------------------------------------+
+; Assembler Device Options: C:/Users/deg273/Downloads/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.sof ;
++----------------+-----------------------------------------------------------------------------------------------------------------------------------+
+; Option         ; Setting                                                                                                                           ;
++----------------+-----------------------------------------------------------------------------------------------------------------------------------+
+; JTAG usercode  ; 0x044380A7                                                                                                                        ;
+; Checksum       ; 0x044380A7                                                                                                                        ;
++----------------+-----------------------------------------------------------------------------------------------------------------------------------+
 
 
 +--------------------+
@@ -76,15 +76,15 @@ refer to the applicable agreement for further details.
 +--------------------+
 Info: *******************************************************************
 Info: Running Quartus Prime Assembler
-    Info: Version 18.1.0 Build 625 09/12/2018 SJ Standard Edition
-    Info: Processing started: Wed Mar 23 11:28:39 2022
+    Info: Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
+    Info: Processing started: Wed Mar 25 19:04:44 2026
 Info: Command: quartus_asm --read_settings_files=off --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
 Info (115030): Assembler is generating device programming files
 Info (11878): Hard Processor Subsystem configuration has not changed and a Preloader software update is not required
 Info: Quartus Prime Assembler was successful. 0 errors, 0 warnings
-    Info: Peak virtual memory: 5001 megabytes
-    Info: Processing ended: Wed Mar 23 11:28:57 2022
-    Info: Elapsed time: 00:00:18
-    Info: Total CPU time (on all processors): 00:00:18
+    Info: Peak virtual memory: 5003 megabytes
+    Info: Processing ended: Wed Mar 25 19:04:54 2026
+    Info: Elapsed time: 00:00:10
+    Info: Total CPU time (on all processors): 00:00:08
 
 

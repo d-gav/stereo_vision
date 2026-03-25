@@ -357,8 +357,25 @@ output					HPS_USB_STP;
 //  REG/WIRE declarations
 //=======================================================
 
+// Stereo layout assumptions:
+//  - Input is a single 640x240 frame where left/right views are side-by-side.
+//  - Left view uses x=[0..319], right view uses x=[320..639].
+//  - SW[2]=0 displays left on VGA, SW[2]=1 displays right on VGA.
+//  - SW[3]=1 masks odd rows (writes zeros) for debug.
+localparam FULL_FRAME_WIDTH  = 10'd640;
+localparam HALF_FRAME_WIDTH  = 10'd320;
+localparam FRAME_HEIGHT      = 10'd240;
+localparam NUM_ROW_BANKS     = 4;
+localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
+localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
+localparam TOTAL_BANK_DEPTH  = NUM_ROW_BANKS * BANK_DEPTH;
+
 wire			[15: 0]	hex3_hex0;
 //wire			[15: 0]	hex5_hex4;
+
+// Row-banked BRAM-style storage for left/right views.
+reg [7:0] left_row_banks  [0:TOTAL_BANK_DEPTH-1];
+reg [7:0] right_row_banks [0:TOTAL_BANK_DEPTH-1];
 
 //assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
 //assign HEX1 = ~hex3_hex0[14: 8];
@@ -405,10 +422,19 @@ reg [19:0] hs_count ;
 
 // pixel address is
 reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood ;
-reg [7:0] current_pixel_color1, current_pixel_color2 ;
+reg [9:0] read_x_cood, read_y_cood, vga_write_x, vga_write_y;
+reg read_is_right;
+reg [7:0] current_pixel_color1, current_pixel_color2, vga_write_pixel ;
+reg do_vga_write;
+
+wire [9:0] read_x_half = read_is_right ? (read_x_cood - HALF_FRAME_WIDTH) : read_x_cood;
+wire [31:0] bank_index = read_y_cood / ROWS_PER_BANK;
+wire [31:0] row_in_bank = read_y_cood - (bank_index * ROWS_PER_BANK);
+wire [31:0] bank_addr = (row_in_bank * HALF_FRAME_WIDTH) + read_x_half;
+wire [31:0] bank_flat_addr = (bank_index * BANK_DEPTH) + bank_addr;
 // compute address
-assign vga_bus_addr = vga_out_base_address + {22'b0,video_in_x_cood + vga_x_cood} + ({22'b0,video_in_y_cood + vga_y_cood}<<10) ;
-assign video_in_bus_addr = video_in_base_address + {22'b0,video_in_x_cood} + ({22'b0,video_in_y_cood}<<9) ;	 
+assign vga_bus_addr = vga_out_base_address + {22'b0,vga_write_x} + ({22'b0,vga_write_y}<<10) ;
+assign video_in_bus_addr = video_in_base_address + {22'b0,video_in_x_cood} + ({22'b0,video_in_y_cood}<<10) ;	 
 
 always @(posedge CLOCK2_50) begin //CLOCK_50
 
@@ -422,6 +448,13 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		vga_y_cood <= 10'd50 ;
 		video_in_x_cood <= 0 ;
 		video_in_y_cood <= 0 ;
+		read_x_cood <= 0;
+		read_y_cood <= 0;
+		read_is_right <= 0;
+		vga_write_x <= 0;
+		vga_write_y <= 0;
+		vga_write_pixel <= 0;
+		do_vga_write <= 0;
 	   bus_byte_enable <= 4'b0001;
 
 		timer <= 0;
@@ -436,15 +469,22 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// bigger numbers mean slower frame update to VGA
 	if (state==0 && SW[0] && (timer & 3)==0 ) begin //
 		state <= 1;	
+		read_x_cood <= video_in_x_cood;
+		read_y_cood <= video_in_y_cood;
+		read_is_right <= (video_in_x_cood >= HALF_FRAME_WIDTH);
 		
-		// read all the pixels in the video input
-		video_in_x_cood <= video_in_x_cood + 10'd1 ;
-		if (video_in_x_cood > 10'd319) begin
-			video_in_x_cood <= 0 ;
-			video_in_y_cood <= video_in_y_cood + 10'd1 ;
-			if (video_in_y_cood > 10'd239) begin
-				video_in_y_cood <= 10'd0 ;
+		// read all pixels in full side-by-side stereo frame
+		if (video_in_x_cood == (FULL_FRAME_WIDTH - 10'd1)) begin
+			video_in_x_cood <= 0;
+			if (video_in_y_cood == (FRAME_HEIGHT - 10'd1)) begin
+				video_in_y_cood <= 10'd0;
 			end
+			else begin
+				video_in_y_cood <= video_in_y_cood + 10'd1;
+			end
+		end
+		else begin
+			video_in_x_cood <= video_in_x_cood + 10'd1;
 		end
 		// one byte data
 		bus_byte_enable <= 4'b0001;
@@ -457,23 +497,70 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// finish the  read
 	// You MUST do this check
 	if (state==1 && bus_ack==1) begin
-		state <= 8 ; //state <= 2 ;
 		bus_read <= 1'b0;
-		current_pixel_color1 <= bus_read_data ;
+		current_pixel_color1 <= bus_read_data[7:0] ;
+
+		if (SW[3] && read_y_cood[0]) begin
+			vga_write_pixel <= 8'd0;
+		end
+		else begin
+			vga_write_pixel <= bus_read_data[7:0];
+		end
+
+		// Store each side in independent row-banked BRAM arrays.
+		if (read_is_right) begin
+			if (SW[3] && read_y_cood[0])
+				right_row_banks[bank_flat_addr] <= 8'd0;
+			else
+				right_row_banks[bank_flat_addr] <= bus_read_data[7:0];
+		end
+		else begin
+			if (SW[3] && read_y_cood[0])
+				left_row_banks[bank_flat_addr] <= 8'd0;
+			else
+				left_row_banks[bank_flat_addr] <= bus_read_data[7:0];
+		end
+
+		if (read_is_right == SW[2]) begin
+			do_vga_write <= 1'b1;
+			vga_write_x <= vga_x_cood + (read_x_half << 1);
+			vga_write_y <= vga_y_cood + read_y_cood;
+			state <= 8;
+		end
+		else begin
+			do_vga_write <= 1'b0;
+			state <= 0;
+		end
 	end
 	
-	// write a pixel to VGA memory
-	if (state==8) begin
+	// write first stretched pixel to VGA memory
+	if (state==8 && do_vga_write) begin
 		state <= 9 ;
 		bus_write <= 1'b1;
 		bus_addr <= vga_bus_addr ;
-		bus_write_data <= current_pixel_color1  ;
+		bus_write_data <= vga_write_pixel ;
 		bus_byte_enable <= 4'b0001;
 	end
 	
-	// and finish write
+	// finish first write, then issue second pixel for 2x horizontal stretch
 	if (state==9 && bus_ack==1) begin
-		state <= 0 ;
+		bus_write <= 1'b0;
+		vga_write_x <= vga_write_x + 10'd1;
+		state <= 10;
+	end
+
+	// write second stretched pixel to VGA memory
+	if (state==10) begin
+		state <= 11;
+		bus_write <= 1'b1;
+		bus_addr <= vga_bus_addr;
+		bus_write_data <= vga_write_pixel;
+		bus_byte_enable <= 4'b0001;
+	end
+
+	// finish second write
+	if (state==11 && bus_ack==1) begin
+		state <= 0;
 		bus_write <= 1'b0;
 	end
 	

@@ -248,6 +248,7 @@ KEY[0] => vga_write_pixel.OUTPUTSELECT
 KEY[0] => vga_write_pixel.OUTPUTSELECT
 KEY[0] => vga_write_pixel.OUTPUTSELECT
 KEY[0] => do_vga_write.OUTPUTSELECT
+KEY[0] => display_right_sel.OUTPUTSELECT
 KEY[0] => bus_byte_enable.OUTPUTSELECT
 KEY[0] => bus_byte_enable.OUTPUTSELECT
 KEY[0] => bus_byte_enable.OUTPUTSELECT
@@ -324,7 +325,7 @@ PS2_DAT2 <> <UNC>
 SW[0] => always0.IN0
 SW[1] => GPIO_0[4].DATAIN
 SW[1] => TD_RESET_N.DATAIN
-SW[2] => always0.IN1
+SW[2] => display_right_sel.DATAB
 SW[3] => always0.IN1
 SW[4] => ~NO_FANOUT~
 SW[5] => ~NO_FANOUT~

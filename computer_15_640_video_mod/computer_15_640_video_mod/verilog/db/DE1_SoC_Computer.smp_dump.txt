@@ -81,6 +81,13 @@ s_serial_protocol.STATE_3_START_BIT 0 0 1 0 0 1
 s_serial_protocol.STATE_4_TRANSFER 0 1 0 0 0 1 
 s_serial_protocol.STATE_5_STOP_BIT 1 0 0 0 0 1 
 
+State Machine - |DE1_SoC_Computer|state
+Name state.1001 state.1000 state.0001 state.0000 
+state.0000 0 0 0 0 
+state.0001 0 0 1 1 
+state.1000 0 1 0 1 
+state.1001 1 0 0 1 
+
 State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_SDRAM:sdram|i_state
 Name i_state.111 i_state.101 i_state.011 i_state.010 i_state.001 i_state.000 
 i_state.000 0 0 0 0 0 0 
@@ -96,15 +103,6 @@ i_next.000 0 0 0 0
 i_next.010 0 0 1 1 
 i_next.101 0 1 0 1 
 i_next.111 1 0 0 1 
-
-State Machine - |DE1_SoC_Computer|state
-Name state.1011 state.1010 state.1001 state.1000 state.0001 state.0000 
-state.0000 0 0 0 0 0 0 
-state.0001 0 0 0 0 1 1 
-state.1000 0 0 0 1 0 1 
-state.1001 0 0 1 0 0 1 
-state.1010 0 1 0 0 0 1 
-state.1011 1 0 0 0 0 1 
 
 State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_SDRAM:sdram|m_state
 Name m_state.100000000 m_state.010000000 m_state.001000000 m_state.000100000 m_state.000010000 m_state.000001000 m_state.000000100 m_state.000000010 m_state.000000001 

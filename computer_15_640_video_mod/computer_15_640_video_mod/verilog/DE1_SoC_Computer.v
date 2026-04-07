@@ -362,9 +362,9 @@ output					HPS_USB_STP;
 //  - Left view uses x=[0..159], right view uses x=[160..319].
 //  - SW[2]=0 displays left on VGA, SW[2]=1 displays right on VGA.
 //  - SW[3]=1 masks odd rows (writes zeros) for debug.
-localparam FULL_FRAME_WIDTH  = 10'd640;
-localparam HALF_FRAME_WIDTH  = 10'd320;
-localparam FRAME_HEIGHT      = 10'd240;
+localparam FULL_FRAME_WIDTH  = 320;
+localparam HALF_FRAME_WIDTH  = 160;
+localparam FRAME_HEIGHT      = 240;
 localparam NUM_ROW_BANKS     = 4;
 localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
 localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
@@ -374,8 +374,8 @@ wire			[15: 0]	hex3_hex0;
 //wire			[15: 0]	hex5_hex4;
 
 // Row-banked BRAM-style storage for left/right views.
-reg [7:0] left_row_banks  [0:TOTAL_BANK_DEPTH-1];
-reg [7:0] right_row_banks [0:TOTAL_BANK_DEPTH-1];
+reg [7:0] left_row_bank  [0:TOTAL_BANK_DEPTH-1];
+reg [7:0] right_row_bank [0:TOTAL_BANK_DEPTH-1];
 
 //assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
 //assign HEX1 = ~hex3_hex0[14: 8];
@@ -420,24 +420,25 @@ reg [19:0] vs_count ;
 reg last_hs, wait_one_hs ;
 reg [19:0] hs_count ;
 
-reg display_right_sel;
-
 // pixel address is
-reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood ;
+reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
 reg [7:0] current_pixel_color1, current_pixel_color2 ;
 
 // compute address
 assign vga_bus_addr = vga_out_base_address + {22'b0,video_in_x_cood + vga_x_cood} + ({22'b0,video_in_y_cood + vga_y_cood}<<10) ;
 assign video_in_bus_addr = video_in_base_address + {22'b0,video_in_x_cood} + ({22'b0,video_in_y_cood}<<9) ;	 
 
+
+
 reg display_right_sel;
-wire  right_read_side;
+wire right_read_side = old_video_in_x_cood >= HALF_FRAME_WIDTH ? 1'b1 : 1'b0;
 
-assign right_read_side = video_in_x_cood >= 160 ? 1'b1 : 1'b0;
-
+//The address for the pixel in the right bank we are writing to
 wire [9:0] right_cam_mem_x_cood ;
 
-assign right_cam_mem_x_cood = video_in_x_cood - 160 ;
+assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
+
+wire [15:0] bank_address =  (old_video_in_y_cood * HALF_FRAME_WIDTH) + (right_read_side ? right_cam_mem_x_cood : old_video_in_x_cood) ; 
 
 always @(posedge CLOCK2_50) begin //CLOCK_50
 
@@ -450,7 +451,9 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		vga_x_cood <= 10'd100 ;
 		vga_y_cood <= 10'd50 ;
 		video_in_x_cood <= 0 ;
+		old_video_in_x_cood <= 0 ;
 		video_in_y_cood <= 0 ;
+		old_video_in_y_cood <= 0 ;
 	    bus_byte_enable <= 4'b0001;
 		display_right_sel <= SW[2];
 		timer <= 0;
@@ -465,13 +468,15 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// bigger numbers mean slower frame update to VGA
 	if (state==0 && SW[0] && (timer & 3)==0 ) begin //
 		state <= 1;	
-		
 		// read all the pixels in the video input
+		old_video_in_x_cood <= video_in_x_cood ;
+		old_video_in_y_cood <= video_in_y_cood ;
+
 		video_in_x_cood <= video_in_x_cood + 10'd1 ;
-		if (video_in_x_cood > 10'd320) begin
+		if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
 			video_in_x_cood <= 0 ;
 			video_in_y_cood <= video_in_y_cood + 10'd1 ;
-			if (video_in_y_cood > 10'd239) begin
+			if (video_in_y_cood >= FRAME_HEIGHT - 1) begin
 				video_in_y_cood <= 10'd0 ;
 			end
 		end
@@ -494,16 +499,18 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// write a pixel to VGA memory
 	if (state==8) begin
 		state <= 9 ;
+		if (right_read_side) begin
+			right_row_bank[bank_address] = current_pixel_color1;
+		end else begin
+			left_row_bank[bank_address] = current_pixel_color1;
+		end
+
 		bus_write <= 1'b1;
 		bus_addr <= vga_bus_addr ;
-		bus_write_data <= current_pixel_color1  ;
+		bus_write_data <= (display_right_sel == right_read_side) ? current_pixel_color1 : 8'b111_11_111 ;
 		bus_byte_enable <= 4'b0001;
 
-		if (right_read_side) begin
-			right_row_banks[video_in_y_cood][right_cam_mem_x_cood] = current_pixel_color1;
-		end else begin
-			left_row_banks[video_in_y_cood][video_in_x_cood] = current_pixel_color1;
-		end
+		
 	end
 	
 	// and finish write

@@ -7,6 +7,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <stdint.h>
+#include <time.h>
+#include <termios.h>
 #include <sys/types.h>
 #include <sys/ipc.h> 
 #include <sys/shm.h> 
@@ -24,6 +28,7 @@ void VGA_disc (int, int, int, short);
 int  VGA_read_pixel(int, int) ;
 int  video_in_read_pixel(int, int);
 void draw_delay(void) ;
+int  save_vga_png(const char *filename);
 
 
 // the light weight buss base
@@ -76,11 +81,139 @@ char shared_str[64];
 struct timeval t1, t2;
 double elapsedTime;
 struct timespec delay_time ;
+
+#define VGA_WIDTH 640
+#define VGA_HEIGHT 480
+
+static unsigned int crc32_table[256];
+static int crc32_table_initialized = 0;
+
+static void init_crc32_table(void)
+{
+	unsigned int i, j, c;
+	for (i = 0; i < 256; i++) {
+		c = i;
+		for (j = 0; j < 8; j++) {
+			if (c & 1U) {
+				c = 0xEDB88320U ^ (c >> 1);
+			} else {
+				c >>= 1;
+			}
+		}
+		crc32_table[i] = c;
+	}
+	crc32_table_initialized = 1;
+}
+
+static unsigned int crc32_update(unsigned int crc, const unsigned char *data, size_t len)
+{
+	size_t i;
+	if (!crc32_table_initialized) {
+		init_crc32_table();
+	}
+	for (i = 0; i < len; i++) {
+		crc = crc32_table[(crc ^ data[i]) & 0xFFU] ^ (crc >> 8);
+	}
+	return crc;
+}
+
+static unsigned int adler32_calc(const unsigned char *data, size_t len)
+{
+	const unsigned int mod_adler = 65521U;
+	unsigned int a = 1;
+	unsigned int b = 0;
+	size_t i;
+
+	for (i = 0; i < len; i++) {
+		a = (a + data[i]) % mod_adler;
+		b = (b + a) % mod_adler;
+	}
+
+	return (b << 16) | a;
+}
+
+static int write_be32(FILE *fp, unsigned int value)
+{
+	unsigned char bytes[4];
+	bytes[0] = (unsigned char)((value >> 24) & 0xFFU);
+	bytes[1] = (unsigned char)((value >> 16) & 0xFFU);
+	bytes[2] = (unsigned char)((value >> 8) & 0xFFU);
+	bytes[3] = (unsigned char)(value & 0xFFU);
+	return (fwrite(bytes, 1, 4, fp) == 4) ? 0 : -1;
+}
+
+static int write_png_chunk(FILE *fp, const char type[4], const unsigned char *data, size_t len)
+{
+	unsigned int crc = 0xFFFFFFFFU;
+
+	if (write_be32(fp, (unsigned int)len) != 0) {
+		return -1;
+	}
+
+	if (fwrite(type, 1, 4, fp) != 4) {
+		return -1;
+	}
+
+	if (len > 0 && fwrite(data, 1, len, fp) != len) {
+		return -1;
+	}
+
+	crc = crc32_update(crc, (const unsigned char *)type, 4);
+	if (len > 0) {
+		crc = crc32_update(crc, data, len);
+	}
+	crc ^= 0xFFFFFFFFU;
+
+	return write_be32(fp, crc);
+}
+
+static void build_capture_filename(char *filename, size_t filename_size)
+{
+	time_t now;
+	struct tm *now_tm;
+	char timestamp[32];
+	static unsigned int capture_count = 0;
+
+	now = time(NULL);
+	now_tm = localtime(&now);
+	if (now_tm != NULL && strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S", now_tm) > 0) {
+		snprintf(filename, filename_size, "vga_capture_%s_%03u.png", timestamp, capture_count);
+	} else {
+		snprintf(filename, filename_size, "vga_capture_%03u.png", capture_count);
+	}
+	capture_count++;
+}
+
+static int configure_terminal_raw(struct termios *saved_terminal)
+{
+	struct termios raw_terminal;
+
+	if (tcgetattr(STDIN_FILENO, saved_terminal) != 0) {
+		return -1;
+	}
+
+	raw_terminal = *saved_terminal;
+	raw_terminal.c_lflag &= (tcflag_t)~(ICANON | ECHO);
+	raw_terminal.c_cc[VMIN] = 0;
+	raw_terminal.c_cc[VTIME] = 0;
+
+	return tcsetattr(STDIN_FILENO, TCSANOW, &raw_terminal);
+}
+
+static void restore_terminal(const struct termios *saved_terminal)
+{
+	tcsetattr(STDIN_FILENO, TCSANOW, saved_terminal);
+}
 	
 int main(void)
 {
 	delay_time.tv_nsec = 10 ;
 	delay_time.tv_sec = 0 ;
+	char key;
+	ssize_t bytes_read;
+	char png_filename[128];
+	struct termios saved_terminal;
+	int raw_terminal_enabled = 0;
 
 	// Declare volatile pointers to I/O registers (volatile 	// means that IO load and store instructions will be used 	// to access these pointer locations, 
 	// instead of regular memory loads and stores) 
@@ -153,8 +286,168 @@ int main(void)
 
 	// start timer
     //gettimeofday(&t1, NULL);
+
+	printf("Press C to capture the VGA screen to a PNG file. Press Q to quit.\n");
+
+	if (configure_terminal_raw(&saved_terminal) == 0) {
+		raw_terminal_enabled = 1;
+	} else {
+		printf("Warning: raw terminal mode unavailable, input may require Enter.\n");
+	}
+
+	while (1) {
+		bytes_read = read(STDIN_FILENO, &key, 1);
+		if (bytes_read == 1) {
+			if (key == 'c' || key == 'C') {
+				build_capture_filename(png_filename, sizeof(png_filename));
+				if (save_vga_png(png_filename) == 0) {
+					printf("Saved VGA snapshot to %s\n", png_filename);
+				} else {
+					printf("Failed to save VGA snapshot to %s\n", png_filename);
+				}
+			} else if (key == 'q' || key == 'Q') {
+				break;
+			}
+		} else if (bytes_read < 0 && errno != EAGAIN && errno != EINTR) {
+			printf("Read error on stdin\n");
+			break;
+		}
+
+		usleep(10000);
+	}
+
+	if (raw_terminal_enabled) {
+		restore_terminal(&saved_terminal);
+	}
+
+	if (video_in_virtual_base != NULL && video_in_virtual_base != MAP_FAILED) {
+		munmap(video_in_virtual_base, FPGA_ONCHIP_SPAN);
+	}
+	if (vga_pixel_virtual_base != NULL && vga_pixel_virtual_base != MAP_FAILED) {
+		munmap(vga_pixel_virtual_base, FPGA_ONCHIP_SPAN);
+	}
+	if (vga_char_virtual_base != NULL && vga_char_virtual_base != MAP_FAILED) {
+		munmap(vga_char_virtual_base, FPGA_CHAR_SPAN);
+	}
+	if (h2p_lw_virtual_base != NULL && h2p_lw_virtual_base != MAP_FAILED) {
+		munmap(h2p_lw_virtual_base, HW_REGS_SPAN);
+	}
+	close(fd);
+	return 0;
 	
 } // end main
+
+int save_vga_png(const char *filename)
+{
+	FILE *fp;
+	unsigned char png_signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+	unsigned char ihdr[13];
+	unsigned char *raw = NULL;
+	unsigned char *idat = NULL;
+	unsigned int adler;
+	size_t raw_size;
+	size_t raw_pos;
+	size_t idat_size;
+	size_t idat_pos;
+	size_t remaining;
+	size_t max_blocks;
+	int x, y;
+
+	raw_size = (size_t)VGA_HEIGHT * (1 + ((size_t)VGA_WIDTH * 3));
+	max_blocks = (raw_size + 65534U) / 65535U;
+	idat_size = 2 + raw_size + (max_blocks * 5U) + 4;
+
+	raw = (unsigned char *)malloc(raw_size);
+	idat = (unsigned char *)malloc(idat_size);
+	if (raw == NULL || idat == NULL) {
+		free(raw);
+		free(idat);
+		return -1;
+	}
+
+	for (y = 0; y < VGA_HEIGHT; y++) {
+		size_t row_start = (size_t)y * (1 + ((size_t)VGA_WIDTH * 3));
+		raw[row_start] = 0;
+		for (x = 0; x < VGA_WIDTH; x++) {
+			unsigned char pix = (unsigned char)(VGA_read_pixel(x, y) & 0xFF);
+			unsigned char r = (unsigned char)((((pix >> 5) & 0x07U) * 255U) / 7U);
+			unsigned char g = (unsigned char)((((pix >> 2) & 0x07U) * 255U) / 7U);
+			unsigned char b = (unsigned char)(((pix & 0x03U) * 255U) / 3U);
+			size_t out = row_start + 1 + ((size_t)x * 3);
+			raw[out] = r;
+			raw[out + 1] = g;
+			raw[out + 2] = b;
+		}
+	}
+
+	idat_pos = 0;
+	idat[idat_pos++] = 0x78;
+	idat[idat_pos++] = 0x01;
+
+	raw_pos = 0;
+	remaining = raw_size;
+	while (remaining > 0) {
+		unsigned int block_len = (remaining > 65535U) ? 65535U : (unsigned int)remaining;
+		unsigned int nlen = 0xFFFFU - block_len;
+		idat[idat_pos++] = (remaining > 65535U) ? 0x00 : 0x01;
+		idat[idat_pos++] = (unsigned char)(block_len & 0xFFU);
+		idat[idat_pos++] = (unsigned char)((block_len >> 8) & 0xFFU);
+		idat[idat_pos++] = (unsigned char)(nlen & 0xFFU);
+		idat[idat_pos++] = (unsigned char)((nlen >> 8) & 0xFFU);
+		memcpy(idat + idat_pos, raw + raw_pos, block_len);
+		idat_pos += block_len;
+		raw_pos += block_len;
+		remaining -= block_len;
+	}
+
+	adler = adler32_calc(raw, raw_size);
+	idat[idat_pos++] = (unsigned char)((adler >> 24) & 0xFFU);
+	idat[idat_pos++] = (unsigned char)((adler >> 16) & 0xFFU);
+	idat[idat_pos++] = (unsigned char)((adler >> 8) & 0xFFU);
+	idat[idat_pos++] = (unsigned char)(adler & 0xFFU);
+
+	fp = fopen(filename, "wb");
+	if (fp == NULL) {
+		free(raw);
+		free(idat);
+		return -1;
+	}
+
+	if (fwrite(png_signature, 1, sizeof(png_signature), fp) != sizeof(png_signature)) {
+		fclose(fp);
+		free(raw);
+		free(idat);
+		return -1;
+	}
+
+	ihdr[0] = (unsigned char)((VGA_WIDTH >> 24) & 0xFFU);
+	ihdr[1] = (unsigned char)((VGA_WIDTH >> 16) & 0xFFU);
+	ihdr[2] = (unsigned char)((VGA_WIDTH >> 8) & 0xFFU);
+	ihdr[3] = (unsigned char)(VGA_WIDTH & 0xFFU);
+	ihdr[4] = (unsigned char)((VGA_HEIGHT >> 24) & 0xFFU);
+	ihdr[5] = (unsigned char)((VGA_HEIGHT >> 16) & 0xFFU);
+	ihdr[6] = (unsigned char)((VGA_HEIGHT >> 8) & 0xFFU);
+	ihdr[7] = (unsigned char)(VGA_HEIGHT & 0xFFU);
+	ihdr[8] = 8;
+	ihdr[9] = 2;
+	ihdr[10] = 0;
+	ihdr[11] = 0;
+	ihdr[12] = 0;
+
+	if (write_png_chunk(fp, "IHDR", ihdr, sizeof(ihdr)) != 0 ||
+		write_png_chunk(fp, "IDAT", idat, idat_pos) != 0 ||
+		write_png_chunk(fp, "IEND", NULL, 0) != 0) {
+		fclose(fp);
+		free(raw);
+		free(idat);
+		return -1;
+	}
+
+	fclose(fp);
+	free(raw);
+	free(idat);
+	return 0;
+}
 
 /****************************************************************************************
  * Subroutine to read a pixel from the video input 

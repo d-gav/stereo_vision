@@ -1,23 +1,15 @@
 	component Computer_System is
 		port (
-			audio_ADCDAT                                 : in    std_logic                     := 'X';             -- ADCDAT
-			audio_ADCLRCK                                : in    std_logic                     := 'X';             -- ADCLRCK
-			audio_BCLK                                   : in    std_logic                     := 'X';             -- BCLK
-			audio_DACDAT                                 : out   std_logic;                                        -- DACDAT
-			audio_DACLRCK                                : in    std_logic                     := 'X';             -- DACLRCK
-			audio_pll_ref_clk_clk                        : in    std_logic                     := 'X';             -- clk
-			audio_pll_ref_reset_reset                    : in    std_logic                     := 'X';             -- reset
 			av_config_SDAT                               : inout std_logic                     := 'X';             -- SDAT
 			av_config_SCLK                               : out   std_logic;                                        -- SCLK
 			clock_bridge_0_in_clk_clk                    : in    std_logic                     := 'X';             -- clk
 			ebab_video_in_external_interface_address     : in    std_logic_vector(29 downto 0) := (others => 'X'); -- address
-			ebab_video_in_external_interface_byte_enable : in    std_logic_vector(1 downto 0)  := (others => 'X'); -- byte_enable
+			ebab_video_in_external_interface_byte_enable : in    std_logic                     := 'X';             -- byte_enable
 			ebab_video_in_external_interface_read        : in    std_logic                     := 'X';             -- read
 			ebab_video_in_external_interface_write       : in    std_logic                     := 'X';             -- write
-			ebab_video_in_external_interface_write_data  : in    std_logic_vector(15 downto 0) := (others => 'X'); -- write_data
+			ebab_video_in_external_interface_write_data  : in    std_logic_vector(7 downto 0)  := (others => 'X'); -- write_data
 			ebab_video_in_external_interface_acknowledge : out   std_logic;                                        -- acknowledge
-			ebab_video_in_external_interface_read_data   : out   std_logic_vector(15 downto 0);                    -- read_data
-			hex3_hex0_export                             : out   std_logic_vector(15 downto 0);                    -- export
+			ebab_video_in_external_interface_read_data   : out   std_logic_vector(7 downto 0);                     -- read_data
 			hps_io_hps_io_emac1_inst_TX_CLK              : out   std_logic;                                        -- hps_io_emac1_inst_TX_CLK
 			hps_io_hps_io_emac1_inst_TXD0                : out   std_logic;                                        -- hps_io_emac1_inst_TXD0
 			hps_io_hps_io_emac1_inst_TXD1                : out   std_logic;                                        -- hps_io_emac1_inst_TXD1
@@ -74,7 +66,6 @@
 			hps_io_hps_io_gpio_inst_GPIO53               : inout std_logic                     := 'X';             -- hps_io_gpio_inst_GPIO53
 			hps_io_hps_io_gpio_inst_GPIO54               : inout std_logic                     := 'X';             -- hps_io_gpio_inst_GPIO54
 			hps_io_hps_io_gpio_inst_GPIO61               : inout std_logic                     := 'X';             -- hps_io_gpio_inst_GPIO61
-			leds_export                                  : out   std_logic_vector(9 downto 0);                     -- export
 			memory_mem_a                                 : out   std_logic_vector(14 downto 0);                    -- mem_a
 			memory_mem_ba                                : out   std_logic_vector(2 downto 0);                     -- mem_ba
 			memory_mem_ck                                : out   std_logic;                                        -- mem_ck
@@ -91,7 +82,6 @@
 			memory_mem_odt                               : out   std_logic;                                        -- mem_odt
 			memory_mem_dm                                : out   std_logic_vector(3 downto 0);                     -- mem_dm
 			memory_oct_rzqin                             : in    std_logic                     := 'X';             -- oct_rzqin
-			pushbuttons_export                           : in    std_logic_vector(3 downto 0)  := (others => 'X'); -- export
 			sdram_addr                                   : out   std_logic_vector(12 downto 0);                    -- addr
 			sdram_ba                                     : out   std_logic_vector(1 downto 0);                     -- ba
 			sdram_cas_n                                  : out   std_logic;                                        -- cas_n
@@ -101,7 +91,7 @@
 			sdram_dqm                                    : out   std_logic_vector(1 downto 0);                     -- dqm
 			sdram_ras_n                                  : out   std_logic;                                        -- ras_n
 			sdram_we_n                                   : out   std_logic;                                        -- we_n
-			slider_switches_export                       : in    std_logic_vector(9 downto 0)  := (others => 'X'); -- export
+			sdram_clk_clk                                : out   std_logic;                                        -- clk
 			system_pll_ref_clk_clk                       : in    std_logic                     := 'X';             -- clk
 			system_pll_ref_reset_reset                   : in    std_logic                     := 'X';             -- reset
 			vga_CLK                                      : out   std_logic;                                        -- CLK
@@ -120,21 +110,12 @@
 			video_in_TD_VS                               : in    std_logic                     := 'X';             -- TD_VS
 			video_in_clk27_reset                         : in    std_logic                     := 'X';             -- clk27_reset
 			video_in_TD_RESET                            : out   std_logic;                                        -- TD_RESET
-			video_in_overflow_flag                       : out   std_logic;                                        -- overflow_flag
-			audio_clk_clk                                : out   std_logic;                                        -- clk
-			sdram_clk_clk                                : out   std_logic                                         -- clk
+			video_in_overflow_flag                       : out   std_logic                                         -- overflow_flag
 		);
 	end component Computer_System;
 
 	u0 : component Computer_System
 		port map (
-			audio_ADCDAT                                 => CONNECTED_TO_audio_ADCDAT,                                 --                            audio.ADCDAT
-			audio_ADCLRCK                                => CONNECTED_TO_audio_ADCLRCK,                                --                                 .ADCLRCK
-			audio_BCLK                                   => CONNECTED_TO_audio_BCLK,                                   --                                 .BCLK
-			audio_DACDAT                                 => CONNECTED_TO_audio_DACDAT,                                 --                                 .DACDAT
-			audio_DACLRCK                                => CONNECTED_TO_audio_DACLRCK,                                --                                 .DACLRCK
-			audio_pll_ref_clk_clk                        => CONNECTED_TO_audio_pll_ref_clk_clk,                        --                audio_pll_ref_clk.clk
-			audio_pll_ref_reset_reset                    => CONNECTED_TO_audio_pll_ref_reset_reset,                    --              audio_pll_ref_reset.reset
 			av_config_SDAT                               => CONNECTED_TO_av_config_SDAT,                               --                        av_config.SDAT
 			av_config_SCLK                               => CONNECTED_TO_av_config_SCLK,                               --                                 .SCLK
 			clock_bridge_0_in_clk_clk                    => CONNECTED_TO_clock_bridge_0_in_clk_clk,                    --            clock_bridge_0_in_clk.clk
@@ -145,7 +126,6 @@
 			ebab_video_in_external_interface_write_data  => CONNECTED_TO_ebab_video_in_external_interface_write_data,  --                                 .write_data
 			ebab_video_in_external_interface_acknowledge => CONNECTED_TO_ebab_video_in_external_interface_acknowledge, --                                 .acknowledge
 			ebab_video_in_external_interface_read_data   => CONNECTED_TO_ebab_video_in_external_interface_read_data,   --                                 .read_data
-			hex3_hex0_export                             => CONNECTED_TO_hex3_hex0_export,                             --                        hex3_hex0.export
 			hps_io_hps_io_emac1_inst_TX_CLK              => CONNECTED_TO_hps_io_hps_io_emac1_inst_TX_CLK,              --                           hps_io.hps_io_emac1_inst_TX_CLK
 			hps_io_hps_io_emac1_inst_TXD0                => CONNECTED_TO_hps_io_hps_io_emac1_inst_TXD0,                --                                 .hps_io_emac1_inst_TXD0
 			hps_io_hps_io_emac1_inst_TXD1                => CONNECTED_TO_hps_io_hps_io_emac1_inst_TXD1,                --                                 .hps_io_emac1_inst_TXD1
@@ -202,7 +182,6 @@
 			hps_io_hps_io_gpio_inst_GPIO53               => CONNECTED_TO_hps_io_hps_io_gpio_inst_GPIO53,               --                                 .hps_io_gpio_inst_GPIO53
 			hps_io_hps_io_gpio_inst_GPIO54               => CONNECTED_TO_hps_io_hps_io_gpio_inst_GPIO54,               --                                 .hps_io_gpio_inst_GPIO54
 			hps_io_hps_io_gpio_inst_GPIO61               => CONNECTED_TO_hps_io_hps_io_gpio_inst_GPIO61,               --                                 .hps_io_gpio_inst_GPIO61
-			leds_export                                  => CONNECTED_TO_leds_export,                                  --                             leds.export
 			memory_mem_a                                 => CONNECTED_TO_memory_mem_a,                                 --                           memory.mem_a
 			memory_mem_ba                                => CONNECTED_TO_memory_mem_ba,                                --                                 .mem_ba
 			memory_mem_ck                                => CONNECTED_TO_memory_mem_ck,                                --                                 .mem_ck
@@ -219,7 +198,6 @@
 			memory_mem_odt                               => CONNECTED_TO_memory_mem_odt,                               --                                 .mem_odt
 			memory_mem_dm                                => CONNECTED_TO_memory_mem_dm,                                --                                 .mem_dm
 			memory_oct_rzqin                             => CONNECTED_TO_memory_oct_rzqin,                             --                                 .oct_rzqin
-			pushbuttons_export                           => CONNECTED_TO_pushbuttons_export,                           --                      pushbuttons.export
 			sdram_addr                                   => CONNECTED_TO_sdram_addr,                                   --                            sdram.addr
 			sdram_ba                                     => CONNECTED_TO_sdram_ba,                                     --                                 .ba
 			sdram_cas_n                                  => CONNECTED_TO_sdram_cas_n,                                  --                                 .cas_n
@@ -229,7 +207,7 @@
 			sdram_dqm                                    => CONNECTED_TO_sdram_dqm,                                    --                                 .dqm
 			sdram_ras_n                                  => CONNECTED_TO_sdram_ras_n,                                  --                                 .ras_n
 			sdram_we_n                                   => CONNECTED_TO_sdram_we_n,                                   --                                 .we_n
-			slider_switches_export                       => CONNECTED_TO_slider_switches_export,                       --                  slider_switches.export
+			sdram_clk_clk                                => CONNECTED_TO_sdram_clk_clk,                                --                        sdram_clk.clk
 			system_pll_ref_clk_clk                       => CONNECTED_TO_system_pll_ref_clk_clk,                       --               system_pll_ref_clk.clk
 			system_pll_ref_reset_reset                   => CONNECTED_TO_system_pll_ref_reset_reset,                   --             system_pll_ref_reset.reset
 			vga_CLK                                      => CONNECTED_TO_vga_CLK,                                      --                              vga.CLK
@@ -248,8 +226,6 @@
 			video_in_TD_VS                               => CONNECTED_TO_video_in_TD_VS,                               --                                 .TD_VS
 			video_in_clk27_reset                         => CONNECTED_TO_video_in_clk27_reset,                         --                                 .clk27_reset
 			video_in_TD_RESET                            => CONNECTED_TO_video_in_TD_RESET,                            --                                 .TD_RESET
-			video_in_overflow_flag                       => CONNECTED_TO_video_in_overflow_flag,                       --                                 .overflow_flag
-			audio_clk_clk                                => CONNECTED_TO_audio_clk_clk,                                --                        audio_clk.clk
-			sdram_clk_clk                                => CONNECTED_TO_sdram_clk_clk                                 --                        sdram_clk.clk
+			video_in_overflow_flag                       => CONNECTED_TO_video_in_overflow_flag                        --                                 .overflow_flag
 		);
 

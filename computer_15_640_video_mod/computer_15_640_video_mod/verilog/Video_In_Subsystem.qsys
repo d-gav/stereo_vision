@@ -9,14 +9,6 @@
    categories="System" />
  <parameter name="bonusData"><![CDATA[bonusData 
 {
-   element $${FILENAME}
-   {
-      datum _originalDeviceFamily
-      {
-         value = "Cyclone V";
-         type = "String";
-      }
-   }
    element Edge_Detection_Subsystem
    {
       datum _sortIndex
@@ -156,9 +148,9 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">Video_In_Subsystem_Edge_Detection_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Edge_Detection_Subsystem</parameter>
  </module>
- <module name="Sys_Clk" kind="clock_source" version="15.0" enabled="1">
+ <module name="Sys_Clk" kind="clock_source" version="18.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />
   <parameter name="clockFrequencyKnown" value="false" />
   <parameter name="inputClockFrequency" value="0" />
@@ -167,7 +159,7 @@
  <module
    name="Video_In"
    kind="altera_up_avalon_video_decoder"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -176,7 +168,7 @@
  <module
    name="Video_In_CSC"
    kind="altera_up_avalon_video_csc"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -185,7 +177,7 @@
  <module
    name="Video_In_Chroma_Resampler"
    kind="altera_up_avalon_video_chroma_resampler"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -195,7 +187,7 @@
  <module
    name="Video_In_Clipper"
    kind="altera_up_avalon_video_clipper"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -219,7 +211,7 @@
  <module
    name="Video_In_DMA"
    kind="altera_up_avalon_video_dma_controller"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -236,18 +228,18 @@
  <module
    name="Video_In_RGB_Resampler"
    kind="altera_up_avalon_video_rgb_resampler"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="alpha" value="1023" />
   <parameter name="input_type" value="24-bit RGB" />
-  <parameter name="output_type" value="8-bit RGB" />
+  <parameter name="output_type" value="8-bit Grayscale" />
  </module>
  <module
    name="Video_In_Scaler"
    kind="altera_up_avalon_video_scaler"
-   version="15.0"
+   version="18.0"
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -255,118 +247,119 @@
   <parameter name="color_planes" value="1" />
   <parameter name="height_in" value="240" />
   <parameter name="height_scaling" value="1" />
+  <parameter name="include_channel" value="false" />
   <parameter name="width_in" value="640" />
   <parameter name="width_scaling" value="0.5" />
  </module>
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In_Chroma_Resampler.avalon_chroma_source"
    end="Edge_Detection_Subsystem.video_stream_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In_Clipper.avalon_clipper_source"
    end="Video_In_Scaler.avalon_scaler_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In_CSC.avalon_csc_source"
    end="Video_In_RGB_Resampler.avalon_rgb_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In.avalon_decoder_source"
    end="Video_In_Chroma_Resampler.avalon_chroma_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In_RGB_Resampler.avalon_rgb_source"
    end="Video_In_Clipper.avalon_clipper_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Video_In_Scaler.avalon_scaler_source"
    end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
-   version="15.0"
+   version="18.1"
    start="Edge_Detection_Subsystem.video_stream_source"
    end="Video_In_CSC.avalon_csc_sink" />
- <connection kind="clock" version="15.0" start="Sys_Clk.clk" end="Video_In.clk" />
+ <connection kind="clock" version="18.1" start="Sys_Clk.clk" end="Video_In.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_Chroma_Resampler.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_CSC.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_RGB_Resampler.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_Clipper.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_Scaler.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Video_In_DMA.clk" />
  <connection
    kind="clock"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk"
    end="Edge_Detection_Subsystem.sys_clk" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_Chroma_Resampler.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_CSC.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_RGB_Resampler.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_Clipper.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_Scaler.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Video_In_DMA.reset" />
  <connection
    kind="reset"
-   version="15.0"
+   version="18.1"
    start="Sys_Clk.clk_reset"
    end="Edge_Detection_Subsystem.sys_reset" />
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />

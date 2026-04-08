@@ -1,13 +1,13 @@
-// (C) 2001-2015 Altera Corporation. All rights reserved.
-// Your use of Altera Corporation's design tools, logic functions and other 
+// (C) 2001-2018 Intel Corporation. All rights reserved.
+// Your use of Intel Corporation's design tools, logic functions and other 
 // software and tools, and its AMPP partner logic functions, and any output 
-// files any of the foregoing (including device programming or simulation 
+// files from any of the foregoing (including device programming or simulation 
 // files), and any associated documentation or information are expressly subject 
-// to the terms and conditions of the Altera Program License Subscription 
-// Agreement, Altera MegaCore Function License Agreement, or other applicable 
+// to the terms and conditions of the Intel Program License Subscription 
+// Agreement, Intel FPGA IP License Agreement, or other applicable 
 // license agreement, including, without limitation, that your use is for the 
-// sole purpose of programming logic devices manufactured by Altera and sold by 
-// Altera or its authorized distributors.  Please refer to the applicable 
+// sole purpose of programming logic devices manufactured by Intel and sold by 
+// Intel or its authorized distributors.  Please refer to the applicable 
 // agreement for further details.
 
 
@@ -131,7 +131,7 @@ reg			[ 1: 0]	ns_dma_to_stream;
 
 always @(posedge clk)
 begin
-	if (reset)
+	if (reset & ~master_waitrequest)
 		s_dma_to_stream <= STATE_0_IDLE;
 	else
 		s_dma_to_stream <= ns_dma_to_stream;
@@ -142,7 +142,9 @@ begin
    case (s_dma_to_stream)
 	STATE_0_IDLE:
 		begin
-			if (fifo_almost_empty)
+			if (reset)
+				ns_dma_to_stream = STATE_0_IDLE;
+			else if (fifo_almost_empty)
 				ns_dma_to_stream = STATE_2_READ_BUFFER;
 			else
 				ns_dma_to_stream = STATE_0_IDLE;
@@ -263,9 +265,9 @@ scfifo Image_Buffer (
 	.full				(fifo_full),
 	   
 	.almost_empty	(fifo_almost_empty),
-	.almost_full	(fifo_almost_full),
+	.almost_full	(fifo_almost_full)
 	// synopsys translate_off
-	
+	,	
 	.aclr				(),
 	.usedw			()
 	// synopsys translate_on

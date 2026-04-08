@@ -1,13 +1,13 @@
-// (C) 2001-2015 Altera Corporation. All rights reserved.
-// Your use of Altera Corporation's design tools, logic functions and other 
+// (C) 2001-2018 Intel Corporation. All rights reserved.
+// Your use of Intel Corporation's design tools, logic functions and other 
 // software and tools, and its AMPP partner logic functions, and any output 
-// files any of the foregoing (including device programming or simulation 
+// files from any of the foregoing (including device programming or simulation 
 // files), and any associated documentation or information are expressly subject 
-// to the terms and conditions of the Altera Program License Subscription 
-// Agreement, Altera MegaCore Function License Agreement, or other applicable 
+// to the terms and conditions of the Intel Program License Subscription 
+// Agreement, Intel FPGA IP License Agreement, or other applicable 
 // license agreement, including, without limitation, that your use is for the 
-// sole purpose of programming logic devices manufactured by Altera and sold by 
-// Altera or its authorized distributors.  Please refer to the applicable 
+// sole purpose of programming logic devices manufactured by Intel and sold by 
+// Intel or its authorized distributors.  Please refer to the applicable 
 // agreement for further details.
 
 
@@ -30,6 +30,7 @@ module altera_up_video_scaler_multiply_width (
 	clk,
 	reset,
 
+	stream_in_channel,
 	stream_in_data,
 	stream_in_startofpacket,
 	stream_in_endofpacket,
@@ -42,6 +43,7 @@ module altera_up_video_scaler_multiply_width (
 	// Outputs
 	stream_in_ready,
 
+	stream_out_channel,
 	stream_out_data,
 	stream_out_startofpacket,
 	stream_out_endofpacket,
@@ -53,9 +55,10 @@ module altera_up_video_scaler_multiply_width (
  *                           Parameter Declarations                          *
  *****************************************************************************/
 
+parameter CW	=  15; // Image's Channel Width
 parameter DW	=  15; // Image's data width
 
-parameter CW	=   0; // Multiply width's counter width
+parameter MCW	=   0; // Multiply width's counter width
 
 /*****************************************************************************
  *                             Port Declarations                             *
@@ -64,6 +67,7 @@ parameter CW	=   0; // Multiply width's counter width
 input						clk;
 input						reset;
 
+input			[CW: 0]	stream_in_channel;
 input			[DW: 0]	stream_in_data;
 input						stream_in_startofpacket;
 input						stream_in_endofpacket;
@@ -76,6 +80,7 @@ input						stream_out_ready;
 // Outputs
 output					stream_in_ready;
 
+output reg	[CW: 0]	stream_out_channel;
 output reg	[DW: 0]	stream_out_data;
 output reg				stream_out_startofpacket;
 output reg				stream_out_endofpacket;
@@ -92,12 +97,13 @@ output reg				stream_out_valid;
 // Internal Wires
 
 // Internal Registers
+reg			[CW: 0]	channel;
 reg			[DW: 0]	data;
 reg						startofpacket;
 reg						endofpacket;
 reg						valid;
 
-reg			[CW: 0]	enlarge_width_counter;
+reg			[MCW:0]	enlarge_width_counter;
 
 // State Machine Registers
 
@@ -115,6 +121,7 @@ always @(posedge clk)
 begin
 	if (reset)
 	begin
+		stream_out_channel				<=  'h0;
 		stream_out_data					<=  'h0;
 		stream_out_startofpacket		<= 1'b0;
 		stream_out_endofpacket			<= 1'b0;
@@ -122,6 +129,7 @@ begin
 	end
 	else if (stream_out_ready | ~stream_out_valid)
 	begin
+		stream_out_channel				<= {channel, enlarge_width_counter};
 		stream_out_data					<= data;
 
 		if (|(enlarge_width_counter))
@@ -143,6 +151,7 @@ always @(posedge clk)
 begin
 	if (reset)
 	begin
+		channel								<=  'h0;
 		data									<=  'h0;
 		startofpacket						<= 1'b0;
 		endofpacket							<= 1'b0;
@@ -150,6 +159,7 @@ begin
 	end
 	else if (stream_in_ready)
 	begin
+		channel								<= stream_in_channel;
 		data									<= stream_in_data;
 		startofpacket						<= stream_in_startofpacket;
 		endofpacket							<= stream_in_endofpacket;

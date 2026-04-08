@@ -1,16 +1,15 @@
 
 module Computer_System (
-	audio_ADCDAT,
-	audio_ADCLRCK,
-	audio_BCLK,
-	audio_DACDAT,
-	audio_DACLRCK,
-	audio_clk_clk,
-	audio_pll_ref_clk_clk,
-	audio_pll_ref_reset_reset,
 	av_config_SDAT,
 	av_config_SCLK,
-	hex3_hex0_export,
+	clock_bridge_0_in_clk_clk,
+	ebab_video_in_external_interface_address,
+	ebab_video_in_external_interface_byte_enable,
+	ebab_video_in_external_interface_read,
+	ebab_video_in_external_interface_write,
+	ebab_video_in_external_interface_write_data,
+	ebab_video_in_external_interface_acknowledge,
+	ebab_video_in_external_interface_read_data,
 	hps_io_hps_io_emac1_inst_TX_CLK,
 	hps_io_hps_io_emac1_inst_TXD0,
 	hps_io_hps_io_emac1_inst_TXD1,
@@ -67,7 +66,6 @@ module Computer_System (
 	hps_io_hps_io_gpio_inst_GPIO53,
 	hps_io_hps_io_gpio_inst_GPIO54,
 	hps_io_hps_io_gpio_inst_GPIO61,
-	leds_export,
 	memory_mem_a,
 	memory_mem_ba,
 	memory_mem_ck,
@@ -84,7 +82,6 @@ module Computer_System (
 	memory_mem_odt,
 	memory_mem_dm,
 	memory_oct_rzqin,
-	pushbuttons_export,
 	sdram_addr,
 	sdram_ba,
 	sdram_cas_n,
@@ -95,7 +92,6 @@ module Computer_System (
 	sdram_ras_n,
 	sdram_we_n,
 	sdram_clk_clk,
-	slider_switches_export,
 	system_pll_ref_clk_clk,
 	system_pll_ref_reset_reset,
 	vga_CLK,
@@ -116,17 +112,16 @@ module Computer_System (
 	video_in_TD_RESET,
 	video_in_overflow_flag);	
 
-	input		audio_ADCDAT;
-	input		audio_ADCLRCK;
-	input		audio_BCLK;
-	output		audio_DACDAT;
-	input		audio_DACLRCK;
-	output		audio_clk_clk;
-	input		audio_pll_ref_clk_clk;
-	input		audio_pll_ref_reset_reset;
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
-	output	[15:0]	hex3_hex0_export;
+	input		clock_bridge_0_in_clk_clk;
+	input	[29:0]	ebab_video_in_external_interface_address;
+	input		ebab_video_in_external_interface_byte_enable;
+	input		ebab_video_in_external_interface_read;
+	input		ebab_video_in_external_interface_write;
+	input	[7:0]	ebab_video_in_external_interface_write_data;
+	output		ebab_video_in_external_interface_acknowledge;
+	output	[7:0]	ebab_video_in_external_interface_read_data;
 	output		hps_io_hps_io_emac1_inst_TX_CLK;
 	output		hps_io_hps_io_emac1_inst_TXD0;
 	output		hps_io_hps_io_emac1_inst_TXD1;
@@ -183,7 +178,6 @@ module Computer_System (
 	inout		hps_io_hps_io_gpio_inst_GPIO53;
 	inout		hps_io_hps_io_gpio_inst_GPIO54;
 	inout		hps_io_hps_io_gpio_inst_GPIO61;
-	output	[9:0]	leds_export;
 	output	[14:0]	memory_mem_a;
 	output	[2:0]	memory_mem_ba;
 	output		memory_mem_ck;
@@ -200,7 +194,6 @@ module Computer_System (
 	output		memory_mem_odt;
 	output	[3:0]	memory_mem_dm;
 	input		memory_oct_rzqin;
-	input	[3:0]	pushbuttons_export;
 	output	[12:0]	sdram_addr;
 	output	[1:0]	sdram_ba;
 	output		sdram_cas_n;
@@ -211,7 +204,6 @@ module Computer_System (
 	output		sdram_ras_n;
 	output		sdram_we_n;
 	output		sdram_clk_clk;
-	input	[9:0]	slider_switches_export;
 	input		system_pll_ref_clk_clk;
 	input		system_pll_ref_reset_reset;
 	output		vga_CLK;

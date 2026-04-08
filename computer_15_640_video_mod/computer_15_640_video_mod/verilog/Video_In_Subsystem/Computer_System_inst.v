@@ -1,11 +1,4 @@
 	Computer_System u0 (
-		.audio_ADCDAT                                 (<connected-to-audio_ADCDAT>),                                 //                            audio.ADCDAT
-		.audio_ADCLRCK                                (<connected-to-audio_ADCLRCK>),                                //                                 .ADCLRCK
-		.audio_BCLK                                   (<connected-to-audio_BCLK>),                                   //                                 .BCLK
-		.audio_DACDAT                                 (<connected-to-audio_DACDAT>),                                 //                                 .DACDAT
-		.audio_DACLRCK                                (<connected-to-audio_DACLRCK>),                                //                                 .DACLRCK
-		.audio_pll_ref_clk_clk                        (<connected-to-audio_pll_ref_clk_clk>),                        //                audio_pll_ref_clk.clk
-		.audio_pll_ref_reset_reset                    (<connected-to-audio_pll_ref_reset_reset>),                    //              audio_pll_ref_reset.reset
 		.av_config_SDAT                               (<connected-to-av_config_SDAT>),                               //                        av_config.SDAT
 		.av_config_SCLK                               (<connected-to-av_config_SCLK>),                               //                                 .SCLK
 		.clock_bridge_0_in_clk_clk                    (<connected-to-clock_bridge_0_in_clk_clk>),                    //            clock_bridge_0_in_clk.clk
@@ -16,7 +9,6 @@
 		.ebab_video_in_external_interface_write_data  (<connected-to-ebab_video_in_external_interface_write_data>),  //                                 .write_data
 		.ebab_video_in_external_interface_acknowledge (<connected-to-ebab_video_in_external_interface_acknowledge>), //                                 .acknowledge
 		.ebab_video_in_external_interface_read_data   (<connected-to-ebab_video_in_external_interface_read_data>),   //                                 .read_data
-		.hex3_hex0_export                             (<connected-to-hex3_hex0_export>),                             //                        hex3_hex0.export
 		.hps_io_hps_io_emac1_inst_TX_CLK              (<connected-to-hps_io_hps_io_emac1_inst_TX_CLK>),              //                           hps_io.hps_io_emac1_inst_TX_CLK
 		.hps_io_hps_io_emac1_inst_TXD0                (<connected-to-hps_io_hps_io_emac1_inst_TXD0>),                //                                 .hps_io_emac1_inst_TXD0
 		.hps_io_hps_io_emac1_inst_TXD1                (<connected-to-hps_io_hps_io_emac1_inst_TXD1>),                //                                 .hps_io_emac1_inst_TXD1
@@ -73,7 +65,6 @@
 		.hps_io_hps_io_gpio_inst_GPIO53               (<connected-to-hps_io_hps_io_gpio_inst_GPIO53>),               //                                 .hps_io_gpio_inst_GPIO53
 		.hps_io_hps_io_gpio_inst_GPIO54               (<connected-to-hps_io_hps_io_gpio_inst_GPIO54>),               //                                 .hps_io_gpio_inst_GPIO54
 		.hps_io_hps_io_gpio_inst_GPIO61               (<connected-to-hps_io_hps_io_gpio_inst_GPIO61>),               //                                 .hps_io_gpio_inst_GPIO61
-		.leds_export                                  (<connected-to-leds_export>),                                  //                             leds.export
 		.memory_mem_a                                 (<connected-to-memory_mem_a>),                                 //                           memory.mem_a
 		.memory_mem_ba                                (<connected-to-memory_mem_ba>),                                //                                 .mem_ba
 		.memory_mem_ck                                (<connected-to-memory_mem_ck>),                                //                                 .mem_ck
@@ -90,7 +81,6 @@
 		.memory_mem_odt                               (<connected-to-memory_mem_odt>),                               //                                 .mem_odt
 		.memory_mem_dm                                (<connected-to-memory_mem_dm>),                                //                                 .mem_dm
 		.memory_oct_rzqin                             (<connected-to-memory_oct_rzqin>),                             //                                 .oct_rzqin
-		.pushbuttons_export                           (<connected-to-pushbuttons_export>),                           //                      pushbuttons.export
 		.sdram_addr                                   (<connected-to-sdram_addr>),                                   //                            sdram.addr
 		.sdram_ba                                     (<connected-to-sdram_ba>),                                     //                                 .ba
 		.sdram_cas_n                                  (<connected-to-sdram_cas_n>),                                  //                                 .cas_n
@@ -100,7 +90,7 @@
 		.sdram_dqm                                    (<connected-to-sdram_dqm>),                                    //                                 .dqm
 		.sdram_ras_n                                  (<connected-to-sdram_ras_n>),                                  //                                 .ras_n
 		.sdram_we_n                                   (<connected-to-sdram_we_n>),                                   //                                 .we_n
-		.slider_switches_export                       (<connected-to-slider_switches_export>),                       //                  slider_switches.export
+		.sdram_clk_clk                                (<connected-to-sdram_clk_clk>),                                //                        sdram_clk.clk
 		.system_pll_ref_clk_clk                       (<connected-to-system_pll_ref_clk_clk>),                       //               system_pll_ref_clk.clk
 		.system_pll_ref_reset_reset                   (<connected-to-system_pll_ref_reset_reset>),                   //             system_pll_ref_reset.reset
 		.vga_CLK                                      (<connected-to-vga_CLK>),                                      //                              vga.CLK
@@ -119,8 +109,6 @@
 		.video_in_TD_VS                               (<connected-to-video_in_TD_VS>),                               //                                 .TD_VS
 		.video_in_clk27_reset                         (<connected-to-video_in_clk27_reset>),                         //                                 .clk27_reset
 		.video_in_TD_RESET                            (<connected-to-video_in_TD_RESET>),                            //                                 .TD_RESET
-		.video_in_overflow_flag                       (<connected-to-video_in_overflow_flag>),                       //                                 .overflow_flag
-		.audio_clk_clk                                (<connected-to-audio_clk_clk>),                                //                        audio_clk.clk
-		.sdram_clk_clk                                (<connected-to-sdram_clk_clk>)                                 //                        sdram_clk.clk
+		.video_in_overflow_flag                       (<connected-to-video_in_overflow_flag>)                        //                                 .overflow_flag
 	);
 

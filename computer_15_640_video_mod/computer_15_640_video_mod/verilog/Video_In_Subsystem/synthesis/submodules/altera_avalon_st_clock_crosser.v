@@ -1,20 +1,20 @@
-// (C) 2001-2015 Altera Corporation. All rights reserved.
-// Your use of Altera Corporation's design tools, logic functions and other 
+// (C) 2001-2018 Intel Corporation. All rights reserved.
+// Your use of Intel Corporation's design tools, logic functions and other 
 // software and tools, and its AMPP partner logic functions, and any output 
-// files any of the foregoing (including device programming or simulation 
+// files from any of the foregoing (including device programming or simulation 
 // files), and any associated documentation or information are expressly subject 
-// to the terms and conditions of the Altera Program License Subscription 
-// Agreement, Altera MegaCore Function License Agreement, or other applicable 
+// to the terms and conditions of the Intel Program License Subscription 
+// Agreement, Intel FPGA IP License Agreement, or other applicable 
 // license agreement, including, without limitation, that your use is for the 
-// sole purpose of programming logic devices manufactured by Altera and sold by 
-// Altera or its authorized distributors.  Please refer to the applicable 
+// sole purpose of programming logic devices manufactured by Intel and sold by 
+// Intel or its authorized distributors.  Please refer to the applicable 
 // agreement for further details.
 
 
-// $File: //acds/rel/15.0/ip/avalon_st/altera_avalon_st_handshake_clock_crosser/altera_avalon_st_clock_crosser.v $
+// $File: //acds/rel/18.1std/ip/avalon_st/altera_avalon_st_handshake_clock_crosser/altera_avalon_st_clock_crosser.v $
 // $Revision: #1 $
-// $Date: 2015/02/08 $
-// $Author: swbranch $
+// $Date: 2018/07/18 $
+// $Author: psgswbuild $
 //------------------------------------------------------------------------------
 
 `timescale 1ns / 1ns
@@ -54,7 +54,7 @@ module altera_avalon_st_clock_crosser(
 
   // Data is guaranteed valid by control signal clock crossing.  Cut data
   // buffer false path.
-  (* altera_attribute = {"-name SUPPRESS_DA_RULE_INTERNAL \"D101,D102\" ; -name SDC_STATEMENT \"set_false_path -from [get_registers *altera_avalon_st_clock_crosser:*|in_data_buffer*] -to [get_registers *altera_avalon_st_clock_crosser:*|out_data_buffer*]\""} *) reg [DATA_WIDTH-1:0] in_data_buffer;
+  (* altera_attribute = {"-name SUPPRESS_DA_RULE_INTERNAL \"D101,D102\""} *) reg [DATA_WIDTH-1:0] in_data_buffer;
   reg    [DATA_WIDTH-1:0] out_data_buffer;
 
   reg                     in_data_toggle;
@@ -75,7 +75,7 @@ module altera_avalon_st_clock_crosser(
 
   always @(posedge in_clk or posedge in_reset) begin
     if (in_reset) begin
-      in_data_buffer <= 'b0;
+      in_data_buffer <= {DATA_WIDTH{1'b0}};
       in_data_toggle <= 1'b0;
     end else begin
       if (take_in_data) begin
@@ -88,7 +88,7 @@ module altera_avalon_st_clock_crosser(
   always @(posedge out_clk or posedge out_reset) begin
     if (out_reset) begin
       out_data_toggle_flopped <= 1'b0;
-      out_data_buffer <= 'b0;
+      out_data_buffer <= {DATA_WIDTH{1'b0}};
     end else begin
       out_data_buffer <= in_data_buffer;
       if (out_data_taken) begin
@@ -97,14 +97,14 @@ module altera_avalon_st_clock_crosser(
     end //end if
   end //out_clk always block
 
-  altera_std_synchronizer #(.depth(FORWARD_SYNC_DEPTH)) in_to_out_synchronizer (
+  altera_std_synchronizer_nocut #(.depth(FORWARD_SYNC_DEPTH)) in_to_out_synchronizer (
 				     .clk(out_clk),
 				     .reset_n(~out_reset),
 				     .din(in_data_toggle),
 				     .dout(out_data_toggle)
 				     );
   
-  altera_std_synchronizer #(.depth(BACKWARD_SYNC_DEPTH)) out_to_in_synchronizer (
+  altera_std_synchronizer_nocut #(.depth(BACKWARD_SYNC_DEPTH)) out_to_in_synchronizer (
 				     .clk(in_clk),
 				     .reset_n(~in_reset),
 				     .din(out_data_toggle_flopped),

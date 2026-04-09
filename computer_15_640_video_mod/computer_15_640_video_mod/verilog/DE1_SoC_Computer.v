@@ -362,6 +362,7 @@ output					HPS_USB_STP;
 //  - Left view uses x=[0..159], right view uses x=[160..319].
 //  - SW[2]=0 displays left on VGA, SW[2]=1 displays right on VGA.
 //  - SW[3]=1 masks odd rows (writes zeros) for debug.
+//  - SW[4]=1 enables LUT remap from source x/y to corrected VGA x/y.
 localparam FULL_FRAME_WIDTH  = 320;
 localparam HALF_FRAME_WIDTH  = 160;
 localparam FRAME_HEIGHT      = 240;
@@ -369,6 +370,7 @@ localparam NUM_ROW_BANKS     = 4;
 localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
 localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
 localparam TOTAL_BANK_DEPTH  = NUM_ROW_BANKS * BANK_DEPTH;
+localparam LUT_DEPTH         = FULL_FRAME_WIDTH * FRAME_HEIGHT;
 
 wire			[15: 0]	hex3_hex0;
 //wire			[15: 0]	hex5_hex4;
@@ -376,6 +378,9 @@ wire			[15: 0]	hex3_hex0;
 // Row-banked BRAM-style storage for left/right views.
 reg [7:0] left_row_bank  [0:TOTAL_BANK_DEPTH-1];
 reg [7:0] right_row_bank [0:TOTAL_BANK_DEPTH-1];
+
+// Packed LUT word format: {valid[20], mapped_y[19:10], mapped_x[9:0]}.
+(* ramstyle = "M10K" *) reg [20:0] undistort_lut [0:LUT_DEPTH-1];
 
 //assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
 //assign HEX1 = ~hex3_hex0[14: 8];
@@ -424,8 +429,21 @@ reg [19:0] hs_count ;
 reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
 reg [7:0] current_pixel_color1, current_pixel_color2 ;
 
+wire lut_enable = SW[4];
+wire [17:0] lut_row_offset = ({8'b0, old_video_in_y_cood} << 8) + ({8'b0, old_video_in_y_cood} << 6);
+wire [16:0] lut_index = lut_row_offset[16:0] + old_video_in_x_cood;
+wire [20:0] lut_word = undistort_lut[lut_index];
+wire lut_valid = lut_word[20];
+wire [9:0] lut_vga_y = lut_word[19:10];
+wire [9:0] lut_vga_x = lut_word[9:0];
+
+wire [9:0] direct_vga_x = old_video_in_x_cood + vga_x_cood;
+wire [9:0] direct_vga_y = old_video_in_y_cood + vga_y_cood;
+wire [9:0] write_vga_x = lut_enable ? lut_vga_x : direct_vga_x;
+wire [9:0] write_vga_y = lut_enable ? lut_vga_y : direct_vga_y;
+
 // compute address
-assign vga_bus_addr = vga_out_base_address + {22'b0,video_in_x_cood + vga_x_cood} + ({22'b0,video_in_y_cood + vga_y_cood}<<10) ;
+assign vga_bus_addr = vga_out_base_address + {22'b0,write_vga_x} + ({22'b0,write_vga_y}<<10) ;
 assign video_in_bus_addr = video_in_base_address + {22'b0,video_in_x_cood} + ({22'b0,video_in_y_cood}<<9) ;	 
 
 
@@ -439,6 +457,10 @@ wire [9:0] right_cam_mem_x_cood ;
 assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
 
 wire [15:0] bank_address =  (old_video_in_y_cood * HALF_FRAME_WIDTH) + (right_read_side ? right_cam_mem_x_cood : old_video_in_x_cood) ; 
+
+initial begin
+	$readmemh("undistort_lut_320x240_x100_y50.memh", undistort_lut);
+end
 
 always @(posedge CLOCK2_50) begin //CLOCK_50
 
@@ -498,17 +520,23 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	
 	// write a pixel to VGA memory
 	if (state==8) begin
-		state <= 9 ;
 		if (right_read_side) begin
 			right_row_bank[bank_address] = current_pixel_color1;
 		end else begin
 			left_row_bank[bank_address] = current_pixel_color1;
 		end
 
-		bus_write <= 1'b1;
-		bus_addr <= vga_bus_addr ;
-		bus_write_data <= current_pixel_color1;
-		bus_byte_enable <= 4'b0001;
+		if (lut_enable && !lut_valid) begin
+			state <= 0 ;
+			bus_write <= 1'b0;
+		end
+		else begin
+			state <= 9 ;
+			bus_write <= 1'b1;
+			bus_addr <= vga_bus_addr ;
+			bus_write_data <= current_pixel_color1;
+			bus_byte_enable <= 4'b0001;
+		end
 
 		
 	end

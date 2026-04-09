@@ -22,6 +22,11 @@ OUTPUT_DIR = "calibration_results"
 # Active 320x240 window location in original 640x480 captures.
 ACTIVE_OFFSET_X = 100
 ACTIVE_OFFSET_Y = 50
+VERILOG_LUT_FILENAME = "undistort_lut_320x240_x100_y50.memh"
+VERILOG_LUT_COPY_PATH = (
+    "../computer_15_640_video_mod/computer_15_640_video_mod/verilog/"
+    + VERILOG_LUT_FILENAME
+)
 
 # Detection tuning for low-resolution images.
 UPSCALE_FACTOR = 3.0
@@ -400,10 +405,44 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
                     ]
                 )
 
+    # Packed word for Verilog ROM: {valid[20], mapped_y[19:10], mapped_x[9:0]}.
+    x_q = np.rint(new_x_full).astype(np.int32)
+    y_q = np.rint(new_y_full).astype(np.int32)
+    x_ok = (x_q >= 0) & (x_q <= 1023)
+    y_ok = (y_q >= 0) & (y_q <= 1023)
+    valid_word = valid & x_ok & y_ok
+
+    packed = np.zeros((h, w), dtype=np.uint32)
+    packed[valid_word] = (
+        (1 << 20)
+        | ((y_q[valid_word].astype(np.uint32) & 0x3FF) << 10)
+        | (x_q[valid_word].astype(np.uint32) & 0x3FF)
+    )
+
+    verilog_mem_path = os.path.join(output_dir, VERILOG_LUT_FILENAME)
+    with open(verilog_mem_path, "w", encoding="utf-8") as f:
+        for word in packed.reshape(-1):
+            f.write(f"{int(word):06X}\n")
+
+    copied_to_verilog = False
+    try:
+        os.makedirs(os.path.dirname(VERILOG_LUT_COPY_PATH), exist_ok=True)
+        with open(verilog_mem_path, "r", encoding="utf-8") as src, open(
+            VERILOG_LUT_COPY_PATH, "w", encoding="utf-8"
+        ) as dst:
+            dst.write(src.read())
+        copied_to_verilog = True
+    except OSError as exc:
+        print(f"Warning: could not copy LUT mem file to Verilog folder: {exc}")
+
     print(
         "Saved LUT files: "
-        "lookup_table_original_to_new_xy.csv, lut_new_x_full.npy, lut_new_y_full.npy, lut_valid.npy"
+        "lookup_table_original_to_new_xy.csv, lut_new_x_full.npy, "
+        "lut_new_y_full.npy, lut_valid.npy, "
+        f"{VERILOG_LUT_FILENAME}"
     )
+    if copied_to_verilog:
+        print(f"Copied Verilog LUT mem file to: {VERILOG_LUT_COPY_PATH}")
 
 
 def main():

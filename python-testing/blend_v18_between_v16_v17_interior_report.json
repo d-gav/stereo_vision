@@ -1,0 +1,292 @@
+{
+  "source_reports": {
+    "v16": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\classification_v16_from_scratch_results.json",
+    "v17": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\classification_v17_from_scratch_results.json"
+  },
+  "params_v16": {
+    "projection_model": "equidistant",
+    "input_hfov_deg": 90.0,
+    "output_hfov_deg": 73.0679549960462,
+    "correction_strength": 0.6,
+    "center_x_offset_px": 4.841226576668591,
+    "center_y_offset_px": -7.120343337303778,
+    "residual_k1": 0.07232822056621216,
+    "residual_k2": -0.08
+  },
+  "params_v17": {
+    "projection_model": "equisolid",
+    "input_hfov_deg": 97.00761342997312,
+    "output_hfov_deg": 75.75225487471295,
+    "correction_strength": 1.2726845873113024,
+    "center_x_offset_px": -4.899842958587287,
+    "center_y_offset_px": -10.333843702619678,
+    "residual_k1": 0.09266521675846467,
+    "residual_k2": -0.04590406019891684
+  },
+  "crop_info": [
+    {
+      "file": "vga_capture_19700101_004956_000.png",
+      "bbox": {
+        "x": 100,
+        "y": 50,
+        "w": 320,
+        "h": 240
+      },
+      "mean_saturation": 81.96580505371094
+    },
+    {
+      "file": "vga_capture_19700101_005020_001.png",
+      "bbox": {
+        "x": 100,
+        "y": 50,
+        "w": 320,
+        "h": 240
+      },
+      "mean_saturation": 77.34593963623047
+    }
+  ],
+  "search": {
+    "alpha_grid_count": 41,
+    "alpha_min": 0.0,
+    "alpha_max": 1.0
+  },
+  "best_unconstrained": {
+    "alpha": 1.0,
+    "mean_abs_primary_bow_px": 1.2918714690067832,
+    "mean_abs_secondary_bow_px": 0.9419780405524907,
+    "std_primary_bow_px": 0.07608147169972235,
+    "mean_signed_primary_bow_px": 1.2918714690067832,
+    "edge_confidence_mean": 284.50157165527344,
+    "hv_hough_mean": 4385.525022825068,
+    "cost": 1.7309778815953485
+  },
+  "best_interior": {
+    "alpha": 0.475,
+    "mean_abs_primary_bow_px": 2.0690254279084157,
+    "mean_abs_secondary_bow_px": 1.3857211156438685,
+    "std_primary_bow_px": 1.773733072863899,
+    "mean_signed_primary_bow_px": 2.0690254279084157,
+    "edge_confidence_mean": 288.8781280517578,
+    "hv_hough_mean": 4118.990164748942,
+    "cost": 3.1197504786213597
+  },
+  "midpoint": {
+    "alpha": 0.5,
+    "mean_abs_primary_bow_px": 2.014598364968562,
+    "mean_abs_secondary_bow_px": 2.344338651460154,
+    "std_primary_bow_px": 2.014598364968562,
+    "mean_signed_primary_bow_px": 1.2683213697186475,
+    "edge_confidence_mean": 292.9203186035156,
+    "hv_hough_mean": 3982.4911375374786,
+    "cost": 3.599473976104352
+  },
+  "top10": [
+    {
+      "alpha": 1.0,
+      "mean_abs_primary_bow_px": 1.2918714690067832,
+      "mean_abs_secondary_bow_px": 0.9419780405524907,
+      "std_primary_bow_px": 0.07608147169972235,
+      "mean_signed_primary_bow_px": 1.2918714690067832,
+      "edge_confidence_mean": 284.50157165527344,
+      "hv_hough_mean": 4385.525022825068,
+      "cost": 1.7309778815953485
+    },
+    {
+      "alpha": 0.475,
+      "mean_abs_primary_bow_px": 2.0690254279084157,
+      "mean_abs_secondary_bow_px": 1.3857211156438685,
+      "std_primary_bow_px": 1.773733072863899,
+      "mean_signed_primary_bow_px": 2.0690254279084157,
+      "edge_confidence_mean": 288.8781280517578,
+      "hv_hough_mean": 4118.990164748942,
+      "cost": 3.1197504786213597
+    },
+    {
+      "alpha": 0.5,
+      "mean_abs_primary_bow_px": 2.014598364968562,
+      "mean_abs_secondary_bow_px": 2.344338651460154,
+      "std_primary_bow_px": 2.014598364968562,
+      "mean_signed_primary_bow_px": 1.2683213697186475,
+      "edge_confidence_mean": 292.9203186035156,
+      "hv_hough_mean": 3982.4911375374786,
+      "cost": 3.599473976104352
+    },
+    {
+      "alpha": 0.0,
+      "mean_abs_primary_bow_px": 1.3440896225730643,
+      "mean_abs_secondary_bow_px": 5.202396470605149,
+      "std_primary_bow_px": 0.10045658533226876,
+      "mean_signed_primary_bow_px": -1.3440896225730643,
+      "edge_confidence_mean": 272.7515640258789,
+      "hv_hough_mean": 4556.782892465267,
+      "cost": 3.7052593514118355
+    },
+    {
+      "alpha": 0.325,
+      "mean_abs_primary_bow_px": 3.09955978485058,
+      "mean_abs_secondary_bow_px": 2.2125949836828265,
+      "std_primary_bow_px": 1.2294249117944667,
+      "mean_signed_primary_bow_px": -3.09955978485058,
+      "edge_confidence_mean": 291.34297943115234,
+      "hv_hough_mean": 4454.9306862868525,
+      "cost": 4.341112509866745
+    },
+    {
+      "alpha": 0.4,
+      "mean_abs_primary_bow_px": 3.1481441903739693,
+      "mean_abs_secondary_bow_px": 4.219003255879363,
+      "std_primary_bow_px": 2.740510676116134,
+      "mean_signed_primary_bow_px": -3.1481441903739693,
+      "edge_confidence_mean": 267.2585906982422,
+      "hv_hough_mean": 4369.928423194944,
+      "cost": 5.594797790742909
+    },
+    {
+      "alpha": 0.6,
+      "mean_abs_primary_bow_px": 4.035258435827361,
+      "mean_abs_secondary_bow_px": 3.9989325560961104,
+      "std_primary_bow_px": 0.5382075587213433,
+      "mean_signed_primary_bow_px": -4.035258435827361,
+      "edge_confidence_mean": 276.0906219482422,
+      "hv_hough_mean": 4293.526865356477,
+      "cost": 5.945008851672288
+    },
+    {
+      "alpha": 0.575,
+      "mean_abs_primary_bow_px": 4.208112247660617,
+      "mean_abs_secondary_bow_px": 4.208112247660617,
+      "std_primary_bow_px": 0.8112026898594511,
+      "mean_signed_primary_bow_px": -4.208112247660617,
+      "edge_confidence_mean": 281.2484436035156,
+      "hv_hough_mean": 4531.835475720833,
+      "cost": 6.2640032970797845
+    },
+    {
+      "alpha": 0.25,
+      "mean_abs_primary_bow_px": 4.439239095010301,
+      "mean_abs_secondary_bow_px": 3.4636831753590522,
+      "std_primary_bow_px": 2.982482128892674,
+      "mean_signed_primary_bow_px": -4.439239095010301,
+      "edge_confidence_mean": 276.7312469482422,
+      "hv_hough_mean": 4112.299031694558,
+      "cost": 6.669473337022585
+    },
+    {
+      "alpha": 0.025,
+      "mean_abs_primary_bow_px": 2.408542373218981,
+      "mean_abs_secondary_bow_px": 8.518021302466664,
+      "std_primary_bow_px": 2.408542373218981,
+      "mean_signed_primary_bow_px": -1.0638795396871292,
+      "edge_confidence_mean": 271.9171905517578,
+      "hv_hough_mean": 4122.8400305633,
+      "cost": 6.794224421747456
+    }
+  ],
+  "top10_interior": [
+    {
+      "alpha": 0.475,
+      "mean_abs_primary_bow_px": 2.0690254279084157,
+      "mean_abs_secondary_bow_px": 1.3857211156438685,
+      "std_primary_bow_px": 1.773733072863899,
+      "mean_signed_primary_bow_px": 2.0690254279084157,
+      "edge_confidence_mean": 288.8781280517578,
+      "hv_hough_mean": 4118.990164748942,
+      "cost": 3.1197504786213597
+    },
+    {
+      "alpha": 0.5,
+      "mean_abs_primary_bow_px": 2.014598364968562,
+      "mean_abs_secondary_bow_px": 2.344338651460154,
+      "std_primary_bow_px": 2.014598364968562,
+      "mean_signed_primary_bow_px": 1.2683213697186475,
+      "edge_confidence_mean": 292.9203186035156,
+      "hv_hough_mean": 3982.4911375374786,
+      "cost": 3.599473976104352
+    },
+    {
+      "alpha": 0.325,
+      "mean_abs_primary_bow_px": 3.09955978485058,
+      "mean_abs_secondary_bow_px": 2.2125949836828265,
+      "std_primary_bow_px": 1.2294249117944667,
+      "mean_signed_primary_bow_px": -3.09955978485058,
+      "edge_confidence_mean": 291.34297943115234,
+      "hv_hough_mean": 4454.9306862868525,
+      "cost": 4.341112509866745
+    },
+    {
+      "alpha": 0.4,
+      "mean_abs_primary_bow_px": 3.1481441903739693,
+      "mean_abs_secondary_bow_px": 4.219003255879363,
+      "std_primary_bow_px": 2.740510676116134,
+      "mean_signed_primary_bow_px": -3.1481441903739693,
+      "edge_confidence_mean": 267.2585906982422,
+      "hv_hough_mean": 4369.928423194944,
+      "cost": 5.594797790742909
+    },
+    {
+      "alpha": 0.6,
+      "mean_abs_primary_bow_px": 4.035258435827361,
+      "mean_abs_secondary_bow_px": 3.9989325560961104,
+      "std_primary_bow_px": 0.5382075587213433,
+      "mean_signed_primary_bow_px": -4.035258435827361,
+      "edge_confidence_mean": 276.0906219482422,
+      "hv_hough_mean": 4293.526865356477,
+      "cost": 5.945008851672288
+    },
+    {
+      "alpha": 0.575,
+      "mean_abs_primary_bow_px": 4.208112247660617,
+      "mean_abs_secondary_bow_px": 4.208112247660617,
+      "std_primary_bow_px": 0.8112026898594511,
+      "mean_signed_primary_bow_px": -4.208112247660617,
+      "edge_confidence_mean": 281.2484436035156,
+      "hv_hough_mean": 4531.835475720833,
+      "cost": 6.2640032970797845
+    },
+    {
+      "alpha": 0.25,
+      "mean_abs_primary_bow_px": 4.439239095010301,
+      "mean_abs_secondary_bow_px": 3.4636831753590522,
+      "std_primary_bow_px": 2.982482128892674,
+      "mean_signed_primary_bow_px": -4.439239095010301,
+      "edge_confidence_mean": 276.7312469482422,
+      "hv_hough_mean": 4112.299031694558,
+      "cost": 6.669473337022585
+    },
+    {
+      "alpha": 0.2,
+      "mean_abs_primary_bow_px": 4.401139673276514,
+      "mean_abs_secondary_bow_px": 4.547073041862172,
+      "std_primary_bow_px": 2.472862101957698,
+      "mean_signed_primary_bow_px": -4.401139673276514,
+      "edge_confidence_mean": 265.2914047241211,
+      "hv_hough_mean": 4246.488274583349,
+      "cost": 6.963299652672692
+    },
+    {
+      "alpha": 0.45,
+      "mean_abs_primary_bow_px": 3.6823058350770754,
+      "mean_abs_secondary_bow_px": 5.6883551680304585,
+      "std_primary_bow_px": 3.6823058350770754,
+      "mean_signed_primary_bow_px": -0.6170834338457694,
+      "edge_confidence_mean": 287.0750045776367,
+      "hv_hough_mean": 4623.419634148178,
+      "cost": 6.978526827706197
+    },
+    {
+      "alpha": 0.375,
+      "mean_abs_primary_bow_px": 3.518830846361632,
+      "mean_abs_secondary_bow_px": 6.78181239319576,
+      "std_primary_bow_px": 2.3851055513346444,
+      "mean_signed_primary_bow_px": -3.518830846361632,
+      "edge_confidence_mean": 279.3843765258789,
+      "hv_hough_mean": 4807.907269472621,
+      "cost": 7.047667533566653
+    }
+  ],
+  "output_dir": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v18-between-v16-v17-interior",
+  "output_files": [
+    "vga_capture_19700101_004956_000_rectified.png",
+    "vga_capture_19700101_005020_001_rectified.png"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "source_dir": "python-testing\\reconstruction-output-v7-near-perfect",
+  "output_dir": "python-testing\\reconstruction-output-v10-table-straight",
+  "y_band": [
+    90,
+    210
+  ],
+  "fit_model": "y = a*(x-cx)^2 + b*(x-cx) + c",
+  "per_image": [
+    {
+      "filename": "vga_capture_19700101_004956_000_rectified.png",
+      "a": 0.0008851073368946193,
+      "b": 0.08246436732781603,
+      "c": 140.63778281744405,
+      "cx": 159.5
+    },
+    {
+      "filename": "vga_capture_19700101_005020_001_rectified.png",
+      "a": 0.0014426819167013812,
+      "b": 0.15292513842908306,
+      "c": 142.342359534308,
+      "cx": 159.5
+    }
+  ],
+  "a_values": [
+    0.0008851073368946193,
+    0.0014426819167013812
+  ],
+  "a_global": 0.0011638946267980002,
+  "output_files": [
+    "vga_capture_19700101_004956_000_rectified.png",
+    "vga_capture_19700101_005020_001_rectified.png"
+  ]
+}

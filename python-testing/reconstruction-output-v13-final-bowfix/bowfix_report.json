@@ -1,0 +1,44 @@
+{
+  "source_dir": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v12-constrained-bow",
+  "output_dir": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v13-final-bowfix",
+  "y_band": [
+    130,
+    190
+  ],
+  "continuity_limit_px": 4,
+  "a_global": 0.0002186324627586777,
+  "images": [
+    {
+      "file": "vga_capture_19700101_004956_000_rectified.png",
+      "before": {
+        "a": 0.00030784325499679855,
+        "b": 0.0770149122550022,
+        "c": 162.6418465442986,
+        "cx": 159.5
+      },
+      "after": {
+        "a": 0.00011718322609358353,
+        "b": 0.08250794685494947,
+        "c": 162.82817123593696,
+        "cx": 159.5
+      },
+      "output_path": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v13-final-bowfix\\vga_capture_19700101_004956_000_rectified.png"
+    },
+    {
+      "file": "vga_capture_19700101_005020_001_rectified.png",
+      "before": {
+        "a": 0.00012942167052055686,
+        "b": 0.13426870623736545,
+        "c": 163.02998753003055,
+        "cx": 159.5
+      },
+      "after": {
+        "a": -0.00039372931364380456,
+        "b": 0.011890252834500131,
+        "c": 154.63479066565102,
+        "cx": 159.5
+      },
+      "output_path": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v13-final-bowfix\\vga_capture_19700101_005020_001_rectified.png"
+    }
+  ]
+}

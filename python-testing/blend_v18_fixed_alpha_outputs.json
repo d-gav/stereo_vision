@@ -1,0 +1,50 @@
+{
+  "source_reports": {
+    "v16": "python-testing/classification_v16_from_scratch_results.json",
+    "v17": "python-testing/classification_v17_from_scratch_results.json"
+  },
+  "input_images": [
+    "vga_capture_19700101_004956_000.png",
+    "vga_capture_19700101_005020_001.png"
+  ],
+  "crop_info": [
+    {
+      "file": "vga_capture_19700101_004956_000.png",
+      "bbox": {
+        "x": 100,
+        "y": 50,
+        "w": 320,
+        "h": 240
+      },
+      "mean_saturation": 81.96580505371094
+    },
+    {
+      "file": "vga_capture_19700101_005020_001.png",
+      "bbox": {
+        "x": 100,
+        "y": 50,
+        "w": 320,
+        "h": 240
+      },
+      "mean_saturation": 77.34593963623047
+    }
+  ],
+  "outputs": [
+    {
+      "alpha": 0.45,
+      "output_dir": "python-testing/reconstruction-output-v18-between-v16-v17-alpha045",
+      "files": [
+        "vga_capture_19700101_004956_000_rectified.png",
+        "vga_capture_19700101_005020_001_rectified.png"
+      ]
+    },
+    {
+      "alpha": 0.5,
+      "output_dir": "python-testing/reconstruction-output-v18-between-v16-v17-alpha050",
+      "files": [
+        "vga_capture_19700101_004956_000_rectified.png",
+        "vga_capture_19700101_005020_001_rectified.png"
+      ]
+    }
+  ]
+}

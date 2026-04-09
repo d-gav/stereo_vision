@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <EnsembleReport name="Computer_System" kind="system" version="18.1" fabric="QSYS">
  <!-- Format version 18.1 625 (Future versions may contain additional information.) -->
- <!-- 2026.04.07.22:15:33 -->
+ <!-- 2026.04.09.15:33:10 -->
  <!-- A collection of modules and connections -->
  <parameter name="clockCrossingAdapter">
   <type>com.altera.sopcmodel.ensemble.EClockAdapter</type>
@@ -53,7 +53,7 @@
  </parameter>
  <parameter name="generationId">
   <type>int</type>
-  <value>1775614467</value>
+  <value>1775763153</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>true</visible>
@@ -46914,7 +46914,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1775614467</value>
+   <value>1775763153</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -52260,7 +52260,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="color_space">
    <type>java.lang.String</type>
-   <value>8-bit Grayscale</value>
+   <value>8-bit RGB</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -53834,7 +53834,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="input_type">
    <type>java.lang.String</type>
-   <value>8-bit Grayscale</value>
+   <value>8-bit RGB</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -55500,7 +55500,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1775614467</value>
+   <value>1775763153</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -56849,7 +56849,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1775614467</value>
+   <value>1775763153</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -65324,7 +65324,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="output_type">
    <type>java.lang.String</type>
-   <value>8-bit Grayscale</value>
+   <value>8-bit RGB</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -82033,5 +82033,5 @@ parameters are a RESULT of the module parameters. -->
   <version>18.1</version>
  </plugin>
  <reportVersion>18.1 625</reportVersion>
- <uniqueIdentifier>EC91616E394B0000019D6ADECBE2</uniqueIdentifier>
+ <uniqueIdentifier>B4E9B83A8C920000019D73BB7A7A</uniqueIdentifier>
 </EnsembleReport>

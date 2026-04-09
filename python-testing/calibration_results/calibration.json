@@ -1,0 +1,77 @@
+{
+  "model": "opencv_fisheye",
+  "pattern_size_internal_corners": [
+    9,
+    7
+  ],
+  "image_shape_hw": [
+    240,
+    320
+  ],
+  "rms": 0.38462137800016394,
+  "mean_reprojection_error": 0.3124729975376829,
+  "max_reprojection_error": 0.8403737919799784,
+  "num_images_used": 29,
+  "camera_matrix": [
+    [
+      179.35549467200877,
+      0.0,
+      160.76805142347797
+    ],
+    [
+      0.0,
+      196.11325721044702,
+      142.09603966672856
+    ],
+    [
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "dist_coeffs": [
+    [
+      -0.05847495129138004
+    ],
+    [
+      0.09484712949559192
+    ],
+    [
+      -0.1794676491989913
+    ],
+    [
+      0.10430458482039229
+    ]
+  ],
+  "used_images": [
+    "../calibration-images\\vga_capture_19700101_004044_017.png",
+    "../calibration-images\\vga_capture_19700101_004104_018.png",
+    "../calibration-images\\vga_capture_19700101_004106_019.png",
+    "../calibration-images\\vga_capture_19700101_004112_020.png",
+    "../calibration-images\\vga_capture_19700101_004114_021.png",
+    "../calibration-images\\vga_capture_19700101_004116_022.png",
+    "../calibration-images\\vga_capture_19700101_004118_023.png",
+    "../calibration-images\\vga_capture_19700101_004120_024.png",
+    "../calibration-images\\vga_capture_19700101_004122_025.png",
+    "../calibration-images\\vga_capture_19700101_004124_026.png",
+    "../calibration-images\\vga_capture_19700101_004126_027.png",
+    "../calibration-images\\vga_capture_19700101_004128_028.png",
+    "../calibration-images\\vga_capture_19700101_004130_029.png",
+    "../calibration-images\\vga_capture_19700101_004131_030.png",
+    "../calibration-images\\vga_capture_19700101_004133_031.png",
+    "../calibration-images\\vga_capture_19700101_004135_032.png",
+    "../calibration-images\\vga_capture_19700101_004137_033.png",
+    "../calibration-images\\vga_capture_19700101_004139_034.png",
+    "../calibration-images\\vga_capture_19700101_004140_035.png",
+    "../calibration-images\\vga_capture_19700101_004142_036.png",
+    "../calibration-images\\vga_capture_19700101_004144_037.png",
+    "../calibration-images\\vga_capture_19700101_004146_038.png",
+    "../calibration-images\\vga_capture_19700101_004147_039.png",
+    "../calibration-images\\vga_capture_19700101_004149_040.png",
+    "../calibration-images\\vga_capture_19700101_004150_041.png",
+    "../calibration-images\\vga_capture_19700101_004154_042.png",
+    "../calibration-images\\vga_capture_19700101_004156_043.png",
+    "../calibration-images\\vga_capture_19700101_004201_044.png",
+    "../calibration-images\\vga_capture_19700101_004203_045.png"
+  ]
+}

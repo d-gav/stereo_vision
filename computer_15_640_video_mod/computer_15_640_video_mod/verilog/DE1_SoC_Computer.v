@@ -507,7 +507,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 
 		bus_write <= 1'b1;
 		bus_addr <= vga_bus_addr ;
-		bus_write_data <= (display_right_sel == right_read_side) ? current_pixel_color1 : 8'b111_11_111 ;
+		bus_write_data <= current_pixel_color1;
 		bus_byte_enable <= 4'b0001;
 
 		

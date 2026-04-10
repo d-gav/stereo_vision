@@ -1,0 +1,21 @@
+
+WORK > DEFAULT
+DEFAULT:                    ./libraries/work/                      
+work:                       ./libraries/work/                      
+Video_In_Subsystem:         ./libraries/Video_In_Subsystem/        
+VGA_Subsystem:              ./libraries/VGA_Subsystem/             
+System_PLL:                 ./libraries/System_PLL/                
+SDRAM:                      ./libraries/SDRAM/                     
+Pixel_DMA_Addr_Translation: ./libraries/Pixel_DMA_Addr_Translation/
+Onchip_SRAM:                ./libraries/Onchip_SRAM/               
+EBAB_video_in:              ./libraries/EBAB_video_in/             
+AV_Config:                  ./libraries/AV_Config/                 
+ARM_A9_HPS:                 ./libraries/ARM_A9_HPS/                
+altera_ver:                 ./libraries/altera_ver/                
+lpm_ver:                    ./libraries/lpm_ver/                   
+sgate_ver:                  ./libraries/sgate_ver/                 
+altera_mf_ver:              ./libraries/altera_mf_ver/             
+altera_lnsim_ver:           ./libraries/altera_lnsim_ver/          
+cyclonev_ver:               ./libraries/cyclonev_ver/              
+cyclonev_hssi_ver:          ./libraries/cyclonev_hssi_ver/         
+cyclonev_pcie_hip_ver:      ./libraries/cyclonev_pcie_hip_ver/     

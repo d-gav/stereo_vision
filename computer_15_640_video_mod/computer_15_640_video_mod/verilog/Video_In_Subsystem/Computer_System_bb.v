@@ -82,6 +82,7 @@ module Computer_System (
 	memory_mem_odt,
 	memory_mem_dm,
 	memory_oct_rzqin,
+	pio_test_test_export,
 	sdram_addr,
 	sdram_ba,
 	sdram_cas_n,
@@ -194,6 +195,7 @@ module Computer_System (
 	output		memory_mem_odt;
 	output	[3:0]	memory_mem_dm;
 	input		memory_oct_rzqin;
+	input	[31:0]	pio_test_test_export;
 	output	[12:0]	sdram_addr;
 	output	[1:0]	sdram_ba;
 	output		sdram_cas_n;

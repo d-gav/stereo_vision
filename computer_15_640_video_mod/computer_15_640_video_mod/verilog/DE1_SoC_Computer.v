@@ -589,6 +589,9 @@ Computer_System The_System (
 	.video_in_TD_RESET						(),
 	.video_in_overflow_flag					(),
 	
+	//PIO out
+	.pio_test_test_export(32'd5),
+	
 	.ebab_video_in_external_interface_address     (bus_addr),     // 
 	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable
 	.ebab_video_in_external_interface_read        (bus_read),        //  .read

@@ -218,7 +218,7 @@
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="addr_mode" value="X-Y" />
   <parameter name="back_start_address" value="0" />
-  <parameter name="color_space" value="8-bit RGB" />
+  <parameter name="color_space" value="8-bit Grayscale" />
   <parameter name="image_height" value="480" />
   <parameter name="image_width" value="640" />
   <parameter name="start_address" value="0" />
@@ -242,7 +242,7 @@
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="alpha" value="1023" />
-  <parameter name="input_type" value="8-bit RGB" />
+  <parameter name="input_type" value="8-bit Grayscale" />
   <parameter name="output_type" value="30-bit RGB" />
  </module>
  <connection

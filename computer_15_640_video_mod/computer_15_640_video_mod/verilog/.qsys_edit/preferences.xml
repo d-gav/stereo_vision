@@ -8,6 +8,7 @@
    <name preferredWidth="206" />
   </columns>
  </systemtable>
- <library expandedCategories="Library,Project" />
- <window width="2576" height="1408" x="-8" y="-8" />
+ <library expandedCategories="Project,Library" />
+ <window width="2560" height="1392" x="0" y="0" />
+ <generation greybox="0" simulation="NONE" />
 </preferences>

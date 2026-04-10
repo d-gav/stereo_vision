@@ -66,18 +66,18 @@ module Computer_System_Video_In_Subsystem_Video_In_DMA (
 parameter DW								= 7; // Frame's datawidth
 parameter EW								= 0; // Frame's empty width
 parameter WIDTH							= 320; // Frame's width in pixels
-parameter HEIGHT							= 240; // Frame's height in lines
+parameter HEIGHT							= 284; // Frame's height in lines
 
 parameter AW								= 16; // Frame's address width
 parameter WW								= 8; // Frame width's address width
-parameter HW								= 7; // Frame height's address width
+parameter HW								= 8; // Frame height's address width
 
 parameter MDW								= 7; // Avalon master's datawidth
 
 parameter DEFAULT_BUFFER_ADDRESS		= 32'd134217728;
 parameter DEFAULT_BACK_BUF_ADDRESS	= 32'd134217728;
 
-parameter ADDRESSING_BITS				= 16'd2057;
+parameter ADDRESSING_BITS				= 16'd2313;
 parameter COLOR_BITS						= 4'd7;
 parameter COLOR_PLANES					= 2'd0;
 

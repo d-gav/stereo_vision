@@ -67,7 +67,7 @@ parameter OEW			= 1;
 
 parameter ALPHA			= 10'h3FF;
 
-parameter STATUS_IN		= 16'h0011;
+parameter STATUS_IN		= 16'h0007;
 parameter STATUS_OUT	= 16'h0019;
 
 /*****************************************************************************
@@ -179,9 +179,9 @@ end
 assign stream_in_ready = stream_out_ready | ~stream_out_valid;
 
 // Internal Assignments
-assign r = {{3{stream_in_data[ 7: 5]}}, stream_in_data[ 7]};
-assign g = {{3{stream_in_data[ 4: 2]}}, stream_in_data[ 4]};
-assign b = {5{stream_in_data[ 1: 0]}};
+assign r = {stream_in_data[ 7: 0], stream_in_data[ 7: 6]};
+assign g = {stream_in_data[ 7: 0], stream_in_data[ 7: 6]};
+assign b = {stream_in_data[ 7: 0], stream_in_data[ 7: 6]};
 
 assign a = ALPHA;
 

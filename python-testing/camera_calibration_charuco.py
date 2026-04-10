@@ -412,20 +412,19 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
                     ]
                 )
 
-    # Packed word for Verilog ROM: {valid[20], src_y[19:10], src_x[9:0]}.
+    # Packed word for Verilog ROM (17-bit): {src_x[16:8], src_y[7:0]}.
     x_q = np.rint(src_x_crop).astype(np.int32)
     y_q = np.rint(src_y_crop).astype(np.int32)
 
     packed = (
-        (1 << 20)
-        | ((y_q.astype(np.uint32) & 0x3FF) << 10)
-        | (x_q.astype(np.uint32) & 0x3FF)
+        ((x_q.astype(np.uint32) & 0x1FF) << 8)
+        | (y_q.astype(np.uint32) & 0x0FF)
     ).astype(np.uint32)
 
     verilog_mem_path = os.path.join(output_dir, VERILOG_LUT_FILENAME)
     with open(verilog_mem_path, "w", encoding="utf-8") as f:
         for word in packed.reshape(-1):
-            f.write(f"{int(word):06X}\n")
+            f.write(f"{int(word):017b}\n")
 
     copied_to_verilog = False
     try:
@@ -443,6 +442,7 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
         "lookup_table_output_to_input_xy.csv, lut_src_x_crop.npy, "
         "lut_src_y_crop.npy, lut_src_x_full.npy, lut_src_y_full.npy, "
         "lut_valid.npy, "
+        "binary17 "
         f"{VERILOG_LUT_FILENAME}"
     )
     if copied_to_verilog:

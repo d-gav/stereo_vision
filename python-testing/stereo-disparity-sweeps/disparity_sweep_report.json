@@ -1,0 +1,444 @@
+{
+  "input_images": [
+    "stero-vision-test-images\\vga_capture_19700101_003350_003.png",
+    "stero-vision-test-images\\vga_capture_19700101_003402_004.png"
+  ],
+  "window_sizes": [
+    5,
+    9,
+    13,
+    17,
+    21
+  ],
+  "max_shifts": [
+    16,
+    32,
+    48,
+    64,
+    80,
+    96
+  ],
+  "output_dir": "python-testing\\stereo-disparity-sweeps",
+  "results": [
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 16,
+      "valid_ratio": 0.021744791666666666,
+      "median_disparity": 8.9375
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 16,
+      "valid_ratio": 0.045572916666666664,
+      "median_disparity": 7.75
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 16,
+      "valid_ratio": 0.054635416666666665,
+      "median_disparity": 8.75
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 16,
+      "valid_ratio": 0.04796875,
+      "median_disparity": 10.625
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 16,
+      "valid_ratio": 0.031901041666666664,
+      "median_disparity": 15.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 32,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 32,
+      "valid_ratio": 0.017578125,
+      "median_disparity": 29.5
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 32,
+      "valid_ratio": 0.027916666666666666,
+      "median_disparity": 30.5
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 32,
+      "valid_ratio": 0.029375,
+      "median_disparity": 31.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 32,
+      "valid_ratio": 0.033177083333333336,
+      "median_disparity": 31.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 48,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 48,
+      "valid_ratio": 0.008333333333333333,
+      "median_disparity": 47.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 48,
+      "valid_ratio": 0.014635416666666666,
+      "median_disparity": 47.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 48,
+      "valid_ratio": 0.014088541666666666,
+      "median_disparity": 47.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 48,
+      "valid_ratio": 0.017786458333333335,
+      "median_disparity": 46.375
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 64,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 64,
+      "valid_ratio": 0.004270833333333333,
+      "median_disparity": 58.4375
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 64,
+      "valid_ratio": 0.008697916666666666,
+      "median_disparity": 58.625
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 64,
+      "valid_ratio": 0.007838541666666667,
+      "median_disparity": 58.5
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 64,
+      "valid_ratio": 0.011770833333333333,
+      "median_disparity": 63.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 80,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 80,
+      "valid_ratio": 0.00296875,
+      "median_disparity": 58.5
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 80,
+      "valid_ratio": 0.005572916666666667,
+      "median_disparity": 77.0625
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 80,
+      "valid_ratio": 0.004583333333333333,
+      "median_disparity": 77.0625
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 80,
+      "valid_ratio": 0.006067708333333333,
+      "median_disparity": 77.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 5,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 9,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 13,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 17,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003350_003",
+      "block_size": 21,
+      "max_shift": 96,
+      "valid_ratio": 0.006588541666666667,
+      "median_disparity": 92.8125
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 16,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 16,
+      "valid_ratio": 0.026171875,
+      "median_disparity": 8.25
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 16,
+      "valid_ratio": 0.030703125,
+      "median_disparity": 9.5625
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 16,
+      "valid_ratio": 0.03565104166666667,
+      "median_disparity": 8.8125
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 16,
+      "valid_ratio": 0.024869791666666665,
+      "median_disparity": 8.4375
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 32,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 32,
+      "valid_ratio": 0.009869791666666667,
+      "median_disparity": 27.875
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 32,
+      "valid_ratio": 0.008463541666666666,
+      "median_disparity": 31.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 32,
+      "valid_ratio": 0.021744791666666666,
+      "median_disparity": 8.1875
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 32,
+      "valid_ratio": 0.015416666666666667,
+      "median_disparity": 8.1875
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 48,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 48,
+      "valid_ratio": 0.0030989583333333333,
+      "median_disparity": 46.5
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 48,
+      "valid_ratio": 0.012552083333333333,
+      "median_disparity": 45.1875
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 48,
+      "valid_ratio": 0.008854166666666666,
+      "median_disparity": 45.625
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 48,
+      "valid_ratio": 0.009192708333333334,
+      "median_disparity": 46.125
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 64,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 64,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 64,
+      "valid_ratio": 0.00328125,
+      "median_disparity": 62.3125
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 64,
+      "valid_ratio": 0.0032552083333333335,
+      "median_disparity": 62.1875
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 64,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 80,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 80,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 80,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 80,
+      "valid_ratio": 0.0028125,
+      "median_disparity": 66.375
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 80,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 5,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 9,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 13,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 17,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    },
+    {
+      "image": "vga_capture_19700101_003402_004",
+      "block_size": 21,
+      "max_shift": 96,
+      "valid_ratio": 0.0,
+      "median_disparity": 0.0
+    }
+  ]
+}

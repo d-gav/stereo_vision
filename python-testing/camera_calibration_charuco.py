@@ -324,10 +324,11 @@ def save_undistort_examples(calib_data, used_images, output_dir, num_examples=No
 
 def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, offset_y=ACTIVE_OFFSET_Y):
     """
-    Save a forward LUT: distorted original pixel (x,y) -> undistorted pixel (x,y).
+    Save an inverse gather LUT: undistorted output pixel (x,y) -> source pixel (x,y).
 
-    Coordinates are exported in the original full-frame coordinate system using
-    the known active-window offsets.
+    The packed Verilog LUT stores source coordinates in crop space so the FPGA can
+    scan output pixels and gather their source pixel values. Every output pixel is
+    assigned a mapping; duplicate source usage is allowed.
     """
     h, w = calib_data["image_shape"]
     camera_matrix = calib_data["camera_matrix"]
@@ -341,50 +342,56 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
         balance=0.1,
     )
 
-    grid_x, grid_y = np.meshgrid(
-        np.arange(w, dtype=np.float64),
-        np.arange(h, dtype=np.float64),
-    )
-    distorted_points = np.stack([grid_x, grid_y], axis=-1).reshape(-1, 1, 2)
-
-    undistorted_points = cv2.fisheye.undistortPoints(
-        distorted_points,
+    map_x, map_y = cv2.fisheye.initUndistortRectifyMap(
         camera_matrix,
         dist_coeffs,
-        R=np.eye(3),
-        P=new_k,
-    ).reshape(h, w, 2)
-
-    new_x_crop = undistorted_points[:, :, 0].astype(np.float32)
-    new_y_crop = undistorted_points[:, :, 1].astype(np.float32)
-
-    new_x_full = (new_x_crop + float(offset_x)).astype(np.float32)
-    new_y_full = (new_y_crop + float(offset_y)).astype(np.float32)
-
-    valid = (
-        (new_x_crop >= 0.0)
-        & (new_x_crop <= float(w - 1))
-        & (new_y_crop >= 0.0)
-        & (new_y_crop <= float(h - 1))
+        np.eye(3),
+        new_k,
+        (w, h),
+        cv2.CV_32FC1,
     )
 
-    np.save(os.path.join(output_dir, "lut_new_x_full.npy"), new_x_full)
-    np.save(os.path.join(output_dir, "lut_new_y_full.npy"), new_y_full)
-    np.save(os.path.join(output_dir, "lut_valid.npy"), valid.astype(np.uint8))
+    src_x_crop = np.nan_to_num(
+        map_x.astype(np.float32), nan=0.0, posinf=float(w - 1), neginf=0.0
+    )
+    src_y_crop = np.nan_to_num(
+        map_y.astype(np.float32), nan=0.0, posinf=float(h - 1), neginf=0.0
+    )
 
-    csv_path = os.path.join(output_dir, "lookup_table_original_to_new_xy.csv")
+    src_x_crop = np.clip(src_x_crop, 0.0, float(w - 1))
+    src_y_crop = np.clip(src_y_crop, 0.0, float(h - 1))
+
+    src_x_full = (src_x_crop + float(offset_x)).astype(np.float32)
+    src_y_full = (src_y_crop + float(offset_y)).astype(np.float32)
+
+    out_x_crop, out_y_crop = np.meshgrid(
+        np.arange(w, dtype=np.float32),
+        np.arange(h, dtype=np.float32),
+    )
+    out_x_full = (out_x_crop + float(offset_x)).astype(np.float32)
+    out_y_full = (out_y_crop + float(offset_y)).astype(np.float32)
+
+    valid = np.ones((h, w), dtype=np.uint8)
+
+    np.save(os.path.join(output_dir, "lut_src_x_crop.npy"), src_x_crop)
+    np.save(os.path.join(output_dir, "lut_src_y_crop.npy"), src_y_crop)
+    np.save(os.path.join(output_dir, "lut_src_x_full.npy"), src_x_full)
+    np.save(os.path.join(output_dir, "lut_src_y_full.npy"), src_y_full)
+    np.save(os.path.join(output_dir, "lut_valid.npy"), valid)
+
+    csv_path = os.path.join(output_dir, "lookup_table_output_to_input_xy.csv")
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
-                "orig_x",
-                "orig_y",
-                "new_x",
-                "new_y",
-                "orig_x_crop",
-                "orig_y_crop",
-                "new_x_crop",
-                "new_y_crop",
+                "out_x",
+                "out_y",
+                "src_x",
+                "src_y",
+                "out_x_crop",
+                "out_y_crop",
+                "src_x_crop",
+                "src_y_crop",
                 "valid",
             ]
         )
@@ -393,31 +400,27 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
             for x in range(w):
                 writer.writerow(
                     [
-                        x + offset_x,
-                        y + offset_y,
-                        float(new_x_full[y, x]),
-                        float(new_y_full[y, x]),
-                        x,
-                        y,
-                        float(new_x_crop[y, x]),
-                        float(new_y_crop[y, x]),
-                        int(valid[y, x]),
+                        float(out_x_full[y, x]),
+                        float(out_y_full[y, x]),
+                        float(src_x_full[y, x]),
+                        float(src_y_full[y, x]),
+                        float(out_x_crop[y, x]),
+                        float(out_y_crop[y, x]),
+                        float(src_x_crop[y, x]),
+                        float(src_y_crop[y, x]),
+                        1,
                     ]
                 )
 
-    # Packed word for Verilog ROM: {valid[20], mapped_y[19:10], mapped_x[9:0]}.
-    x_q = np.rint(new_x_full).astype(np.int32)
-    y_q = np.rint(new_y_full).astype(np.int32)
-    x_ok = (x_q >= 0) & (x_q <= 1023)
-    y_ok = (y_q >= 0) & (y_q <= 1023)
-    valid_word = valid & x_ok & y_ok
+    # Packed word for Verilog ROM: {valid[20], src_y[19:10], src_x[9:0]}.
+    x_q = np.rint(src_x_crop).astype(np.int32)
+    y_q = np.rint(src_y_crop).astype(np.int32)
 
-    packed = np.zeros((h, w), dtype=np.uint32)
-    packed[valid_word] = (
+    packed = (
         (1 << 20)
-        | ((y_q[valid_word].astype(np.uint32) & 0x3FF) << 10)
-        | (x_q[valid_word].astype(np.uint32) & 0x3FF)
-    )
+        | ((y_q.astype(np.uint32) & 0x3FF) << 10)
+        | (x_q.astype(np.uint32) & 0x3FF)
+    ).astype(np.uint32)
 
     verilog_mem_path = os.path.join(output_dir, VERILOG_LUT_FILENAME)
     with open(verilog_mem_path, "w", encoding="utf-8") as f:
@@ -437,8 +440,9 @@ def save_original_to_new_lut(calib_data, output_dir, offset_x=ACTIVE_OFFSET_X, o
 
     print(
         "Saved LUT files: "
-        "lookup_table_original_to_new_xy.csv, lut_new_x_full.npy, "
-        "lut_new_y_full.npy, lut_valid.npy, "
+        "lookup_table_output_to_input_xy.csv, lut_src_x_crop.npy, "
+        "lut_src_y_crop.npy, lut_src_x_full.npy, lut_src_y_full.npy, "
+        "lut_valid.npy, "
         f"{VERILOG_LUT_FILENAME}"
     )
     if copied_to_verilog:

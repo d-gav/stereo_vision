@@ -1,0 +1,257 @@
+{
+  "source_dir": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v19-topfix-spatialblend",
+  "baseline": {
+    "top_abs_mean_px": 2.6641528348469254,
+    "top_spread_mean_px": 2.880987304347359,
+    "top_signed_mean_px": -0.7689372527637414,
+    "bottom_abs_mean_px": 2.1794685082143577,
+    "bottom_spread_mean_px": 1.8063300105894005,
+    "edge_confidence_mean": 202.69479306538898,
+    "hv_hough_mean": 4263.743954076119
+  },
+  "search": {
+    "candidate_count": 720,
+    "k_values": [
+      -0.00045,
+      0.00045,
+      37
+    ],
+    "y_cut_values": [
+      84,
+      96,
+      108,
+      120,
+      132
+    ],
+    "power_values": [
+      1.5,
+      2.0,
+      2.5,
+      3.0
+    ]
+  },
+  "best": {
+    "k": -5.000000000000002e-05,
+    "y_cut": 132,
+    "power": 3.0,
+    "top_abs_mean_px": 1.2797176906934824,
+    "top_spread_mean_px": 1.5975978098829835,
+    "top_signed_mean_px": 0.5277785312396204,
+    "bottom_abs_mean_px": 2.1794685082143577,
+    "bottom_spread_mean_px": 1.8063300105894005,
+    "edge_confidence_mean": 199.0252621968587,
+    "hv_hough_mean": 4371.648456280689,
+    "cost": 3.578603523979016
+  },
+  "final_metrics": {
+    "top_abs_mean_px": 1.2797176906934824,
+    "top_spread_mean_px": 1.5975978098829835,
+    "top_signed_mean_px": 0.5277785312396204,
+    "bottom_abs_mean_px": 2.1794685082143577,
+    "bottom_spread_mean_px": 1.8063300105894005,
+    "edge_confidence_mean": 199.0252621968587,
+    "hv_hough_mean": 4371.648456280689
+  },
+  "top15": [
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 132,
+      "power": 3.0,
+      "top_abs_mean_px": 1.2797176906934824,
+      "top_spread_mean_px": 1.5975978098829835,
+      "top_signed_mean_px": 0.5277785312396204,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 199.0252621968587,
+      "hv_hough_mean": 4371.648456280689,
+      "cost": 3.578603523979016
+    },
+    {
+      "k": -7.500000000000003e-05,
+      "y_cut": 108,
+      "power": 2.0,
+      "top_abs_mean_px": 1.233499656959027,
+      "top_spread_mean_px": 1.494540819963612,
+      "top_signed_mean_px": 0.12102786421767381,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 197.54713757832843,
+      "hv_hough_mean": 4020.405710042445,
+      "cost": 3.628860221011214
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 96,
+      "power": 2.0,
+      "top_abs_mean_px": 1.251897852155691,
+      "top_spread_mean_px": 1.5979332301425089,
+      "top_signed_mean_px": 0.4659345279281225,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 199.54922199249268,
+      "hv_hough_mean": 4053.8433292598957,
+      "cost": 4.102374217371768
+    },
+    {
+      "k": -7.500000000000003e-05,
+      "y_cut": 120,
+      "power": 2.5,
+      "top_abs_mean_px": 1.4092546668775672,
+      "top_spread_mean_px": 1.6862020580779082,
+      "top_signed_mean_px": -0.06662127309768752,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 197.8778657913208,
+      "hv_hough_mean": 4338.482091124992,
+      "cost": 4.235210249024631
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 120,
+      "power": 3.0,
+      "top_abs_mean_px": 1.3654475311404295,
+      "top_spread_mean_px": 1.7034114667802438,
+      "top_signed_mean_px": 0.7122402061871973,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 199.60599358876544,
+      "hv_hough_mean": 4378.197082615432,
+      "cost": 4.357475529799284
+    },
+    {
+      "k": -0.000125,
+      "y_cut": 96,
+      "power": 3.0,
+      "top_abs_mean_px": 1.4595633114370474,
+      "top_spread_mean_px": 1.9319066995370797,
+      "top_signed_mean_px": 0.2922550193565361,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 199.3000036875407,
+      "hv_hough_mean": 4570.742169840361,
+      "cost": 4.7008526859055415
+    },
+    {
+      "k": -7.500000000000003e-05,
+      "y_cut": 84,
+      "power": 1.5,
+      "top_abs_mean_px": 1.5469411333908147,
+      "top_spread_mean_px": 1.8518521531151675,
+      "top_signed_mean_px": 0.08225031344771544,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 198.73906389872235,
+      "hv_hough_mean": 4556.517966338133,
+      "cost": 4.850901308421399
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 120,
+      "power": 2.0,
+      "top_abs_mean_px": 1.3954059924700692,
+      "top_spread_mean_px": 1.7772987708492807,
+      "top_signed_mean_px": 0.5894498888694516,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 197.8523473739624,
+      "hv_hough_mean": 4220.646851642635,
+      "cost": 4.957533683962678
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 108,
+      "power": 2.0,
+      "top_abs_mean_px": 1.4110759764600378,
+      "top_spread_mean_px": 1.7159988354031344,
+      "top_signed_mean_px": 0.6011572109091343,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 198.58047199249268,
+      "hv_hough_mean": 4132.94012561336,
+      "cost": 5.088742949329985
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 132,
+      "power": 2.5,
+      "top_abs_mean_px": 1.4196166491488922,
+      "top_spread_mean_px": 1.74736366839888,
+      "top_signed_mean_px": 0.5906703505360731,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 198.18021170298258,
+      "hv_hough_mean": 4177.841966396886,
+      "cost": 5.1016457460164535
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 84,
+      "power": 2.0,
+      "top_abs_mean_px": 1.4087218877631251,
+      "top_spread_mean_px": 1.8253881462978905,
+      "top_signed_mean_px": 0.7016719703297836,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 200.28020922342935,
+      "hv_hough_mean": 4242.342287442778,
+      "cost": 5.159130951620506
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 96,
+      "power": 2.5,
+      "top_abs_mean_px": 1.326434725039459,
+      "top_spread_mean_px": 1.8020328277284763,
+      "top_signed_mean_px": 0.6222795229484798,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 200.1916675567627,
+      "hv_hough_mean": 3933.822800802353,
+      "cost": 5.322749775615733
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 120,
+      "power": 2.5,
+      "top_abs_mean_px": 1.4982454976456843,
+      "top_spread_mean_px": 1.8332158790427235,
+      "top_signed_mean_px": 0.42556034579978697,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 198.82474072774252,
+      "hv_hough_mean": 3886.2212471665644,
+      "cost": 6.243334873510575
+    },
+    {
+      "k": -5.000000000000002e-05,
+      "y_cut": 96,
+      "power": 1.5,
+      "top_abs_mean_px": 1.5808221660232906,
+      "top_spread_mean_px": 1.9124986070563756,
+      "top_signed_mean_px": 0.45501912412387374,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 198.41302172342938,
+      "hv_hough_mean": 4156.060281643451,
+      "cost": 6.27052615377667
+    },
+    {
+      "k": -7.500000000000003e-05,
+      "y_cut": 84,
+      "power": 3.0,
+      "top_abs_mean_px": 1.571900376286159,
+      "top_spread_mean_px": 2.1190755253149383,
+      "top_signed_mean_px": 0.753323395680156,
+      "bottom_abs_mean_px": 2.1794685082143577,
+      "bottom_spread_mean_px": 1.8063300105894005,
+      "edge_confidence_mean": 200.8963559468587,
+      "hv_hough_mean": 4401.756244044407,
+      "cost": 6.3601532545632296
+    }
+  ],
+  "output_dir": "C:\\Users\\ezrar\\cornell-classes\\Spring 2026\\ECE 5760\\stereo_vision\\python-testing\\reconstruction-output-v20-top-postwarp",
+  "output_files": [
+    "vga_capture_19700101_004956_000_rectified.png",
+    "vga_capture_19700101_005020_001_rectified.png"
+  ]
+}

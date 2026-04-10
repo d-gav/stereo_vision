@@ -379,7 +379,7 @@ wire			[15: 0]	hex3_hex0;
 reg [7:0] left_row_bank  [0:TOTAL_BANK_DEPTH-1];
 reg [7:0] right_row_bank [0:TOTAL_BANK_DEPTH-1];
 
-// Packed LUT word format: {valid[20], mapped_y[19:10], mapped_x[9:0]}.
+// Packed LUT word format: {valid[20], src_y[19:10], src_x[9:0]}.
 (* ramstyle = "M10K" *) reg [20:0] undistort_lut [0:LUT_DEPTH-1];
 
 //assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
@@ -428,23 +428,26 @@ reg [19:0] hs_count ;
 // pixel address is
 reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
 reg [7:0] current_pixel_color1, current_pixel_color2 ;
+reg old_lut_valid;
 
 wire lut_enable = SW[4];
-wire [17:0] lut_row_offset = ({8'b0, old_video_in_y_cood} << 8) + ({8'b0, old_video_in_y_cood} << 6);
-wire [16:0] lut_index = lut_row_offset[16:0] + old_video_in_x_cood;
-wire [20:0] lut_word = undistort_lut[lut_index];
-wire lut_valid = lut_word[20];
-wire [9:0] lut_vga_y = lut_word[19:10];
-wire [9:0] lut_vga_x = lut_word[9:0];
+wire [17:0] read_lut_row_offset = ({8'b0, video_in_y_cood} << 8) + ({8'b0, video_in_y_cood} << 6);
+wire [16:0] read_lut_index = read_lut_row_offset[16:0] + video_in_x_cood;
+wire [20:0] read_lut_word = undistort_lut[read_lut_index];
+wire [9:0] read_lut_src_y = read_lut_word[19:10];
+wire [9:0] read_lut_src_x = read_lut_word[9:0];
+wire read_lut_in_range = (read_lut_src_x < FULL_FRAME_WIDTH) && (read_lut_src_y < FRAME_HEIGHT);
+wire read_lut_valid = read_lut_word[20] && read_lut_in_range;
 
-wire [9:0] direct_vga_x = old_video_in_x_cood + vga_x_cood;
-wire [9:0] direct_vga_y = old_video_in_y_cood + vga_y_cood;
-wire [9:0] write_vga_x = lut_enable ? lut_vga_x : direct_vga_x;
-wire [9:0] write_vga_y = lut_enable ? lut_vga_y : direct_vga_y;
+wire [9:0] read_video_x = lut_enable ? (read_lut_valid ? read_lut_src_x : 10'd0) : video_in_x_cood;
+wire [9:0] read_video_y = lut_enable ? (read_lut_valid ? read_lut_src_y : 10'd0) : video_in_y_cood;
+
+wire [9:0] write_vga_x = old_video_in_x_cood + vga_x_cood;
+wire [9:0] write_vga_y = old_video_in_y_cood + vga_y_cood;
 
 // compute address
 assign vga_bus_addr = vga_out_base_address + {22'b0,write_vga_x} + ({22'b0,write_vga_y}<<10) ;
-assign video_in_bus_addr = video_in_base_address + {22'b0,video_in_x_cood} + ({22'b0,video_in_y_cood}<<9) ;	 
+assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b0,read_video_y}<<9) ;	 
 
 
 
@@ -477,6 +480,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		video_in_y_cood <= 0 ;
 		old_video_in_y_cood <= 0 ;
 	    bus_byte_enable <= 4'b0001;
+		old_lut_valid <= 1'b1;
 		display_right_sel <= SW[2];
 		timer <= 0;
 	end
@@ -493,6 +497,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		// read all the pixels in the video input
 		old_video_in_x_cood <= video_in_x_cood ;
 		old_video_in_y_cood <= video_in_y_cood ;
+		old_lut_valid <= lut_enable ? read_lut_valid : 1'b1;
 
 		video_in_x_cood <= video_in_x_cood + 10'd1 ;
 		if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
@@ -514,7 +519,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// You MUST do this check
 	if (state==1 && bus_ack==1) begin
 		state <= 8 ; //state <= 2 ;
-		bus_read <= 1'b0;
+		bus_read <= 1'b0 ;
 		current_pixel_color1 <= bus_read_data ;
 	end
 	
@@ -526,17 +531,14 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 			left_row_bank[bank_address] = current_pixel_color1;
 		end
 
-		if (lut_enable && !lut_valid) begin
-			state <= 0 ;
-			bus_write <= 1'b0;
-		end
-		else begin
-			state <= 9 ;
-			bus_write <= 1'b1;
-			bus_addr <= vga_bus_addr ;
+		state <= 9 ;
+		bus_write <= 1'b1;
+		bus_addr <= vga_bus_addr ;
+		if (lut_enable && !old_lut_valid)
+			bus_write_data <= 8'h00;
+		else
 			bus_write_data <= current_pixel_color1;
-			bus_byte_enable <= 4'b0001;
-		end
+		bus_byte_enable <= 4'b0001;
 
 		
 	end

@@ -223,7 +223,7 @@
   <parameter name="height" value="284" />
   <parameter name="mode">From Stream to Memory</parameter>
   <parameter name="start_address" value="134217728" />
-  <parameter name="width" value="320" />
+  <parameter name="width" value="640" />
  </module>
  <module
    name="Video_In_RGB_Resampler"
@@ -240,7 +240,7 @@
    name="Video_In_Scaler"
    kind="altera_up_avalon_video_scaler"
    version="18.0"
-   enabled="1">
+   enabled="0">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="color_bits" value="8" />
@@ -260,7 +260,7 @@
    kind="avalon_streaming"
    version="18.1"
    start="Video_In_Clipper.avalon_clipper_source"
-   end="Video_In_Scaler.avalon_scaler_sink" />
+   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="18.1"
@@ -276,11 +276,6 @@
    version="18.1"
    start="Video_In_RGB_Resampler.avalon_rgb_source"
    end="Video_In_Clipper.avalon_clipper_sink" />
- <connection
-   kind="avalon_streaming"
-   version="18.1"
-   start="Video_In_Scaler.avalon_scaler_source"
-   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="18.1"

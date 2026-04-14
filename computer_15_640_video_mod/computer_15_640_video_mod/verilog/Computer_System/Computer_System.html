@@ -67,7 +67,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
   </table>
   <table class="blueBar">
    <tr>
-    <td class="l">2026.04.10.15:45:18</td>
+    <td class="l">2026.04.14.15:26:17</td>
     <td class="r">Datasheet</td>
    </tr>
   </table>
@@ -30076,7 +30076,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">memorySize</td>
-        <td class="parametervalue">131072</td>
+        <td class="parametervalue">181760</td>
        </tr>
        <tr>
         <td class="parametername">readDuringWriteMode</td>
@@ -30144,11 +30144,11 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">derived_set_addr_width</td>
-        <td class="parametervalue">17</td>
+        <td class="parametervalue">18</td>
        </tr>
        <tr>
         <td class="parametername">derived_set_addr_width2</td>
-        <td class="parametervalue">17</td>
+        <td class="parametervalue">18</td>
        </tr>
        <tr>
         <td class="parametername">derived_set_data_width</td>
@@ -30237,7 +30237,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">SIZE_VALUE</td>
-        <td class="parametervalue">131072</td>
+        <td class="parametervalue">181760</td>
        </tr>
        <tr>
         <td class="parametername">WRITABLE</td>
@@ -30731,7 +30731,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
       <table>
        <tr>
         <td class="parametername">AUTO_GENERATION_ID</td>
-        <td class="parametervalue">1775850317</td>
+        <td class="parametervalue">1776194776</td>
        </tr>
        <tr>
         <td class="parametername">AUTO_UNIQUE_ID</td>
@@ -31982,7 +31982,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
       <table>
        <tr>
         <td class="parametername">AUTO_GENERATION_ID</td>
-        <td class="parametervalue">1775850317</td>
+        <td class="parametervalue">1776194776</td>
        </tr>
        <tr>
         <td class="parametername">AUTO_UNIQUE_ID</td>
@@ -32014,7 +32014,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP</td>
-        <td class="parametervalue">&lt;address-map&gt;&lt;slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8020000' /&gt;&lt;/address-map&gt;</td>
+        <td class="parametervalue">&lt;address-map&gt;&lt;slave name='Onchip_SRAM.s1' start='0x8000000' end='0x802C600' /&gt;&lt;/address-map&gt;</td>
        </tr>
        <tr>
         <td class="parametername">AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_WIDTH</td>
@@ -32053,7 +32053,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
       <table>
        <tr>
         <td class="parametername">AUTO_GENERATION_ID</td>
-        <td class="parametervalue">1775850317</td>
+        <td class="parametervalue">1776194776</td>
        </tr>
        <tr>
         <td class="parametername">AUTO_UNIQUE_ID</td>
@@ -33136,7 +33136,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        <a href="#module_System_PLL">System_PLL</a>
       </td>
       <td class="from">sys_clk&#160;&#160;</td>
-      <td class="main" rowspan="46">Video_In_Subsystem_Sys_Clk</td>
+      <td class="main" rowspan="41">Video_In_Subsystem_Sys_Clk</td>
      </tr>
      <tr>
       <td class="to">&#160;&#160;clk_in</td>
@@ -33269,32 +33269,6 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
       <td class="from">clk&#160;&#160;</td>
       <td class="neighbor" rowspan="4">
        <a href="#module_Video_In_Subsystem_Video_In_Clipper">Video_In_Subsystem_Video_In_Clipper</a>
-      </td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="to">&#160;&#160;clk</td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="from">clk_reset&#160;&#160;</td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="to">&#160;&#160;reset</td>
-     </tr>
-     <tr style="height:6px">
-      <td></td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="from">clk&#160;&#160;</td>
-      <td class="neighbor" rowspan="4">
-       <a href="#module_Video_In_Subsystem_Video_In_Scaler">Video_In_Subsystem_Video_In_Scaler</a>
       </td>
      </tr>
      <tr>
@@ -33746,13 +33720,13 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
       <td></td>
       <td class="from">avalon_clipper_source&#160;&#160;</td>
       <td class="neighbor" rowspan="2">
-       <a href="#module_Video_In_Subsystem_Video_In_Scaler">Video_In_Subsystem_Video_In_Scaler</a>
+       <a href="#module_Video_In_Subsystem_Video_In_DMA">Video_In_Subsystem_Video_In_DMA</a>
       </td>
      </tr>
      <tr>
       <td></td>
       <td></td>
-      <td class="to">&#160;&#160;avalon_scaler_sink</td>
+      <td class="to">&#160;&#160;avalon_dma_sink</td>
      </tr>
     </table>
    </div>
@@ -33863,9 +33837,9 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
     <table class="connectionboxes">
      <tr>
       <td class="neighbor" rowspan="2">
-       <a href="#module_Video_In_Subsystem_Video_In_Scaler">Video_In_Subsystem_Video_In_Scaler</a>
+       <a href="#module_Video_In_Subsystem_Video_In_Clipper">Video_In_Subsystem_Video_In_Clipper</a>
       </td>
-      <td class="from">avalon_scaler_source&#160;&#160;</td>
+      <td class="from">avalon_clipper_source&#160;&#160;</td>
       <td class="main" rowspan="12">Video_In_Subsystem_Video_In_DMA</td>
      </tr>
      <tr>
@@ -33941,7 +33915,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">width</td>
-        <td class="parametervalue">320</td>
+        <td class="parametervalue">640</td>
        </tr>
        <tr>
         <td class="parametername">height</td>
@@ -34069,130 +34043,6 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
        </tr>
        <tr>
         <td class="parametername">output_planes</td>
-        <td class="parametervalue">1</td>
-       </tr>
-       <tr>
-        <td class="parametername">AUTO_DEVICE_FAMILY</td>
-        <td class="parametervalue">CYCLONEV</td>
-       </tr>
-       <tr>
-        <td class="parametername">AUTO_CLK_CLOCK_RATE</td>
-        <td class="parametervalue">100000000</td>
-       </tr>
-       <tr>
-        <td class="parametername">deviceFamily</td>
-        <td class="parametervalue">Cyclone V</td>
-       </tr>
-       <tr>
-        <td class="parametername">generateLegacySim</td>
-        <td class="parametervalue">false</td>
-       </tr>
-      </table>
-     </td>
-    </tr>
-   </table>&#160;&#160;
-   <table class="flowbox">
-    <tr>
-     <td class="parametersbox">
-      <h2>Software Assignments</h2>(none)</td>
-    </tr>
-   </table>
-  </div>
-  <a name="module_Video_In_Subsystem_Video_In_Scaler"> </a>
-  <div>
-   <hr/>
-   <h2>Video_In_Subsystem_Video_In_Scaler</h2>altera_up_avalon_video_scaler v18.0
-   <br/>
-   <div class="greydiv">
-    <table class="connectionboxes">
-     <tr>
-      <td class="neighbor" rowspan="2">
-       <a href="#module_Video_In_Subsystem_Video_In_Clipper">Video_In_Subsystem_Video_In_Clipper</a>
-      </td>
-      <td class="from">avalon_clipper_source&#160;&#160;</td>
-      <td class="main" rowspan="9">Video_In_Subsystem_Video_In_Scaler</td>
-     </tr>
-     <tr>
-      <td class="to">&#160;&#160;avalon_scaler_sink</td>
-     </tr>
-     <tr style="height:6px">
-      <td></td>
-     </tr>
-     <tr>
-      <td class="neighbor" rowspan="4">
-       <a href="#module_Video_In_Subsystem_Sys_Clk">Video_In_Subsystem_Sys_Clk</a>
-      </td>
-      <td class="from">clk&#160;&#160;</td>
-     </tr>
-     <tr>
-      <td class="to">&#160;&#160;clk</td>
-     </tr>
-     <tr>
-      <td class="from">clk_reset&#160;&#160;</td>
-     </tr>
-     <tr>
-      <td class="to">&#160;&#160;reset</td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="from">avalon_scaler_source&#160;&#160;</td>
-      <td class="neighbor" rowspan="2">
-       <a href="#module_Video_In_Subsystem_Video_In_DMA">Video_In_Subsystem_Video_In_DMA</a>
-      </td>
-     </tr>
-     <tr>
-      <td></td>
-      <td></td>
-      <td class="to">&#160;&#160;avalon_dma_sink</td>
-     </tr>
-    </table>
-   </div>
-   <br/>
-   <br/>
-   <table class="flowbox">
-    <tr>
-     <td class="parametersbox">
-      <h2>Parameters</h2>
-      <table>
-       <tr>
-        <td class="parametername">width_scaling</td>
-        <td class="parametervalue">0.5</td>
-       </tr>
-       <tr>
-        <td class="parametername">height_scaling</td>
-        <td class="parametervalue">1</td>
-       </tr>
-       <tr>
-        <td class="parametername">include_channel</td>
-        <td class="parametervalue">false</td>
-       </tr>
-       <tr>
-        <td class="parametername">channel_size</td>
-        <td class="parametervalue">0</td>
-       </tr>
-       <tr>
-        <td class="parametername">width_in</td>
-        <td class="parametervalue">640</td>
-       </tr>
-       <tr>
-        <td class="parametername">height_in</td>
-        <td class="parametervalue">284</td>
-       </tr>
-       <tr>
-        <td class="parametername">width_out</td>
-        <td class="parametervalue">320</td>
-       </tr>
-       <tr>
-        <td class="parametername">height_out</td>
-        <td class="parametervalue">284</td>
-       </tr>
-       <tr>
-        <td class="parametername">color_bits</td>
-        <td class="parametervalue">8</td>
-       </tr>
-       <tr>
-        <td class="parametername">color_planes</td>
         <td class="parametervalue">1</td>
        </tr>
        <tr>
@@ -34465,7 +34315,7 @@ div.greydiv { vertical-align:top ; text-align:center ; background:#eeeeee ; bord
   </div>
   <table class="blueBar">
    <tr>
-    <td class="l">generation took 0.02 seconds</td>
+    <td class="l">generation took 0.01 seconds</td>
     <td class="r">rendering took 0.19 seconds</td>
    </tr>
   </table>

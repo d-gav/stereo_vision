@@ -73,7 +73,8 @@ char shared_str[64];
 	
 #define VIDEO_IN_PIXEL(x,y,color) do{\
 	char  *pixel_ptr ;\
-	pixel_ptr = (char *)video_in_ptr + ((y)<<9) + (x) ;\
+	// stride = 640 = 512 + 128 -> (y<<9) + (y<<7)  \ 
+	pixel_ptr = (char *)video_in_ptr + ((y<<9) + (y<<7)) + (x) ;\
 	*(char *)pixel_ptr = (color);\
 } while(0)
 	
@@ -242,7 +243,9 @@ int main(void)
     h2p_lw_video_in_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x0c);
 	h2p_lw_video_in_resolution_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x08);
 	*(h2p_lw_video_in_control_addr) = 0x04 ; // turn on video capture
-	*(h2p_lw_video_in_resolution_addr) = 0x00f00140 ;  // high 240 low 320
+	// Set video-in resolution: high 16 bits = height, low 16 bits = width
+	// 0x011C = 284, 0x0280 = 640 -> 0x011C0280
+	*(h2p_lw_video_in_resolution_addr) = 0x011C0280 ;  // high 284 low 640
 	h2p_lw_video_edge_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x10);
 	*h2p_lw_video_edge_control_addr = 0x01 ; // 1 means edges
 	*h2p_lw_video_edge_control_addr = 0x00 ; // 1 means edges
@@ -460,7 +463,8 @@ int save_vga_png(const char *filename)
 ****************************************************************************************/
 int  video_in_read_pixel(int x, int y){
 	char  *pixel_ptr ;
-	pixel_ptr = (char *)video_in_ptr + ((y)<<9) + (x) ;
+	// stride = 640 = (y<<9) + (y<<7)
+	pixel_ptr = (char *)video_in_ptr + ((y<<9) + (y<<7)) + (x) ;
 	return *pixel_ptr ;
 }
 

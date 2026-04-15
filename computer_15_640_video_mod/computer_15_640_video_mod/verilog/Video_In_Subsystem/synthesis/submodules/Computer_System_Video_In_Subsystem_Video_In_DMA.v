@@ -66,7 +66,7 @@ module Computer_System_Video_In_Subsystem_Video_In_DMA (
 parameter DW								= 7; // Frame's datawidth
 parameter EW								= 0; // Frame's empty width
 parameter WIDTH							= 640; // Frame's width in pixels
-parameter HEIGHT							= 284; // Frame's height in lines
+parameter HEIGHT							= 288; // Frame's height in lines
 
 parameter AW								= 17; // Frame's address width
 parameter WW								= 9; // Frame width's address width

@@ -836,7 +836,7 @@
   <parameter name="mic_attenuation" value="-6dB" />
   <parameter name="mic_bypass" value="false" />
   <parameter name="sampling_rate" value="48 kHz" />
-  <parameter name="video_format" value="NTSC" />
+  <parameter name="video_format" value="PAL" />
  </module>
  <module
    name="EBAB_video_in"
@@ -1145,12 +1145,12 @@
    kind="clock"
    version="18.1"
    start="System_PLL.sys_clk"
-   end="AV_Config.clk" />
+   end="pio_0.clk" />
  <connection
    kind="clock"
    version="18.1"
    start="System_PLL.sys_clk"
-   end="pio_0.clk" />
+   end="AV_Config.clk" />
  <connection
    kind="clock"
    version="18.1"

@@ -365,7 +365,7 @@ output					HPS_USB_STP;
 //  - SW[4]=1 enables LUT remap from source x/y to corrected VGA x/y.
 localparam FULL_FRAME_WIDTH  = 640;
 localparam HALF_FRAME_WIDTH  = 320;
-localparam FRAME_HEIGHT      = 284;
+localparam FRAME_HEIGHT      = 288;
 localparam NUM_ROW_BANKS     = 4;
 localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
 localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
@@ -478,7 +478,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		bus_write <= 0 ; // set to on if a write operation to bus
 		// base address of upper-left corner of the screen
 		vga_x_cood <= 10'd0 ;
-		vga_y_cood <= 10'd50 ;
+		vga_y_cood <= 10'd0 ;
 		video_in_x_cood <= 0 ;
 		old_video_in_x_cood <= 0 ;
 		video_in_y_cood <= 0 ;
@@ -489,14 +489,14 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		timer <= 0;
 	end
 	else begin
-		timer <= timer + 1;
+		 timer <= timer + 1;
 	end
 	
 	// write to the bus-master
 	// and put in a small delay to aviod bus hogging
 	// timer delay can be set to 2**n-1, so 3, 7, 15, 31
 	// bigger numbers mean slower frame update to VGA
-	if (state==0 && SW[0] && (timer & 3)==0 ) begin //
+	if (state==0 && SW[0] && (timer & 5)==0 ) begin //
 		state <= 1;	
 		// read all the pixels in the video input
 		old_video_in_x_cood <= video_in_x_cood ;

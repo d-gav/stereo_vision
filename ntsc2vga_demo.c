@@ -216,6 +216,7 @@ int main(void)
 	char png_filename[128];
 	struct termios saved_terminal;
 	int raw_terminal_enabled = 0;
+	unsigned int video_in_resolution;
 
 	// Declare volatile pointers to I/O registers (volatile 	// means that IO load and store instructions will be used 	// to access these pointer locations, 
 	// instead of regular memory loads and stores) 
@@ -243,9 +244,12 @@ int main(void)
     h2p_lw_video_in_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x0c);
 	h2p_lw_video_in_resolution_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x08);
 	*(h2p_lw_video_in_control_addr) = 0x04 ; // turn on video capture
-	// Set video-in resolution: high 16 bits = height, low 16 bits = width
-	// 0x011C = 284, 0x0280 = 640 -> 0x011C0280
-	*(h2p_lw_video_in_resolution_addr) = 0x011C0280 ;  // high 284 low 640
+	// Resolution is read-only in this DMA core; read it back for diagnostics.
+	video_in_resolution = *(h2p_lw_video_in_resolution_addr);
+	printf("Video-In DMA resolution (RO): 0x%08X (Y=%u, X=%u)\n",
+		video_in_resolution,
+		(video_in_resolution >> 16) & 0xFFFFU,
+		video_in_resolution & 0xFFFFU);
 	h2p_lw_video_edge_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x10);
 	*h2p_lw_video_edge_control_addr = 0x01 ; // 1 means edges
 	*h2p_lw_video_edge_control_addr = 0x00 ; // 1 means edges

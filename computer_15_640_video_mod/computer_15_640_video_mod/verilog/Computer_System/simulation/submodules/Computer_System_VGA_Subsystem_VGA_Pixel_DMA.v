@@ -73,7 +73,7 @@ parameter HW						= 8;  // Image height's address width
 
 parameter MW						= 7; // Avalon master's data width
 parameter DW						= 7; // Image pixel width
-parameter EW						= 1;  // Streaming empty signel width
+parameter EW						= 0;  // Streaming empty signel width
 
 parameter PIXELS					= 640; // Image width - number of pixels
 parameter LINES 					= 480; // Image height - number of lines

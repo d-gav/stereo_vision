@@ -1,0 +1,1809 @@
+
+
+===== PAGE 1 =====
+Video IP Cores
+for Intel DE-Series Boards
+For Quartus Prime 18.0
+1 Overview
+The Intel FPGA University Program (UP) Video IP cores facilitate decoding, processing and display of video data.
+They are designed for use on Intel DE-series boards and work with on-board video-in and VGA chips, as well
+as Terasic’s 5 megapixel CCD camera and LCD screen with touch panel daughtercards. This suite of IP cores
+comprises: a video decoder, a VGA controller, eleven video-processing cores, two direct-memory-access (DMA)
+cores, a character buffer and two Video Image Processing (VIP) bridges. The video decoder converts raw video
+input from video-in chips on Intel DE-series boards, or Terasic’s 5 megapixel CCD camera, into packets that can be
+processed by the video-processing cores. The VGA controller core displays images by creating the timing signals
+required by VGA compatible monitors attached to the VGA port on the DE-series board, or the Terasic LCD screen
+with touch panel. The video-processing cores perform basic transformations on the video input, while the VIP
+bridge cores allow Intel VIP cores to be used together with Intel UP Video IP cores in more advanced applications.
+The video DMA cores allow video data to be stored to and retrieved from memory. The character buffer core holds
+ASCII characters and converts them to a video stream, so that they can be displayed on a screen.
+The DE-Series Computer Systems use the Intel UP Video IP cores. Those systems are an excellent starting point
+to help users get familiar with the cores before including them in their own designs. More information regarding
+those systems can be found online at: https://www.altera.com/support/training/university/
+materials-computer-systems.html
+The remainder of this manual is organized as follows: Section 2, named Background, describes in detail how the
+video IP core are connected, the format used to transfer data and the memory layout for stored video. A detailed
+description of all the UP video cores is given in Section 3.
+This manual assumes that the reader is familiar with the Intel Platform Designer tool and how to use it.
+2 Background
+In this and the following sections, detailed descriptions of each IP core are given. This section contains information
+common to most IP cores, while section 3 discussed each core individually.
+Video is produced by displaying frames (or images) in rapid succession. In a typical video, frames are displayed
+between 30 and 120 times per second. A frame is a two-dimensional array of pixels as depicted in Figure 1.
+The resolution of a frame is deﬁned as the number of pixels in the x and y axes. An example resolution is640 × 480,
+which has 640 pixels across the x axis and 480 pixels down the y axis, as shown in Figure 2. Therefore, each pixel
+location in a frame can be identiﬁed by an (x,y) coordinate, with (0,0) being in the top-left corner.
+Intel Corporation - FPGA University Program
+March 2018
+1
+
+===== PAGE 2 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+x
+y
+01234
+1
+2
+3
+....
+....
+01234
+0
+Figure 1. Video frame’s screen layout.
+6390
+. . .
+123
+. . .
+. . .
+. . .
+. . .
+0
+1
+2. . .
+479
+Figure 2. A frame with a 640 × 480 resolution.
+The next four sections describe how frames are mapped into memory, how they are transfered between the UP video
+IP cores, and several formats that are used to represent individual pixels.
+2.1 Memory Layout for Video Frames
+Frames are mapped to a memory’s address space in one of two modes. They are:
+• Consecutive mode — the pixel addresses are consecutively laid out in the addressable space. For example, for
+a 640 × 480 resolution, the pixel at screen coordinate (0, 0) is at the offset 0, (1, 0) is at offest 1, ... (639, 0) is
+at offset 639, (0, 1) is at offset 640, and so on.
+The address format is shown in Figure 3a. Thek value, shown in the ﬁgure, is related to the frame’s resolution
+as follows:
+k = cei l (l og2(X × Y ))
+where X and Y are the resolution in the x, y directions, respectively. For example, for a 640 × 480 resolution,
+shown in Figure 3b, we have
+k = cei l (l og2(640 × 480)) = 19
+2 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 3 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+31 0
+Consecutive Address (k bits)Not used
+a) Consecutive address format
+31 018
+Consecutive Address
+19
+Not used
+b) Consecutive address format for the 640 × 480 resolution
+Figure 3. Address format for the Consecutive mode
+• X-Y mode — the address contains x and y coordinates. The address format is shown in Figure 4a. The values
+of m and n, shown in the ﬁgure, are related to the frame’s resolution as follows:
+m = cei l (l og2X )
+n = cei l (l og2Y )
+where X and Y are the resolution in the x, y directions, respectively. For example, for a 640 × 480 resolution,
+shown in Figure 4b, we have
+m = cei l (l og2640) = 10
+n = cei l (l og2480) = 9
+31 0
+X coordinate ( m bits)Y coordinate (n bits)Not used
+a) X-Y address format
+31 09
+X coordinate
+1018
+Y coordinate
+19
+Not used
+b) X-Y address format for the 640 × 480 resolution
+Figure 4. Address format for the X-Y mode
+The above addressing examples assume that the color of each pixel is represented with 8 bits. If the pixel color is
+represented by more than 8 bits, the addresses must be shifted to the left by the appropriate amount. Figure 5 shows
+generic addressing for 16-bit and 32-bit color pixel formats.
+2.2 Video Stream Packet Format
+The UP video IP cores transfer frames using Avalon Streaming interfaces. Each packet in the stream represents one
+frame of video data. The video frames are transfered one pixel at a time in row-major order. The ﬁrst pixel, the
+top-left pixel in the frame, is signalled by the start-of-packet bit in the Avalon Streaming interface. The last pixel,
+the bottom-left pixel in the frame, is signalled by the end-of-packet bit in the Avalon Streaming interface. Figure 6
+shows this streaming video packet representation.
+Intel Corporation - FPGA University Program
+March 2018
+3
+
+===== PAGE 4 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+31 0
+0
+1
+Pixel AddressesNot used
+a) 16-bit data width
+31 01
+00
+2
+Pixel AddressesNot used
+b) 32-bit data width
+Figure 5. Address format based on pixel’s data width
+(0,0)Data k 1–() 0–
+Data Valid
+Start of Packet
+Clock
+End of Packet
+(1,0) (x-1,0) (x,0) (0,1) (x,y) (1,1)
+Figure 6. Video frame’s streaming packet format.
+The format of each pixel in the packet depends on the video frame’s color space. The two color spaces used by the
+UP video IP cores are RGB and YCrCb, each having several different modes. Some of the video IP cores do not
+require knowledge of the speciﬁc color space and mode of the video stream it will process, but do require knowledge
+of the number of bits per pixel. For these cores, it will be important to know the number of data bits per symbol and
+the number of symbols per beat of the color space and mode of the incoming packets.
+2.3 RGB Color Space
+The Red-Green-Blue (RGB) color space contains independent intensity values for each of the primary colors: red,
+green and blue. The range of the intensity for each color depends on the number of associated bits. The UP video IP
+cores can use the following RBG color ranges:
+• 8-Bit RGB — This format uses 3 bits for red, and 3 bits for green and 2 bits for blue as shown in Figure 7.
+This mode is deﬁned as 8 bits per symbol and one symbol per beat.
+7 01
+B
+24
+G
+5
+R
+Figure 7. 8-bit RGB Color Space.
+4 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 5 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+• 9-bit RGB — This format uses 3 bits per symbol as shown in Figure 8. This mode is deﬁned as 3 bits per
+symbol and three symbols per beat.
+8 0 2
+B
+35
+G
+6
+R
+Figure 8. 9-bit RGB Color Space.
+• 16-Bit RGB — This format uses 5 bits for red, and 6 bits for green and 5 bits for blue as shown in Figure 9.
+This mode is deﬁned as 16 bits per symbol and one symbol per beat.
+15 04
+B
+510
+G
+11
+R
+Figure 9. 16-bit RGB Color Space.
+• 24-bit RGB — This format uses 8 bits for each color as shown in Figure 10. This mode is deﬁned as 8 bits
+per symbol and three symbols per beat.
+23 07
+B
+815
+G
+16
+R
+Figure 10. 24-bit RGB Color Space.
+• 30-bit RGB — This format uses 10 bits for each color as shown in Figure 11. This mode is deﬁned as 10 bits
+per symbol and three symbols per beat.
+29 09
+B
+1019
+G
+20
+R
+Figure 11. 30-bit RGB Color Space.
+• 12-bit RGBA — This format contains alpha values as well as RGB and uses 3 bits of each color as shown in
+Figure 12. This mode is deﬁned as 3 bits per symbol and four symbols per beat.
+• 16-bit RGBA — This format contains alpha values as well as RGB and uses 4 bits of each color as shown in
+Figure 13. This mode is deﬁned as 4 bits per symbol and four symbols per beat.
+• 32-bit RGBA — This format contains alpha values as well as RGB and uses 8 bits of each color as shown in
+Figure 14. This mode is deﬁned as 8 bits per symbol and four symbols per beat.
+Intel Corporation - FPGA University Program
+March 2018
+5
+
+===== PAGE 6 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+11 02
+B
+35
+G
+68
+R
+9
+A
+Figure 12. 12-bit RGBA Color Space.
+15 03
+B
+47
+G
+811
+R
+12
+A
+Figure 13. 16-bit RGBA Color Space.
+31 07
+B
+815
+G
+1623
+R
+24
+A
+Figure 14. 32-bit RGBA Color Space.
+• 40-bit RGBA — This format contains alpha values as well as RGB and uses 10 bits of each color as shown in
+Figure 15. This mode is deﬁned as 10 bits per symbol and four symbols per beat.
+39 09
+B
+1019
+G
+2029
+R
+30
+A
+Figure 15. 40-bit RGBA Color Space.
+• 1-Bit Black/White — This is a special case of the RGB color space where only two colors can be represented,
+black (0) and white (1). This mode is deﬁned as 1 bit per symbol and one symbol per beat.
+• 8-Bit Grayscale — This is a special case of the RGB color space where are three colors have the same intensity
+and therefore produces shades of gray. Figure 16 shows to format of the 8-bit Grayscale data. This format is
+equivalent to YCrCb 4:0:0 color space. This mode is deﬁned as 8 bits per symbol and one symbol per beat.
+7 0
+Grayscale
+Figure 16. 8-bit Grayscale RGB Color Space.
+• Bayer Pattern — This is a special case of the RGB color space where each pixel has a value for only one of
+the three colors. The pattern of the colors in the frame is shown in 17. Figure 18 shows to format of the bayer
+pattern data. This mode is deﬁned as 8 bits per symbol and one symbol per beat.
+6 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 7 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+R
+GB
+R R
+R R R
+G
+G
+G
+G
+GGG
+G G G
+GGG
+B
+B B B
+BB
+B B . . .
+. . .
+. . .
+. . .
+G
+Figure 17. Bayer pattern layout.
+7 0
+R
+7 0
+G
+7 0
+B
+Figure 18. Bayer Pattern RGB Color Space.
+2.4 YCrCb Color Space
+The Luminance-Chrominance (YCrCb) color space contains information about the brightness (luminance or luma)
+and color (chrominance or chroma). The color is represented as two components, namely chrominance-red (Cr) and
+chrominance-blue (Cb). The UP video IP cores use 8 bits for each of Y , Cr and Cb. The following lists the YCrCb
+color space varieties used by the UP video IP cores:
+• YCrCb 4:4:4 — This format is the normal YCrCb with all components as shown in Figure 19. This mode is
+deﬁned as 8 bits per symbol and three symbols per beat.
+23 07
+Y
+815
+Cb
+16
+Cr
+Figure 19. YCrCb 4:4:4 Color Space.
+• YCrCb 4:2:2 — This format has only half of the Cr and Cb components. Each consecutive pixel has alternating
+Cr or Cb components, with the ﬁrst pixel in the frame starting with the Y and Cb pixel. Figure 20 shows two
+consecutive pixels for this format. This mode is deﬁned as 8 bits per symbol and two symbols per beat.
+• YCrCb 4:0:0 — This format only as the Y component as shown in Figure 21. This format is equivalent to
+Intel Corporation - FPGA University Program
+March 2018
+7
+
+===== PAGE 8 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+15 0 7
+Y
+8
+Cb
+15 0 7
+Y
+8
+Cr
+Figure 20. YCrCb 4:2:2 Color Space.
+8-Bit Grayscale RGB color space. This mode is deﬁned as 8 bits per symbol and one symbol per beat.
+7 0
+Y
+Figure 21. YCrCb 4:0:0 Color Space.
+3 Video IP Core Descriptions
+In this section, each IP core is described in detail.
+3.1 Alpha Blender
+The Alpha Blender IP core combines two video streams into one. The two incoming streams, called foreground and
+background are blended together to create an output stream. The foreground must be in the 40-bit RGBA format,
+while the background must be in the 30-bit RGB format. The generated output stream is in the 30-bit RGB format.
+Figure 22 shows the block diagram of the core.
+The foreground and background streams are combined using the formula:
+Cn = α ×C f + (1 − α)Cb
+Cn is the new outgoing pixel color, α is a number between 0 and 1, C f is the incoming foreground pixel colors and
+Cb is the incoming background pixel color. To blend the streams, this formula is computed three times, once of each
+color symbol, namely, the red, green and blue symbols.
+The key parameter in the blending process is α, which is provided as part of the foreground input stream. The
+foreground input stream consists of a 30-bit RGB value, same as the background stream, and a 10-bit value A. The
+α parameter is derived by dividing the unsigned 10-bit value A by 1023.
+The Alpha Blender has two modes of operation: simple and normal. In the simple mode, the alpha value is rounded
+to either 0 or 1, which simpliﬁes the blending circuitry. In the normal mode, blending occurs exactly as described
+above. The mode is selected using the Alpha Blender Platform Designer Wizard as shown in Figure 23.
+8 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 9 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+Alpha
+Avalon
+Avalon
+streaming
+source
+port
+clock
+Avalon
+To Avalon
+switch
+switch
+fabric
+n
+m
+fabric
+streaming
+sink
+port
+Blender
+Avalon
+streaming
+sink
+port
+From
+Avalon
+switch
+fabric
+m
+Foreground
+Background
+Figure 22. Alpha Blender core’s block diagram.
+Figure 23. Alpha Blender’s Platform Designer wizard.
+3.2 ASCII to Image Stream
+The ASCII to Image Stream renders an incoming stream of ASCII characters into graphical representation for
+display. Figure 24 shows the block diagram of the ASCII to Image Stream core.
+The ASCII to Image Stream supports two color modes. The ﬁrst mode draws characters in white with a transparent
+background. Figure 25 shows the ASCII character input data format for this ﬁrst mode. The second supported
+mode draws characters in 9-bit color with a transparent background. Figure 26 shows the ASCII character input data
+format for this second mode.
+Intel Corporation - FPGA University Program
+March 2018
+9
+
+===== PAGE 10 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+ASCII toAvalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Image
+Stream
+Figure 24. Character Buffer for VGA Display core’s block diagram.
+7 06
+ASCII0
+Figure 25. ASCII black and white data format.
+15 06
+ASCII
+79
+B
+1012
+G
+13
+R
+Figure 26. ASCII color data format.
+The input stream of this core should be connected to the University Program Video Scaler core (see below), with the
+scaling factors of 8 for both width and height and channel output enabled. This will help create the 8x8 character
+images that this core produces.
+The output stream should ideally be equal to the resolution of the ﬁnal display. For example, VGA has a resolution
+of 640 × 480. Since the character images are 8 × 8, the incoming resolution to the scaler should be 80 characters by
+60 lines.
+Care should be taken to make sure that the characters being feed to this core are all initially zero. Otherwise, the
+output may contain random characters.
+3.2.1 Instantiating the Core in Platform Designer
+Designers use the ASCII to Image Stream’s conﬁguration wizard in Platform Designer to specify the desired features.
+The following conﬁgurations are available and shown in Figure 27:
+• Character Color Format — Speciﬁes the incoming and outgoing color format for the characters.
+10 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 11 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 27. ASCII to Image Stream’s Platform Designer wizard.
+3.3 Bayer Pattern Resampler
+The Bayer Pattern Resampler converts a video stream from the Bayer Pattern format to the 24-bit RGB format. Four
+adjacent pixels from the incoming stream are combined into one, as shown in Figure 28. The red and blue values
+from the Bayer Pattern are copied to the new pixel. The averaged value of the two green values from the Bayer
+Pattern are used in the new pixel. The resulting outgoing stream will have a resolution with half the width and half
+the height of the incoming stream. Figure 29 shows the block diagram of the Bayer Pattern Resampler.
+R
+GB
+R R
+R R R
+G
+G
+G
+G
+GGG
+G G GB BB
+B B
+G R
+G2B
+G1
+R, (G1 + G2)/2, B
+Figure 28. Bayer Pattern Resampler’s method of conversion.
+3.3.1 Instantiating the Core in Platform Designer
+Designers use the Bayer Pattern Resampler’s conﬁguration wizard in Platform Designer to specify its settings. The
+following conﬁgurations are available and shown in Figure 30:
+• Parameters
+– Video Source — Speciﬁes the source of the Bayer Pattern
+• Input Video Format
+– Use default video format — Use the default width and height for the selected video source
+– Width (# of pixels) — Speciﬁes the incoming stream’s width
+Intel Corporation - FPGA University Program
+March 2018
+11
+
+===== PAGE 12 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+BayerAvalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Pattern
+Resampler
+Figure 29. Bayer Pattern Resampler core’s block diagram.
+Figure 30. Bayer Pattern Resampler’s Platform Designer wizard.
+– Height (# of lines) — Speciﬁes the incoming stream’s height
+3.4 Change Alpha Value
+The Change Alpha Value ip core replaces the alpha value for all pixels of a given color. This is useful when assigning
+one color to represent transparency. Figure 31 shows the block diagram of the Change Alpha Value.
+3.4.1 Instantiating the Core in Platform Designer
+Designers use the Change Alpha Value’s conﬁguration wizard in Platform Designer to specify its settings. The
+following conﬁgurations are available and shown in Figure 32:
+• Parameters
+– Color Selection — Speciﬁes the color that will use the new alpha value
+12 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 13 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+ChangeAvalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Alpha
+Value
+Figure 31. Change Alpha Value core’s block diagram.
+Figure 32. Change Alpha Value’s Platform Designer wizard.
+– New Alpha Value — Speciﬁes the desired new alpha value
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+3.5 Character Buffer for VGA Display
+The Character Buffer for VGA Display renders ASCII characters into graphical representation for display. A pro-
+gram running on a Nios II processor can send ASCII character codes to the Character Buffer’s Avalon interface,
+named avalon_char_slave. The core stores the characters in its on-chip memory. The DMA controller reads the
+ASCII characters from the on-chip memory and sends them to the character renderer. The renderer converts the
+ASCII characters into their graphical representation and send them out via an Avalon Streaming interface. Figure 33
+shows the block diagram of the character buffer.
+Intel Corporation - FPGA University Program
+March 2018
+13
+
+===== PAGE 14 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+On-chip
+Avalon
+Character
+graphics
+renderer
+clock
+Avalon
+To Avalon
+switch
+char
+fabric
+slave
+memory
+mapped
+port
+memory
+Avalon
+memory
+mapped
+port
+Avalon
+control
+slave DMA
+controller
+Avalon
+streaming
+source
+port
+Figure 33. Character Buffer for VGA Display core’s block diagram.
+The Character Buffer supports one color mode, which is that characters are drawn in white with a transparent
+background.
+Upon initialization or reset, the Character Buffer sets all the characters to “space”, so no characters will be displayed.
+This “clear screen” operation can take up to 5000 clock cycles.
+The Character Buffer’s resolution is deﬁned by the number of characters per line and the number of lines per screen.
+The Character Buffer supports one resolution per output device. For the on-board VGA DAC, the resolution is 80
+characters by 60 lines. For the LCD with touchscreen the resolution is 50 × 30. The core only supportes the X-Y
+addressing mode, which is shown in Figure 34 for the two valid resolutions.
+31 06
+X coordinate
+712
+Y coordinate
+13
+Not used
+a) X-Y address format for the 80 × 60 resolution
+31 05
+X coordinate
+610
+Y coordinate
+11
+Not used
+b) X-Y address format for the 50 × 30 resolution
+Figure 34. Character address format
+3.5.1 Instantiating the Core in Platform Designer
+Designers use the Character Buffer’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 35:
+14 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 15 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 35. Character Buffer for VGA Display’s Platform Designer wizard.
+• Video-Out Device — Speciﬁes the device being used, and by extension the screen resolution.
+• Enable Transparency — When enabled the output format is set to 40-bit RGBA. This setting must be enabled
+if the Character Buffer and Pixel Buffer are to be used together.
+3.5.2 Software Programming Model
+Register Map
+Device drivers control and communicate with the Character Buffer through two Avalon memory-mapped interfaces,
+named avalon_control_slave and avalon_char_slave. The avalon_char_slave interface has a byte data width for
+ASCII characters and is addressed using the X-Y mode. The avalon_control_slave interface consists of the two
+registers shown in Table 1. TheControl register provides the ability to clear the screen by writing to theR bit, which
+is bit 16 of this register. The R bit remains set to 1 until all characters have been cleared, and then R is set to 0. The
+Resolution register, which is read-only, provides two values: the number of characters per line, in bits 15-0, and the
+number of lines per screen, in bits 31-16.
+Table 1. Character Buffer register map
+Offset Register R/W Bit Description
+in bytes Name 31. . . 17 16 15. . . 0
+0 Control RW (1) R (1)
+4 Resolution R Lines Chars
+Notes on Table 1:
+(1) Reserved. Read values are undeﬁned. Write zero.
+The Character Buffer’s Device Drivers for the Nios II Processor
+Intel Corporation - FPGA University Program
+March 2018
+15
+
+===== PAGE 16 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+The Character Buffer is packaged with C-language functions that are accessible through the hardware abstraction
+layer (HAL). These functions implement the basic operations that control the Character Buffer.
+To use the functions, the C code must include the statement:
+#include "altera_up_avalon_character_buffer_with_dma.h"
+alt_up_char_buffer_init
+Prototype: void alt_up_char_buffer_init(alt_up_char_buffer_dev
+*char_buffer)
+Include: <altera_up_avalon_character_buffer_with_dma.h>
+Parameters: char_buffer – struct for the character buffer device
+Description: Initialize the name of thestructure.
+alt_up_char_buffer_open_dev
+Prototype: alt_up_char_buffer_dev* alt_up_char_buffer_open_dev(const
+char *name)
+Include: <altera_up_avalon_character_buffer_with_dma.h>
+Parameters: name – the character buffer component name in Qsys.
+Returns: The corresponding device structure, or NULL if the device is not found
+Description: Opens the character buffer device speciﬁed by name .
+alt_up_char_buffer_draw
+Prototype: int alt_up_char_buffer_draw(alt_up_char_buffer_dev
+*char_buffer, unsigned char ch, unsigned int x,
+unsigned int y)
+Include: <altera_up_avalon_character_buffer_with_dma.h>
+Parameters: ch – the character to draw
+x – the x coordinate
+y – the y coordinate
+Returns: 0 for success, -1 for error (such as out of bounds)
+Description: Draw a character at the location speciﬁed by (x, y) on the VGA monitor
+with white color and transparent background.
+16 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 17 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+alt_up_char_buffer_string
+Prototype: int alt_up_char_buffer_string(alt_up_char_buffer_dev
+*char_buffer, const char *ptr, unsigned int x,
+unsigned int y)
+Include: <altera_up_avalon_character_buffer_with_dma.h>
+Parameters: ch – the character to draw
+x – the x coordinate
+y – the y coordinate
+Returns: 0 for success, -1 for error (such as out of bounds)
+Description: Draw a NULL-terminated text string at the location speciﬁed by (x, y) .
+alt_up_char_buffer_clear
+Prototype: int alt_up_char_buffer_clear(alt_up_char_buffer_dev
+*char_buffer)
+Include: <altera_up_avalon_character_buffer_with_dma.h>
+Parameters: –
+Returns: 0 for success
+Description: Clears the character buffer’s memory.
+Intel Corporation - FPGA University Program
+March 2018
+17
+
+===== PAGE 18 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+3.6 Chroma Resampler
+The Chroma Resampler converts video streams between the YCrCb color space formats. Converting between the
+various formats never effects the Y value. Figure 36 shows a block diagram of the core.
+System
+Reset
+From
+Chroma
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabric
+nm
+fabric
+streaming
+sink
+port
+resampler
+Figure 36. Chroma Resampler core’s block diagram.
+The following lists the valid conversions and describes how they are performed:
+• 4:4:4 to 4:2:2 — Drops half of the Cr and Cb values, alternating every pixel which value is dropped, starting
+with the Cr value being dropped from the ﬁrst pixel
+• 4:4:4 to 4:0:0 — Drops the Cr and Cb values from every pixel
+• 4:2:2 to 4:0:0 — Drops the Cr and Cb values from every pixel
+• 4:2:2 to 4:4:4 — Duplicates the missing Cr and Cb values from the last incoming pixel
+• 4:0:0 to 4:4:4 — Inserts a value of 128 for both Cr and Cb
+• 4:0:0 to 4:2:2 — Inserts a value of 128 for both Cr and Cb, when appropriate
+3.6.1 Instantiating the Core in Platform Designer
+Designers use the Chroma Resampler’s conﬁguration wizard in Platform Designer to specify the desired features.
+The following conﬁgurations are available and shown in Figure 37:
+• Incoming Format — Speciﬁes the YCrCb format of the incoming stream
+• Outgoing Format — Speciﬁes the desired YCrCb format of the outgoing stream
+Note: the input and output formats cannot be the same.
+3.7 Clipper
+The Clipper IP core modiﬁes the resolution of video stream. The clipper can add or drop entire rows and columns
+of pixels from the top, bottom, right and left sides of video frames. Figure 38 shows a block diagram of the core.
+18 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 19 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 37. Chroma Resampler’s Platform Designer wizard.
+clipper
+System
+Reset
+From
+Video
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabric
+nn
+fabric
+streaming
+sink
+port
+Figure 38. Clipper core’s block diagram.
+3.7.1 Instantiating the Core in Platform Designer
+Designers use the Clipper’s conﬁguration wizard in Platform Designer to specify the desired features. The following
+conﬁgurations are available and shown in Figure 39:
+• Incoming Frame Resolution
+– Width (# of pixels) — Speciﬁes the incoming stream’s width
+– Height (# of lines) — Speciﬁes the incoming stream’s height
+• Reduce Frame Size
+– Columns to remove from the left side — Speciﬁes the number of columns to drop from the left side of
+the frame
+– Columns to remove from the right side — Speciﬁes the number of columns to drop from the right side
+of the frame
+Intel Corporation - FPGA University Program
+March 2018
+19
+
+===== PAGE 20 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 39. Clipper’s Platform Designer wizard.
+– Rows to remove from the top — Speciﬁes the number of rows to drop from the top of the frame
+– Rows to remove from the Bottom — Speciﬁes the number of rows to drop from the bottom of the frame
+• Enlarge Frame Size
+– Columns to add from the left side — Speciﬁes the number of columns to add to the left side of the frame
+– Columns to add from the right side — Speciﬁes the number of columns to add to the right side of the
+frame
+– Rows to add from the top — Speciﬁes the number of rows to add to the top of the frame
+– Rows to add from the Bottom — Speciﬁes the number of rows to add to the bottom of the frame
+– Added pixel value for plane 1 — Speciﬁes the pixel value, in hexadecimal, for the ﬁrst symbol, when
+columns or rows are added to the frame
+– Added pixel value for plane 2 — Speciﬁes the pixel value, in hexadecimal, for the second symbol, when
+columns or rows are added to the frame
+– Added pixel value for plane 3 — Speciﬁes the pixel value, in hexadecimal, for the third symbol, when
+columns or rows are added to the frame
+– Added pixel value for plane 4 — Speciﬁes the pixel value, in hexadecimal, for the fourth symbol, when
+columns or rows are added to the frame
+20 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 21 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+3.8 Color-Space Converter
+The Color-Space Converter converts video streams between the YCrCb and RGB color spaces. The converter can
+take an input stream in either the YCrCb (4:4:4 or 4:0:0) or 24-bit RGB color space and produces a stream in the
+opposite color space. Figure 40 shows the block diagram of the core.
+System
+Reset
+From
+ColorAvalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabric
+nm
+fabric
+streaming
+sink
+port
+space
+converter
+Figure 40. Color-Space Converter core’s block diagram.
+The following lists the formulas used to perform the conversions:
+• 4:4:4 YCrCb to 24-bit RGB
+R = 1.164(Y − 16) + 1.596(Cr − 128)
+G = 1.164(Y − 16) − 0.813(Cr − 128) − 0.392(Cb − 128)
+B = 1.164(Y − 16) + 2.017(Cb − 128)
+• Grayscale (Y) to 24-bit RGB
+R = Y
+G = Y
+B = Y
+• 24-bit RGB to 4:4:4 YCrCb
+Y = 0.257 × R + 0.504 ×G + 0.098 × B + 16
+Cr = 0.439 × R − 0.368 ×G − 0.071 × B + 128
+Cb = − 0.148 × R − 0.291 ×G + 0.439 × B + 128
+Intel Corporation - FPGA University Program
+March 2018
+21
+
+===== PAGE 22 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+• 24-bit RGB to 4:0:0 YCrCb
+Y = 0.257 × R + 0.504 ×G + 0.098 × B + 16
+3.8.1 Instantiating the Core in Platform Designer
+Designers use the Color-Space Converter’s conﬁguration wizard in Platform Designer to specify the desired features.
+The following conﬁgurations are available and shown in Figure 41:
+Figure 41. Color-Space Converter’s Platform Designer wizard.
+• Color-Space Conversion — Speciﬁes the desired conversion and by extension the incoming and outgoing
+color formats
+3.9 DMA Controller for Video
+The DMA Controller IP core stores and retrieves video frames to and from memory. The DMA controller has
+two modes of operation: “from stream to memory” and “from memory to stream”. When in the “from stream to
+memory” mode, the core stores frames from an incoming stream to an external memory. The core uses its Avalon
+memory-mapped master interface to send the data to the memory. When in the “from memory to stream” mode, the
+DMA controller uses its Avalon memory-mapped master interface to read video frames from an external memory.
+Then, it sends those video frames out via its Avalon streaming interface. Figure 42 shows a block diagram of the
+core. The Avalon streaming sink interface is only present when the controller is in the “from stream to memory”
+mode. The Avalon streaming source interface is only present when the controller is in the “from memory to stream”
+mode.
+The DMA controller’s Avalon memory-mapped slave interface, named avalon_dma_control_slave, is used to com-
+municate with the controller’s internal registers. These internal registers and their functions are described in section
+3.9.2.
+22 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 23 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+DMA
+Avalon
+Avalon
+streaming
+source
+(optional)
+clock
+Avalon
+To Avalon
+switch
+buffer
+fabric
+mastermemory
+mapped
+port
+Controller
+Avalon
+memory
+mapped
+port
+Avalon
+control
+slave
+Avalon
+streaming
+sink
+(optional)
+From
+Avalon
+switch
+fabric
+Figure 42. DMA Controller for Video core’s block diagram.
+The DMA controller can use either the consecutive or X-Y addressing modes to read and write frames from and to
+memory. Also, the controller can store and retrieve pixels of any format and the core will automatically adjust its
+address for the choosen format’s word length.
+3.9.1 Instantiating the Core in Platform Designer
+Designers use the DMA Controller’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 43:
+• Mode
+– DMA Direction — Speciﬁes whether a video stream is to be stored to or retrieved from memory
+• Addressing Parameters
+– Addressing Mode — Speciﬁes the addressing mode
+– Default Buffer Start Address — The start address of the buffer upon reset
+– Default Back Buffer Start Address — The start address of the back buffer upon reset (can be equal to the
+Default Buffer Start Address, if no back buffer is desired)
+• Frame Resolution
+– Width (# of pixels) — Speciﬁes the incoming stream’s width
+– Height (# of lines) — Speciﬁes the incoming stream’s height
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+Intel Corporation - FPGA University Program
+March 2018
+23
+
+===== PAGE 24 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 43. DMA Controller’s Platform Designer wizard.
+3.9.2 Software Programming Model
+3.9.3 Register Map
+Device drivers control and communicate with the DMA controller’s Avalon memory-mapped interface, named
+avalon_control_slave. The avalon_control_slave provides an interface for controlling the DMA ’s operation, and
+for obtaining status information. It consists of four registers, as shown in Table 2.
+The Buffer register holds the 32-bit address of the start of the memory buffer. This register is read-only, and shows the
+address of the ﬁrst pixel of the frame currently being output. The BackBuffer register allows the start address of the
+frame to be changed under program control. To change the frame being displayed, the desired frame’s start address
+is ﬁrst written into the BackBuffer register. Then, a second write operation is performed on the Buffer register. The
+value of the data provided in this second write operation is not used by the controller. Instead, it interprets a write
+to the Buffer register as a request to swap the contents of the Buffer and BackBuffer registers. The swap does not
+occur immediately. Instead, the swap is done after the DMA controller reaches the last pixel associated with the
+frame currently being output. While the controller is not yet ﬁnished outputting the current frame, bitS of the Status
+register will be set to 1. After the current screen is ﬁnished, the swap is performed and bit S is set to 0.
+24 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 25 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Table 2. DMA Controller register map
+Offset Register R/W Bit Description
+in bytes Name 31. . . 24 23. . . 16 15. . . 12 11. . . 8 7. . . 6 5. . . 3 2 1 0
+0 Buffer R Buffer’s start address
+4 BackBuffer R/W Back buffer’s start address
+8 Resolution R Y X
+12 Status R n m (1) BS SB (1) EN A S
+Control W (1) EN (1)
+Notes on Table 2:
+(1) Reserved. Read values are undeﬁned. Write zero.
+The Resolution register in Table 2 provides the X resolution of the screen in bits 15-0, and the Y resolution in bits
+31-16. Finally, the Status/Control register provides information of the DMA controller. The ﬁelds available in this
+register are shown in Table 3.
+Table 3. Status/Control register bits
+Bit number Bit name R/W Description
+31 - 24 n R Width of Y coordinate address
+23 - 16 m R Width of X coordinate address
+11 - 8 BS R Number of data bits per symbol minus one
+7 - 6 SB R Number of symbols per beat minus one
+2 EN R/W Enables the DMA controller. If this bit is set to 0 the
+DMA controller will be turned off.
+1 A R Addressing mode: 0 (X,Y), or 1 (consecutive)
+0 S R Swap: 0 when swap is done, else 1
+3.10 Dual-Clock FIFO
+The Dual-Clock FIFO buffers video data and help transfer a stream between two clock domains. Video streams into
+the core at the input clock frequency. The data is buffered in a FIFO memory. Then, the data is read out of the FIFO
+at the output clock frequency and streamed out of the core. Figure 44 shows the block diagram of the core.
+3.10.1 Instantiating the Core in Platform Designer
+Designers use the Dual-Clock FIFO’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 45:
+• Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+• Symbols per Beat — Speciﬁes the number of symbols per beat
+Intel Corporation - FPGA University Program
+March 2018
+25
+
+===== PAGE 26 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Output
+From Output clock domainInput clock domain
+clock
+Avalon To Avalon
+switchswitch
+fabricClock
+domain
+crossing
+FIFO
+Avalon
+streaming
+source
+port
+Avalon
+streaming
+sink
+port
+Input
+clock
+fabric
+Figure 44. Dual-Clock Buffer core’s block diagram.
+Figure 45. Dual-Clock FIFO’s Platform Designer wizard.
+3.11 Edge Detection
+The Edge Detection is an example of an image processing algorithm which highlights edges found in video frames.
+This core only accepts 8-bit grayscale formatted video. The video stream is ﬁrst processed by a Gaussian smoothing
+ﬁlter to reduce noise in the images. Then, the stream is processed through a Sobel operator, which computes the
+gradient of the image intensity. Next, the stream is processed by a non-maximum suppression ﬁlter, which ﬁnds the
+directions of the gradients. Finally, the stream is processed through a hysteresis ﬁlter to determine which gradients
+are edges. Figure 46 shows the block diagram of the core.
+3.11.1 Instantiating the Core in Platform Designer
+Designers use the Edge Detection’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 47:
+26 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 27 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+Gaussian
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabric
+nm
+fabric
+streaming
+sink
+port
+smoothing
+Sobel k
+operator
+Non- n
+maximum Hysteresis
+n
+suppression
+Figure 46. Edge Detection core’s block diagram.
+Figure 47. Edge Detection’s Platform Designer wizard.
+• Width (# of pixels) — Speciﬁes the incoming stream’s width
+• Edge Intensity — A multiplicative factor for increasing the brightness of the detected edge. The 2x factor is
+useful for display edges on a small screen, such as the LCD with touchscreen
+3.12 LT24 Controller
+The LT24 controller IP core generates the interface signals required by the LCD screen driver IC on the LT24
+daughtercard. The generated signals and their corresponding GPIO pins are shown in Table 1. Data is provided to
+the LT24 Controller via and Avalon Streaming Interface. The controller takes the incoming data, and writes the data
+to the LCD screen driver IC’s internal graphics RAM. Figure 48 shows a block diagram of the core.
+Intel Corporation - FPGA University Program
+March 2018
+27
+
+===== PAGE 28 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+LT24 Controller Signal GPIO Pin
+csx GPIO[25]
+dcx GPIO[12]
+rdx GPIO[10]
+wrx GPIO[11]
+lcd_on GPIO[35]
+reset_n GPIO[33]
+data[0] GPIO[8]
+data[1] GPIO[7]
+data[2] GPIO[6]
+data[3] GPIO[5]
+data[4] GPIO[13]
+data[5] GPIO[14]
+data[6] GPIO[15]
+data[7] GPIO[16]
+data[8] GPIO[17]
+data[9] GPIO[18]
+data[10] GPIO[19]
+data[11] GPIO[20]
+data[12] GPIO[21]
+data[13] GPIO[22]
+data[14] GPIO[23]
+data[15] GPIO[24]
+Table 1. LT24 Controller signals and corresponding GPIO pins
+Controller
+LT24
+Reset
+From
+LT24
+Avalon
+clock
+Avalon
+      To LT24switch
+         Screen Driver ICfabric
+streaming
+sink
+port
+Figure 48. LT24 Controller core’s block diagram.
+28 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 29 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+The LT24 controller has a resolutions of 320 × 240 pixels, and requires a 15 MHz clock for correct operation. The
+Clock Signals for DE-series Boards core, also provided by the Intel FPGA University Program, can generate the
+required 15 MHz clock; see its documentation for more details.
+3.12.1 Instantiating the Core in Platform Designer
+The designer does not need to specify additonal parameters for the LT24 controller. The interface groups of the LT24
+controller are shown in Figure 49:
+Figure 49. LT24 Controller’s Platform Designer wizard.
+3.13 Pixel Buffer DMA Controller
+The Pixel Buffer DMA Controller’s block diagram is shown in Figure 50. The DMA controller uses its Avalon
+memory-mapped master interface to read video frames from an external memory. Then, it sends those video
+frames out via its Avalon streaming interface. The controller’s Avalon memory-mapped slave interface, named
+avalon_control_slave, is used to communicate with the controller’s internal registers. These internal registers and
+their functions are described in section 3.13.2.
+The Pixel Buffer DMA controller can used either the consecutive or X-Y addressing modes to read and write frames
+from and to memory. Also, the controller can store and retrieve pixels of any format and the core will automatically
+adjust its address for the choosen format’s word length.
+3.13.1 Instantiating the Core in Platform Designer
+Designers use the Pixel Buffer DMA Controller’s conﬁguration wizard in Platform Designer to specify the desired
+features. The following conﬁgurations are available and shown in Figure 51:
+Intel Corporation - FPGA University Program
+March 2018
+29
+
+===== PAGE 30 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+DMA
+Avalon
+Avalon
+streaming
+source
+port
+clock
+Avalon
+To Avalon
+switch
+buffer
+fabric
+master
+memory
+mapped
+port
+Controller
+Avalon
+memory
+mapped
+port
+Avalon
+control
+slave
+Figure 50. Pixel Buffer DMA Controller core’s block diagram.
+Figure 51. Pixel Buffer DMA Controller’s Platform Designer wizard.
+• Addressing Mode — Choose between the Consecutive and the X-Y addressing modes
+• Default Buffer Start Address — The start address of the buffer upon reset
+• Default Back Buffer Start Address — The start address of the back buffer upon reset (can be equal to the
+30 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 31 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Default Buffer Start Address, if no back buffer is desired)
+• Width (# of pixels) — Speciﬁes the incoming stream’s width
+• Height (# of lines) — Speciﬁes the incoming stream’s height
+• Color Space — Speciﬁes the choosen RGB color space format
+3.13.2 Software Programming Model
+3.13.3 Register Map
+Device drivers control and communicate with the Pixel Buffer the Avalon memory-mapped interfaces, named
+avalon_control_slave. The avalon_control_slave provides an interface for controlling the pixel buffer’s operation,
+and for obtaining status information. It consists of four registers, as shown in Table 4.
+Table 4. Pixel Buffer register map
+Offset Register R/W Bit Description
+in bytes Name 31. . . 24 23. . . 16 15. . . 8 7. . . 4 3 2 1 0
+0 Buffer R Buffer’s start address
+4 BackBuffer R/W Back buffer’s start address
+8 Resolution R Y X
+12 Status R n m (1) B (1) A S
+Notes on Table 4:
+(1) Reserved. Read values are undeﬁned. Write zero.
+The Buffer register holds the 32-bit address of the start of the memory buffer. This register is read-only, and shows the
+address of the ﬁrst pixel of the frame currently being output. The BackBuffer register allows the start address of the
+frame to be changed under program control. To change the frame being displayed, the desired frame’s start address
+is ﬁrst written into the BackBuffer register. Then, a second write operation is performed on the Buffer register. The
+value of the data provided in this second write operation is not used by the pixel buffer. Instead, it interprets a write
+to the Buffer register as a request to swap the contents of the Buffer and BackBuffer registers. The swap does not
+occur immediately. Instead, the swap is done after the Pixel Buffer reaches the last pixel associated with the frame
+currently being output. While the Pixel Buffer is not yet ﬁnished outputting the current frame, bit S of the Status
+register will be set to 1. After the current screen is ﬁnished, the swap is performed and bit S is set to 0.
+The Resolution register in Table 4 provides the X resolution of the screen in bits 15-0, and the Y resolution in bits
+31-16. Finally, the Status register provides information for the Pixel Buffer. The ﬁelds available in this register are
+shown in Table 5.
+3.13.4 The Pixel Buffer’s Device Drivers for the Nios II Processor
+The Pixel Buffer is packaged with C-language functions accessible through the hardware abstraction layer (HAL).
+These functions implement the basic operations that are needed for the Pixel Buffer. An example of C code that
+these functions is given at the end of this section.
+Intel Corporation - FPGA University Program
+March 2018
+31
+
+===== PAGE 32 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Table 5. Status register bits
+Bit number Bit name R/W Description
+31 - 24 n R Width of Y coordinate address
+23 - 16 m R Width of X coordinate address
+7 - 4 B R number of bytes of color: 1 (greyscale, 8-bit color),
+2 (9-bit and 16-bit color), 3 (24-bit color) or
+4 (30-bit and 32-bit color)
+1 A R Addressing mode: 0 (X,Y), or 1 (consecutive)
+0 S R Swap: 0 when swap is done, else 1
+To use the functions, the C code must include the statement:
+#include "altera_up_avalon_pixel_buffer.h"
+alt_up_pixel_buffer_open_dev
+Prototype: alt_up_pixel_buffer_dev* alt_up_pixel_buffer_open_dev(const
+char *name)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: name – the pixel buffer component name in Qsys.
+Returns: The corresponding device structure, or NULL if the device is not found
+Description: Opens the pixel buffer device speciﬁed by name .
+alt_up_pixel_buffer_draw
+Prototype: int alt_up_pixel_buffer_draw(alt_up_pixel_buffer_dev
+*pixel_buffer, unsigned int color, unsigned int
+x, unsigned int y)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+color – the RGB color to be drawn
+x – the x coordinate
+y – the y coordinate
+Returns: 0 for success, -1 for error (such as out of bounds)
+Description: Draw a pixel at the location speciﬁed by (x, y) on the VGA monitor.
+alt_up_pixel_buffer_change_back_buffer_address
+Prototype: int alt_up_pixel_buffer_change_back_buffer_address(alt_up_pixel_buffer_dev
+*pixel_buffer, unsigned int new_address)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+new_address – the new start address of the back buffer
+Returns: 0 for success
+Description: Changes the back buffer’s start address.
+32 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 33 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+alt_up_pixel_buffer_swap_buffers
+Prototype: int alt_up_pixel_buffer_swap_buffers(alt_up_pixel_buffer_dev
+*pixel_buffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+Returns: 0 for success
+Description: Swaps which buffer is being sent to the VGA Controller.
+alt_up_pixel_buffer_check_swap_buffers_status
+Prototype: int alt_up_pixel_buffer_check_swap_buffers_status(alt_up_pixel_buffer_dev
+*pixel_buffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+Returns: 0 if complete, 1 if still processing
+Description: Check if swapping buffers has completed.
+alt_up_pixel_buffer_clear_screen
+Prototype: void alt_up_pixel_buffer_clear_screen(alt_up_pixel_buffer_dev
+*pixel_buffer, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+backbuffer – set to 1 to clear the back buffer, otherwise set to 0 to
+clear the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function clears the screen or the back buffer.
+alt_up_pixel_buffer_draw_box
+Prototype: void alt_up_pixel_buffer_draw_box(alt_up_pixel_buffer_dev
+*pixel_buffer, int x0, int y0, int x1, int y1,
+int color, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+x0, x1, y0, y1 – coordinates of the top left (x0,y0) and bottom right
+(x1,y1) corner of the box
+color – color of the box to be drawn
+backbuffer – set to 1 to select the back buffer, otherwise set to 0 to
+select the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function draws a box of a given color between points (x0,y0) and
+(x1,y1).
+Intel Corporation - FPGA University Program
+March 2018
+33
+
+===== PAGE 34 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+alt_up_pixel_buffer_draw_hline
+Prototype: void alt_up_pixel_buffer_draw_hline(alt_up_pixel_buffer_dev
+*pixel_buffer, int x0, int x1, int y, int
+color, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+x0, x1, y – coordinates of the left (x0,y) and the right (x1,y) end-points
+of the line
+color – color of the line to be drawn
+backbuffer – set to 1 to select the back buffer, otherwise set to 0 to
+select the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function draws a horizontal line of a given color between points
+(x0,y) and (x1,y).
+alt_up_pixel_buffer_draw_vline
+Prototype: void alt_up_pixel_buffer_draw_vline(alt_up_pixel_buffer_dev
+*pixel_buffer, int x, int y0, int y1, int
+color, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+x, y0, y1 – coordinates of the top (x,y0) and the bottom (x,y1) end-
+points of the line
+color – color of the line to be drawn
+backbuffer – set to 1 to select the back buffer, otherwise set to 0 to
+select the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function draws a vertical line of a given color between points (x,y0)
+and (x,y1).
+34 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 35 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+alt_up_pixel_buffer_draw_rectangle
+Prototype: void alt_up_pixel_buffer_draw_rectangle(alt_up_pixel_buffer_dev
+*pixel_buffer, int x0, int y0, int x1, int y1,
+int color, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+x0, x1, y0, y1 – coordinates of the top left (x0,y0) and bottom right
+(x1,y1) corner of the rectangle
+color – color of the rectangle to be drawn
+backbuffer – set to 1 to select the back buffer, otherwise set to 0 to
+select the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function draws a rectangle of a given color between points (x0,y0)
+and (x1,y1).
+alt_up_pixel_buffer_draw_line
+Prototype: void alt_up_pixel_buffer_draw_line(alt_up_pixel_buffer_dev
+*pixel_buffer, int x0, int y0, int x1, int y1,
+int color, int backbuffer)
+Include: <altera_up_avalon_pixel_buffer.h>
+Parameters: pixel_buffer – the pointer to the VGA structure
+x0, x1, y0, y1 – coordinates (x0,y0) and (x1,y1) correspond to end
+points of the line
+color – color of the line to be drawn
+backbuffer – set to 1 to select the back buffer, otherwise set to 0 to
+select the current screen.
+Returns: 0 if complete, 1 if still processing
+Description: This function draws a line of a given color between points (x0,y0) and
+(x1,y1).
+3.13.5 Pixel Buffer core C Example using Device Drivers
+The example program using HAL for the Pixel Buffer DMA Controller is shown in Figure 52.
+3.14 RGB Resampler
+The RGB Resampler converts video streams between the RGB color space formats. The core can convert between
+any RGB format, except the Bayer pattern format. Figure 53 shows a block diagram of the core.
+Although the core can convert to any RGB format, converting to the 8-bit Grayscale format should be avoided. The
+manner used to convert to the grayscale format is very rudimentary. To acheive a better quality conversion, use the
+Color Space Converter IP core.
+Intel Corporation - FPGA University Program
+March 2018
+35
+
+===== PAGE 36 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+#include "altera_up_avalon_pixel_buffer.h"
+int main(void)
+{
+alt_up_pixel_buffer_dev * pixel_buf_dev;
+// open the Pixel Buffer port
+pixel_buf_dev = alt_up_pixel_buffer_open_dev ("/dev/Pixel_Buffer");
+if ( pixel_buf_dev == NULL)
+alt_printf ("Error: could not open pixel buffer device \n");
+else
+alt_printf ("Opened pixel buffer device \n");
+/* Clear and draw a blue box on the screen */
+alt_up_pixel_buffer_clear_screen (pixel_buf_dev);
+alt_up_pixel_buffer_draw_box (pixel_buf_dev, 0, 0, 319, 239, 0x001F, 0);
+}
+Figure 52. An example of C with Device Driver Support code that uses Pixel Buffer Core.
+System
+Reset
+From
+RGB
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabric
+nm
+fabric
+streaming
+sink
+port
+resampler
+Figure 53. RGB Resmapler core’s Block Diagram
+3.14.1 Instantiating the Core in Platform Designer
+Designers use the RGB Resampler’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 54:
+• Incoming Format — Speciﬁes the RGB format of the incoming stream
+• Outgoing Format — Speciﬁes the desired RGB format for the outgoing stream
+• Alpha Value for Output — Speciﬁes the desired alpha value for the output stream, when required and not
+present in the input stream
+36 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 37 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 54. RGB Resampler’s Platform Designer wizard.
+Note: the input and output formats cannot be the same.
+3.14.2 Register Map
+Device drivers obtain status information from the RGB Resampler’s Avalon memory-mapped interface, named
+avalon_rgb_slave. It consists of a status register.
+The ﬁelds available in the Status register are shown in table Table 6.
+Table 6. Status register bits
+Bit number Bit name R/W Description
+21 OA R Alpha for output.
+20 OC R Color/grayscale for output.
+19-16 OM R Mode for output.
+5 IA R Alpha for input.
+4 IC R Color/grayscale for input.
+3-0 IM R Mode for input.
+Table 7 shows valid options for the Status register.
+3.15 Scaler
+The Scaler IP core modiﬁes the resolution of video stream. The scaler converts an incoming video stream’s resolution
+by adding or dropping entire rows and/or columns of pixels. Figure 55 shows a block diagram of the core.
+The scaler adds pixels by replicating columns and/or rows. For example, if the scaler is increasing a stream’s width
+by factor of 2, it will output every incoming pixel twice. Another example, is when a stream’s height is to be
+Intel Corporation - FPGA University Program
+March 2018
+37
+
+===== PAGE 38 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Table 7. V alid status register options
+Alpha Color Mode Description
+0
+0 0 1-bit Black/White
+7 8-bit Grayscale
+1
+1 8-Bit RGB (R (3), G (3), B (2))
+2 9-Bit RGB (R (3), G (3), B (3))
+4 16-Bit RGB (R (5), G (6), B (5))
+7 24-Bit RGB (R (8), G (8), B (8))
+9 30-Bit RGB (R (10), G (10), B (10))
+1 1
+1 8-Bit RGBA (R (2), G (2), B (2), A(2))
+2 12-Bit RGBA (R (3), G (3), B (3), A(3))
+3 16-Bit RGBA (R (4), G (4), B (4), A(4))
+7 32-Bit RGBA (R (8), G (8), B (8), A(8))
+9 40-Bit RGBA (R (10), G (10), B (10), A(10))
+scaler
+System
+Reset
+From
+Video
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Figure 55. Scaler core’s block diagram.
+increased by a factor of 4, the scaler will buffer each row and output it four times before continuing on to the next
+row.
+The scaler reduces a stream’s resolution by removing entire columns and/or rows. For example, if the scaler is
+decreasing a stream’s width by factor of 4, it will output one incoming pixel, drop the next three pixels, and continue
+repeating this pattern for the entire frame. When a stream’s height is to be decreased by a factor of 2, the scaler will
+output one row and drop next, again repeating for the entire frame.
+3.15.1 Instantiating the Core in Platform Designer
+Designers use the Scaler’s conﬁguration wizard in Platform Designer to specify the desired features. The following
+conﬁgurations are available and shown in Figure 56:
+• Scaling Parameters
+– Width Scaling Factor — Speciﬁes the scaling factor for the video stream’s width
+– Height Scaling Factor— Speciﬁes the scaling factor for the video stream’s height
+38 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 39 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 56. Scaler’s Platform Designer wizard.
+• Incoming Frame Resolution
+– Width (# of pixels) — Speciﬁes the incoming stream’s width
+– Height (# of lines) — Speciﬁes the incoming stream’s height
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+3.16 Test-Pattern Generator
+The Test-Pattern Generator IP core generates a video stream. The core generates a constant image in the 24-bit RGB
+format, which is outputted via its Avalon Streaming interface. The constant image is generated by changing two
+values in the hue-saturation-value (HSV) color space. On the x-axis, the hue changes from0◦ to 360◦. On the y-axis,
+the saturation changes from 0 to 1. Figure 57 shows a block diagram of the core.
+3.16.1 Instantiating the Core in Platform Designer
+Designers use the Test-Pattern Generator’s conﬁguration wizard in Platform Designer to specify the desired features.
+The following conﬁgurations are available and shown in Figure 58:
+• Outgoing Frame Resolution
+– Width (# of pixels) — Speciﬁes the outgoing stream’s width
+Intel Corporation - FPGA University Program
+March 2018
+39
+
+===== PAGE 40 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Pattern
+System
+Reset
+Test Avalon
+streaming
+source
+port
+clock
+To Avalon
+switch
+fabric
+Generator
+Figure 57. Test Pattern Generator core’s block diagram.
+Figure 58. Test-Pattern Generator’s Platform Designer wizard.
+– Height (# of lines) — Speciﬁes the outgoing stream’s height
+3.17 VGA Controller
+The VGA controller IP core generates the timing signals required by the on-board VGA DAC on the DE-series
+boards and Terasic’s LCD with touchscreen daughtercards. Data is provided to the VGA Controller via its Avalon
+Streaming Interface. The controller takes the incoming data, adds the appropriate VGA timing signals and then sends
+that information to either the on-board VGA DAC or the LCD with touchscreen daughtercard. Figure 59 shows a
+block diagram of the core.
+The VGA Controller generates the timing signals required for the VGA DAC and LCD daughtercard, including
+horizontal and vertical synchronization signals. The timing information generated by the VGA Controller produces
+screen resolutions of 640 × 480, 800 × 480, and 800 × 600 pixels for the VGA DAC, the LCD with touchscreen
+(TRDB_LTM) and MTL/MTL2 modules, and the 8 inch LCD on the tPad, respectively. To generate the timing
+information correctly, a 25 MHz clock has to be provided to the VGA Controller, except for the 8 inch LCD, when
+40 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 41 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Controller
+VGA
+Reset
+From
+VGA
+Avalon
+clock
+Avalon
+To VGAswitch
+DACfabric
+streaming
+sink
+port
+Figure 59. VGA Controller core’s block diagram.
+a 40 MHz clock must be provided instead and the MTL/MTL2 modules, when a 33.3 MHZ clock must be provide.
+The Clock Signals for DE-series Boards core, also provided by the Intel FPGA University Program, can generate
+the required 25 MHz, 33 MHz and 40 MHz clocks; see its documentation for more details.
+3.17.1 Instantiating the Core in Platform Designer
+Designers use the VGA Controller’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 60:
+Figure 60. VGA Controller’s Platform Designer wizard.
+• DE-Series Board — Speciﬁes the Intel DE-series board that the system is being designed for
+• Video Out Device — Speciﬁes the VGA compatible device being used, and by extension the screen resolution
+Intel Corporation - FPGA University Program
+March 2018
+41
+
+===== PAGE 42 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+3.18 Video-In Decoder
+The Video-In decoder core, as shown in Figure 61, takes video input from one of three video sources: composite-
+video port on DE-series board, a 1.3 Megapixel CCD camera, a 5 Megapixel CCD camera, or a 8 Megapixel CCD
+camera. As shown on the left-hand side ﬁgure, the video data enters the decoder from the video source. It is than
+decoded, and syncronized from the video source’s clock domain to the system’s clock domain. In the ﬁnal stage of
+the core, the video data is converted into Intel FPGA University Program video streaming packets.
+System
+Reset
+From System clock domainVideo source clock domain
+Video
+decoder
+clock
+video
+To Avalon
+switch
+source fabricDual-
+Clock
+FIFO
+Avalon
+streaming
+source
+port
+n n
+Figure 61. Video-In Decoder Core’s Block Diagram
+Each outgoing packet represents a video frame. The size of the packet and the color format used depends on the
+video source, as listed in Table 8. The on-board video source supplies data from either an NTSC or PAL device in a
+4:2:2 YCrCb format. The CCD cameras provide video data in the Bayer pattern format.
+The Video-In Decoder’s Avalon streaming source port should be connected to the Avalon streaming sink port of the
+next video processing core using Platform Designer. In typical video processing ﬂows, the next core should be either
+the Chroma Resampler, in the case of the on-board video source, or the Scaler, in the case of a CCD camera source.
+Table 8. Video In Decoder Packet Formats
+Input Device Color Format Video Packet Size
+On-Board Video (NTSC) YUV 4:2:2 720 × 244
+On-Board Video (PAL) YUV 4:2:2 720 × 288
+1.3 Megapixel Camera (TRDB_DC2) Bayer Pattern 1280 × 1024
+5 Megapixel Camera (TRDB_D5M) Bayer Pattern 2592 × 1944
+8 Megapixel Camera (D8M_GPIO) Bayer Pattern 3264 × 2448
+When using the Video-In Decoder IP core, users should also include the Audio and Video Conﬁguration IP core in
+their system. The conﬁguration core can initialize the video input device for use with the decoder core.
+3.18.1 Instantiating the Core in Platform Designer
+Designers use the Video-In Decoder’s conﬁguration wizard in Platform Designer to specify the desired features. The
+following conﬁgurations are available and shown in Figure 62:
+42 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 43 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 62. Video-In Decoder’s Platform Designer wizard.
+• Video-In Source — Choose the source being used, and by extension the video format outputted by this core
+3.19 Video-Stream Router
+The Video-Stream Router IP core allows users to select alternate paths for video streams. The router has two modes:
+split and merge. In split mode, the incoming stream will be routed to one of the outgoing stream, based upon the
+value of the external bit, path selector, as shown in Figure 63. In merge mode, one of the two incoming streams will
+be routed to the outgoing stream, based upon the value of the external bit, path selector, as shown in Figure 64.
+To Avalon
+switch
+fabric
+System
+Reset
+Video
+clock
+To Avalon
+switch
+fabric
+n
+n
+Avalon
+streaming
+sink
+port
+From
+Avalon
+switch
+fabric
+Avalon
+streaming
+source
+port
+n
+stream
+split
+Avalon
+streaming
+source
+port
+Path
+selector
+Figure 63. Splitting stream router’s block diagram.
+When using two routers in tandem, one in split mode and one in merge mode, using two separate path select signals
+Intel Corporation - FPGA University Program
+March 2018
+43
+
+===== PAGE 44 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+System
+Reset
+From
+Video
+Avalon
+clock
+Avalon
+To Avalon
+switch
+switch
+fabric
+n
+n
+fabric
+streaming
+sink
+port
+Avalon
+streaming
+sink
+port
+From
+Avalon
+switch
+fabric
+Avalon
+streaming
+source
+port
+n
+stream
+merge
+Path
+selector
+Figure 64. Merging stream router’s block diagram.
+may cause instability in the system. This instability is due to the possibility that the two cores could get stuck in a
+state where they are trying to route the stream along opposite paths. To alleviate this issue, the cores should include
+the optional Avalon streaming interface used for synchronization. When using the synchronization interface, the
+split-mode router will control the path used by both cores. As a result, the merge-mode router will no longer include
+the external path select signal.
+3.19.1 Instantiating the Core in Platform Designer
+Designers use the Video-Stream Router’s conﬁguration wizard in Platform Designer to specify the desired features.
+The following conﬁgurations are available and shown in Figure 65:
+• Mode
+– Stream Router Type — Speciﬁes the type of router, either split or merge
+– Enable Synchronization Stream — Enables the synchronization stream interface
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+3.20 VIP Bridges
+The VIP Bridge IP cores convert video streams between the Intel VIP format and UP video stream format. There
+are two bridge cores, named “Raw to VIP” and “VIP to Raw”.
+44 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 45 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 65. Video-Stream Router’s Platform Designer wizard.
+3.20.1 Raw to VIP
+The Raw-to-VIP bridge take an input stream in the University Program (UP) video stream format and converts it
+to the VIP format. Then, the VIP-formatted data is outputted via the Avalon streaming source interface. Figure 66
+shows a block diagram of the core. The UP video stream format is essentially raw video data, as described in Section
+2.2.
+Stream
+System
+Reset
+From
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Bridge
+Raw to
+VIP
+Figure 66. Video-Stream Bridge: Raw to VIP core’s block diagram.
+Instantiating the Core in Platform Designer
+Designers use the Video-Stream Bridge: RAW to VIP’s conﬁguration wizard in Platform Designer to specify the
+desired features. The following conﬁgurations are available and shown in Figure 67:
+• Frame Resolution
+Intel Corporation - FPGA University Program
+March 2018
+45
+
+===== PAGE 46 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Figure 67. Video-Stream Bridge: Raw to VIP core’s Platform Designer wizard.
+– Width (# of pixels) — Speciﬁes the incoming stream’s width
+– Height (# of lines) — Speciﬁes the incoming stream’s height
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+• Interlacing
+– Mode — Speciﬁes the ing0ing stream’s scan type
+3.20.2 VIP to Raw
+The VIP-to-Raw bridge takes an input stream in the VIP format, and converts it to the UP video-stream format.
+Then, the UP video-stream-formatted data is outputted via the Avalon streaming source interface. Figure 68 shows
+a block diagram of the core.
+Instantiating the Core in Platform Designer
+Designers use the Video-Stream Bridge: VIP to Raw’s conﬁguration wizard in Platform Designer to specify the
+desired features. The following conﬁgurations are available and shown in Figure 69:
+• Pixel Format
+– Data Bits per Symbol — Speciﬁes the number of data bits per symbol
+– Symbols per Beat — Speciﬁes the number of symbols per beat
+46 Intel Corporation - FPGA University Program
+March 2018
+
+===== PAGE 47 =====
+VIDEO IP C ORES FOR INTEL DE-S ERIES BOARDS F or Quartus Prime 18.0
+Stream
+System
+Reset
+From
+Avalon Avalon
+streaming
+source
+port
+clock
+Avalon To Avalon
+switchswitch
+fabricfabric
+streaming
+sink
+port
+Bridge
+VIP to 
+RAW
+Figure 68. Video-Stream Bridge: VIP to RAW core’s block diagram.
+Figure 69. Video-Stream Bridge: VIP to RAW core’s Platform Designer wizard.
+Intel Corporation - FPGA University Program
+March 2018
+47

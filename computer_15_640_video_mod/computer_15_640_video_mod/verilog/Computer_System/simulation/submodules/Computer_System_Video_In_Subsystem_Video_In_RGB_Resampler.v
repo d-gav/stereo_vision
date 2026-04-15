@@ -68,7 +68,7 @@ parameter OEW			= 0;
 parameter ALPHA			= 10'h3FF;
 
 parameter STATUS_IN		= 16'h0017;
-parameter STATUS_OUT	= 16'h0011;
+parameter STATUS_OUT	= 16'h0007;
 
 /*****************************************************************************
  *                             Port Declarations                             *
@@ -117,6 +117,7 @@ wire		[ 9: 0]	g;
 wire		[ 9: 0]	b;
 wire		[ 9: 0]	a;
 
+wire		[11: 0]	average_color;	
 
 wire		[ODW:0]	converted_data;
 
@@ -185,9 +186,9 @@ assign b = {stream_in_data[ 7: 0], stream_in_data[ 7: 6]};
 
 assign a = ALPHA;
 
-assign converted_data[ 7: 5] = r[ 9: 7];
-assign converted_data[ 4: 2] = g[ 9: 7];
-assign converted_data[ 1: 0] = b[ 9: 8];
+assign average_color = {2'h0, r} + {1'b0, g, 1'b0} + {2'h0, b};
+
+assign converted_data[ 7: 0] = average_color[11:4];
 
 /*****************************************************************************
  *                              Internal Modules                             *

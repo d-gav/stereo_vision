@@ -41,6 +41,14 @@
          type = "int";
       }
    }
+   element Video_In.external_interface
+   {
+      datum _tags
+      {
+         value = "";
+         type = "String";
+      }
+   }
    element Video_In_CSC
    {
       datum _sortIndex
@@ -201,10 +209,10 @@
   <parameter name="add_value_plane_4" value="0" />
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
-  <parameter name="drop_bottom" value="2" />
+  <parameter name="drop_bottom" value="40" />
   <parameter name="drop_left" value="40" />
   <parameter name="drop_right" value="40" />
-  <parameter name="drop_top" value="2" />
+  <parameter name="drop_top" value="40" />
   <parameter name="height_in" value="288" />
   <parameter name="width_in" value="720" />
  </module>
@@ -220,7 +228,7 @@
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
   <parameter name="dma_enabled" value="false" />
-  <parameter name="height" value="284" />
+  <parameter name="height" value="288" />
   <parameter name="mode">From Stream to Memory</parameter>
   <parameter name="start_address" value="134217728" />
   <parameter name="width" value="640" />

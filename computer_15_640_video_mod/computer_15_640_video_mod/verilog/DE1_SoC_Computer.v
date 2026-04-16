@@ -366,18 +366,14 @@ output					HPS_USB_STP;
 localparam FULL_FRAME_WIDTH  = 640;
 localparam HALF_FRAME_WIDTH  = 320;
 localparam FRAME_HEIGHT      = 288;
-localparam NUM_ROW_BANKS     = 4;
-localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
-localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
-localparam TOTAL_BANK_DEPTH  = NUM_ROW_BANKS * BANK_DEPTH;
 localparam LUT_DEPTH         = FULL_FRAME_WIDTH * FRAME_HEIGHT;
 
 wire			[15: 0]	hex3_hex0;
 //wire			[15: 0]	hex5_hex4;
 
-// Row-banked BRAM-style storage for left/right views.
-reg [7:0] left_row_bank  [0:TOTAL_BANK_DEPTH-1];
-reg [7:0] right_row_bank [0:TOTAL_BANK_DEPTH-1];
+// Row-per-bank BRAM-style storage for left/right views.
+reg [7:0] left_row_bank  [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+reg [7:0] right_row_bank [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
 
 // Packed LUT word format: {valid[20], src_y[19:10], src_x[9:0]}.
 //(* ramstyle = "M10K" *) reg [20:0] undistort_lut [0:LUT_DEPTH-1];
@@ -462,8 +458,6 @@ wire [9:0] right_cam_mem_x_cood ;
 
 assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
 
-wire [15:0] bank_address =  (old_video_in_y_cood * HALF_FRAME_WIDTH) + (right_read_side ? right_cam_mem_x_cood : old_video_in_x_cood) ; 
-
 // LUT disabled: do not load undistort LUT
 // initial begin
 //     $readmemh("undistort_lut_320x240_x100_y50.memh", undistort_lut);
@@ -530,9 +524,9 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// write a pixel to VGA memory
 	if (state==8) begin
 		if (right_read_side) begin
-			right_row_bank[bank_address] = current_pixel_color1;
+			right_row_bank[old_video_in_y_cood][right_cam_mem_x_cood] = current_pixel_color1;
 		end else begin
-			left_row_bank[bank_address] = current_pixel_color1;
+			left_row_bank[old_video_in_y_cood][old_video_in_x_cood] = current_pixel_color1;
 		end
 
 		state <= 9 ;
@@ -552,6 +546,15 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	end
 	
 end // always @(posedge state_clock)
+
+
+//
+// Block Matching Memory Interface
+//
+
+
+
+
 
 //=======================================================
 //  Structural coding

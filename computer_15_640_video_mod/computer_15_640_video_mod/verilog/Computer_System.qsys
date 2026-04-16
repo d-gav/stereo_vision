@@ -845,7 +845,7 @@
    enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="50000000" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
-  <parameter name="addr_size" value="512" />
+  <parameter name="addr_size" value="256" />
   <parameter name="addr_size_multiplier" value="Mbytes" />
   <parameter name="data_size" value="8" />
  </module>
@@ -903,7 +903,7 @@
   <parameter name="clockRate" value="100000000" />
   <parameter name="columnWidth" value="10" />
   <parameter name="componentName" value="$${FILENAME}_SDRAM" />
-  <parameter name="dataWidth" value="16" />
+  <parameter name="dataWidth" value="8" />
   <parameter name="generateSimulationModel" value="true" />
   <parameter name="initNOPDelay" value="0.0" />
   <parameter name="initRefreshCommands" value="2" />
@@ -938,8 +938,8 @@
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="AUTO_DEVICE_SPEEDGRADE" value="6" />
   <parameter name="AUTO_GENERATION_ID" value="0" />
-  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x4000000' /></address-map>]]></parameter>
-  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_WIDTH" value="AddressWidth = 26" />
+  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x2000000' /></address-map>]]></parameter>
+  <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_WIDTH" value="AddressWidth = 25" />
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="9" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="9" />

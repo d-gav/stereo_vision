@@ -12,7 +12,7 @@
 # or its authorized distributors. Please refer to the applicable 
 # agreement for further details.
 
-# ACDS 18.1 625 win32 2026.04.15.19:06:20
+# ACDS 18.1 625 win32 2026.04.16.14:54:56
 
 # ----------------------------------------
 # vcs - auto-generated simulation script
@@ -94,7 +94,7 @@
 # within the Quartus project, and generate a unified
 # script which supports all the Altera IP within the design.
 # ----------------------------------------
-# ACDS 18.1 625 win32 2026.04.15.19:06:20
+# ACDS 18.1 625 win32 2026.04.16.14:54:56
 # ----------------------------------------
 # initialize variables
 TOP_LEVEL_NAME="Computer_System"
@@ -151,7 +151,6 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/avalon_utilities_pkg.sv \
   $QSYS_SIMDIR/submodules/avalon_mm_pkg.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_avalon_st_adapter_error_adapter_0.sv \
-  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001_error_adapter_0.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_error_adapter_0.sv \
   $QSYS_SIMDIR/submodules/Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Video_Stream_Splitter.v \
   $QSYS_SIMDIR/submodules/Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Video_Stream_Merger.v \
@@ -181,7 +180,6 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_cmd_demux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_router_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_router.sv \
-  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001.v \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter.v \
   $QSYS_SIMDIR/submodules/altera_avalon_st_handshake_clock_crosser.v \
   $QSYS_SIMDIR/submodules/altera_avalon_st_clock_crosser.v \
@@ -194,7 +192,6 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_mux_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_mux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux_002.sv \
-  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux_001.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_cmd_mux_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_cmd_mux_001.sv \

@@ -21,40 +21,53 @@ localparam integer RIGHT_LUT_WIDTH       = 315;
 localparam integer LUT_LAST_INDEX        = 255;
 localparam integer R2_TO_POS_Q16         = 92;
 
-localparam [1:0] ST_IDLE = 2'd0;
-localparam [1:0] ST_CALC = 2'd1;
-localparam [1:0] ST_DONE = 2'd2;
+localparam signed [12:0] LEFT_LUT_WIDTH_S       = 13'sd315;
+localparam signed [12:0] FRAME_HEIGHT_S         = 13'sd288;
+localparam signed [12:0] FULL_FRAME_WIDTH_S     = 13'sd640;
+
+localparam [3:0] ST_IDLE   = 4'd0;
+localparam [3:0] ST_VEC    = 4'd1;
+localparam [3:0] ST_R2     = 4'd2;
+localparam [3:0] ST_POS    = 4'd3;
+localparam [3:0] ST_LUT    = 4'd4;
+localparam [3:0] ST_INTERP = 4'd5;
+localparam [3:0] ST_SCALE  = 4'd6;
+localparam [3:0] ST_MUL    = 4'd7;
+localparam [3:0] ST_OFFSET = 4'd8;
+localparam [3:0] ST_CHECK  = 4'd9;
+localparam [3:0] ST_DONE   = 4'd10;
 
 wire side_right_in;
 wire [9:0] local_x_in;
 wire in_active_region;
+wire signed [12:0] sx_i_w;
+wire signed [12:0] sy_i_w;
+wire signed [12:0] gx_i_w;
 
-reg [1:0] state;
+reg [3:0] state;
 reg side_right_r;
 reg [9:0] dst_x_r;
 reg [9:0] dst_y_r;
 reg [9:0] local_x_r;
+reg signed [18:0] cdx_q8_r;
+reg signed [18:0] cdy_q8_r;
+reg signed [23:0] csx_q8_r;
+reg signed [23:0] csy_q8_r;
 
 reg signed [18:0] dx_q8;
 reg signed [18:0] dy_q8;
-reg signed [11:0] dx_h;
-reg signed [11:0] dy_h;
 reg [24:0] r2_h;
 reg [31:0] pos_q16;
 reg [7:0] idx;
 reg [15:0] frac;
 reg signed [17:0] s0_q15;
 reg signed [17:0] s1_q15;
-reg signed [18:0] s_diff_q15;
 reg signed [18:0] scale_q15;
 reg signed [37:0] interp_prod;
 reg signed [37:0] x_scaled_prod;
 reg signed [37:0] y_scaled_prod;
 reg signed [23:0] sx_q8;
 reg signed [23:0] sy_q8;
-reg signed [12:0] sx_i;
-reg signed [12:0] sy_i;
-reg signed [12:0] gx_i;
 
 assign side_right_in = (dst_x >= RIGHT_OUTPUT_X_START);
 assign local_x_in = side_right_in ? (dst_x - RIGHT_OUTPUT_X_START) : dst_x;
@@ -104,6 +117,10 @@ begin
 end
 endfunction
 
+assign sx_i_w = round_q8_to_int(sx_q8);
+assign sy_i_w = round_q8_to_int(sy_q8);
+assign gx_i_w = side_right_r ? (sx_i_w + RIGHT_OUTPUT_X_START) : sx_i_w;
+
 `include "radial_scale_lut_q15.vh"
 
 function signed [17:0] side_scale_q15;
@@ -121,26 +138,24 @@ always @(posedge clk or negedge reset_n) begin
         dst_x_r <= 10'd0;
         dst_y_r <= 10'd0;
         local_x_r <= 10'd0;
+        cdx_q8_r <= 19'sd0;
+        cdy_q8_r <= 19'sd0;
+        csx_q8_r <= 24'sd0;
+        csy_q8_r <= 24'sd0;
         dx_q8 <= 19'sd0;
         dy_q8 <= 19'sd0;
-        dx_h <= 12'sd0;
-        dy_h <= 12'sd0;
         r2_h <= 25'd0;
         pos_q16 <= 32'd0;
         idx <= 8'd0;
         frac <= 16'd0;
         s0_q15 <= 18'sd0;
         s1_q15 <= 18'sd0;
-        s_diff_q15 <= 19'sd0;
         scale_q15 <= 19'sd0;
         interp_prod <= 38'sd0;
         x_scaled_prod <= 38'sd0;
         y_scaled_prod <= 38'sd0;
         sx_q8 <= 24'sd0;
         sy_q8 <= 24'sd0;
-        sx_i <= 13'sd0;
-        sy_i <= 13'sd0;
-        gx_i <= 13'sd0;
         src_x <= 10'd0;
         src_y <= 10'd0;
         valid <= 1'b0;
@@ -157,9 +172,13 @@ always @(posedge clk or negedge reset_n) begin
                     dst_x_r <= dst_x;
                     dst_y_r <= dst_y;
                     local_x_r <= local_x_in;
+                    cdx_q8_r <= side_cdx_q8(side_right_in);
+                    cdy_q8_r <= side_cdy_q8(side_right_in);
+                    csx_q8_r <= side_csx_q8(side_right_in);
+                    csy_q8_r <= side_csy_q8(side_right_in);
                     if (in_active_region) begin
                         busy <= 1'b1;
-                        state <= ST_CALC;
+                        state <= ST_VEC;
                     end else begin
                         src_x <= 10'd0;
                         src_y <= 10'd0;
@@ -169,58 +188,78 @@ always @(posedge clk or negedge reset_n) begin
                 end
             end
 
-            ST_CALC: begin
-                dx_q8 = ($signed({1'b0, local_x_r}) <<< 8) - side_cdx_q8(side_right_r);
-                dy_q8 = ($signed({1'b0, dst_y_r}) <<< 8) - side_cdy_q8(side_right_r);
+            ST_VEC: begin
+                dx_q8 <= ($signed({1'b0, local_x_r}) <<< 8) - cdx_q8_r;
+                dy_q8 <= ($signed({1'b0, dst_y_r}) <<< 8) - cdy_q8_r;
+                state <= ST_R2;
+            end
 
-                dx_h = dx_q8 >>> 7;
-                dy_h = dy_q8 >>> 7;
-                r2_h = ($signed(dx_h) * $signed(dx_h)) + ($signed(dy_h) * $signed(dy_h));
+            ST_R2: begin
+                r2_h <= ($signed(dx_q8 >>> 7) * $signed(dx_q8 >>> 7)) +
+                        ($signed(dy_q8 >>> 7) * $signed(dy_q8 >>> 7));
+                state <= ST_POS;
+            end
 
-                pos_q16 = r2_h * R2_TO_POS_Q16;
+            ST_POS: begin
+                pos_q16 <= r2_h * R2_TO_POS_Q16;
+                state <= ST_LUT;
+            end
+
+            ST_LUT: begin
                 if (pos_q16[31:16] >= LUT_LAST_INDEX) begin
-                    idx = LUT_LAST_INDEX[7:0];
-                    frac = 16'd0;
+                    idx <= LUT_LAST_INDEX[7:0];
+                    frac <= 16'd0;
+                    s0_q15 <= side_scale_q15(side_right_r, LUT_LAST_INDEX[7:0]);
+                    s1_q15 <= side_scale_q15(side_right_r, LUT_LAST_INDEX[7:0]);
                 end else begin
-                    idx = pos_q16[23:16];
-                    frac = pos_q16[15:0];
+                    idx <= pos_q16[23:16];
+                    frac <= pos_q16[15:0];
+                    s0_q15 <= side_scale_q15(side_right_r, pos_q16[23:16]);
+                    s1_q15 <= side_scale_q15(side_right_r, pos_q16[23:16] + 8'd1);
                 end
+                state <= ST_INTERP;
+            end
 
-                s0_q15 = side_scale_q15(side_right_r, idx);
-                if (idx == LUT_LAST_INDEX[7:0])
-                    s1_q15 = s0_q15;
-                else
-                    s1_q15 = side_scale_q15(side_right_r, idx + 8'd1);
+            ST_INTERP: begin
+                interp_prod <= ($signed({s1_q15[17], s1_q15}) - $signed({s0_q15[17], s0_q15})) *
+                               $signed({1'b0, frac});
+                state <= ST_SCALE;
+            end
 
-                s_diff_q15 = $signed({s1_q15[17], s1_q15}) - $signed({s0_q15[17], s0_q15});
-                interp_prod = s_diff_q15 * $signed({1'b0, frac});
+            ST_SCALE: begin
                 if (interp_prod >= 0)
-                    scale_q15 = $signed({s0_q15[17], s0_q15}) + ((interp_prod + 38'sd32768) >>> 16);
+                    scale_q15 <= $signed({s0_q15[17], s0_q15}) + ((interp_prod + 38'sd32768) >>> 16);
                 else
-                    scale_q15 = $signed({s0_q15[17], s0_q15}) + ((interp_prod - 38'sd32768) >>> 16);
+                    scale_q15 <= $signed({s0_q15[17], s0_q15}) + ((interp_prod - 38'sd32768) >>> 16);
+                state <= ST_MUL;
+            end
 
-                x_scaled_prod = dx_q8 * scale_q15;
-                y_scaled_prod = dy_q8 * scale_q15;
+            ST_MUL: begin
+                x_scaled_prod <= dx_q8 * scale_q15;
+                y_scaled_prod <= dy_q8 * scale_q15;
+                state <= ST_OFFSET;
+            end
 
+            ST_OFFSET: begin
                 if (x_scaled_prod >= 0)
-                    sx_q8 = side_csx_q8(side_right_r) + ((x_scaled_prod + 38'sd16384) >>> 15);
+                    sx_q8 <= csx_q8_r + ((x_scaled_prod + 38'sd16384) >>> 15);
                 else
-                    sx_q8 = side_csx_q8(side_right_r) + ((x_scaled_prod - 38'sd16384) >>> 15);
+                    sx_q8 <= csx_q8_r + ((x_scaled_prod - 38'sd16384) >>> 15);
 
                 if (y_scaled_prod >= 0)
-                    sy_q8 = side_csy_q8(side_right_r) + ((y_scaled_prod + 38'sd16384) >>> 15);
+                    sy_q8 <= csy_q8_r + ((y_scaled_prod + 38'sd16384) >>> 15);
                 else
-                    sy_q8 = side_csy_q8(side_right_r) + ((y_scaled_prod - 38'sd16384) >>> 15);
+                    sy_q8 <= csy_q8_r + ((y_scaled_prod - 38'sd16384) >>> 15);
 
-                sx_i = round_q8_to_int(sx_q8);
-                sy_i = round_q8_to_int(sy_q8);
-                gx_i = side_right_r ? (sx_i + RIGHT_OUTPUT_X_START) : sx_i;
+                state <= ST_CHECK;
+            end
 
-                if ((sx_i >= 0) && (sx_i < LEFT_LUT_WIDTH) &&
-                    (sy_i >= 0) && (sy_i < FRAME_HEIGHT) &&
-                    (gx_i >= 0) && (gx_i < FULL_FRAME_WIDTH)) begin
-                    src_x <= gx_i[9:0];
-                    src_y <= sy_i[9:0];
+            ST_CHECK: begin
+                if ((sx_i_w >= 0) && (sx_i_w < LEFT_LUT_WIDTH_S) &&
+                    (sy_i_w >= 0) && (sy_i_w < FRAME_HEIGHT_S) &&
+                    (gx_i_w >= 0) && (gx_i_w < FULL_FRAME_WIDTH_S)) begin
+                    src_x <= gx_i_w[9:0];
+                    src_y <= sy_i_w[9:0];
                     valid <= 1'b1;
                 end else begin
                     src_x <= 10'd0;

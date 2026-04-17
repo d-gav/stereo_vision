@@ -451,19 +451,19 @@ assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b
 
 
 reg display_right_sel;
-wire right_read_side = old_video_in_x_cood >= HALF_FRAME_WIDTH ? 1'b1 : 1'b0;
+wire right_read_side = old_video_in_x_cood >= RIGHT_OUTPUT_X_START ? 1'b1 : 1'b0;
 
 //The address for the pixel in the right bank we are writing to
 wire [9:0] right_cam_mem_x_cood ;
 
-assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
+assign right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START ;
 
 stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 	.clk(CLOCK2_50),
 	.reset_n(KEY[0]),
-	.start(read_video_start && map_enable_latched),
-	.dst_x(old_video_in_x_cood),
-	.dst_y(old_video_in_y_cood),
+	.start(read_video_start),
+	.dst_x(video_in_x_cood),
+	.dst_y(video_in_y_cood),
 	.src_x(read_video_map_x),
 	.src_y(read_video_map_y),
 	.valid(read_video_map_valid),

@@ -176,6 +176,10 @@
 					"strict" : false
 				},
 				{
+					"name" : "TD_RESET_N",
+					"strict" : false
+				},
+				{
 					"name" : "DRAM_CAS_N",
 					"strict" : false
 				},
@@ -189,10 +193,6 @@
 				},
 				{
 					"name" : "DRAM_WE_N",
-					"strict" : false
-				},
-				{
-					"name" : "TD_RESET_N",
 					"strict" : false
 				},
 				{
@@ -285,6 +285,10 @@
 				},
 				{
 					"name" : "SW[0]",
+					"strict" : false
+				},
+				{
+					"name" : "SW[3]",
 					"strict" : false
 				},
 				{

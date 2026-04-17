@@ -425,11 +425,21 @@ reg [19:0] hs_count ;
 reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
 reg [7:0] current_pixel_color1, current_pixel_color2 ;
 reg old_poly_valid;
+reg map_enable_latched;
 reg read_video_start;
-wire [9:0] read_video_x;
-wire [9:0] read_video_y;
-wire read_video_valid;
-wire read_video_done;
+wire [9:0] read_video_map_x;
+wire [9:0] read_video_map_y;
+wire read_video_map_valid;
+wire read_video_map_done;
+wire raw_read_valid =
+	(old_video_in_y_cood < FRAME_HEIGHT) &&
+	((old_video_in_x_cood < LEFT_LUT_WIDTH) ||
+	 ((old_video_in_x_cood >= RIGHT_OUTPUT_X_START) &&
+	  (old_video_in_x_cood < (RIGHT_OUTPUT_X_START + RIGHT_LUT_WIDTH))));
+wire [9:0] read_video_x = map_enable_latched ? read_video_map_x : old_video_in_x_cood;
+wire [9:0] read_video_y = map_enable_latched ? read_video_map_y : old_video_in_y_cood;
+wire read_video_valid = map_enable_latched ? read_video_map_valid : raw_read_valid;
+wire read_video_done = map_enable_latched ? read_video_map_done : 1'b1;
 
 wire [9:0] write_vga_x = old_video_in_x_cood - vga_x_cood;
 wire [9:0] write_vga_y = old_video_in_y_cood + vga_y_cood;
@@ -448,16 +458,16 @@ wire [9:0] right_cam_mem_x_cood ;
 
 assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
 
-stereo_poly_mapper_deg6_q18 stereo_poly_mapper_inst (
+stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 	.clk(CLOCK2_50),
 	.reset_n(KEY[0]),
-	.start(read_video_start),
+	.start(read_video_start && map_enable_latched),
 	.dst_x(old_video_in_x_cood),
 	.dst_y(old_video_in_y_cood),
-	.src_x(read_video_x),
-	.src_y(read_video_y),
-	.valid(read_video_valid),
-	.done(read_video_done),
+	.src_x(read_video_map_x),
+	.src_y(read_video_map_y),
+	.valid(read_video_map_valid),
+	.done(read_video_map_done),
 	.busy()
 );
 
@@ -477,6 +487,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		old_video_in_y_cood <= 0 ;
 	    bus_byte_enable <= 4'b0001;
 		old_poly_valid <= 1'b0;
+		map_enable_latched <= 1'b1;
 		read_video_start <= 1'b0;
 		display_right_sel <= SW[2];
 		timer <= 0;
@@ -492,6 +503,8 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	// bigger numbers mean slower frame update to VGA
 	if (state==0 && SW[0] && (timer & 5) == 0) begin //
 		state <= 11;
+		// SW[3]=1: radial remap, SW[3]=0: identity/bypass read.
+		map_enable_latched <= SW[3];
 		read_video_start <= 1'b1;
 		// read all the pixels in the video input
 		old_video_in_x_cood <= video_in_x_cood ;
@@ -509,7 +522,7 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		bus_byte_enable <= 4'b0001;
 	end
 
-	// Wait for the multi-cycle polynomial mapper to finish.
+	// Wait for mapper completion (or bypass immediately when mapping is disabled).
 	if (state==11 && read_video_done) begin
 		state <= 10;
 		old_poly_valid <= read_video_valid;

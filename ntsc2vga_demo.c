@@ -73,8 +73,8 @@ char shared_str[64];
 	
 #define VIDEO_IN_PIXEL(x,y,color) do{\
 	char  *pixel_ptr ;\
-	// stride = 640 = 512 + 128 -> (y<<9) + (y<<7)  \ 
-	pixel_ptr = (char *)video_in_ptr + ((y<<9) + (y<<7)) + (x) ;\
+	// X-Y mode stride for width 640 is 1024 bytes per row.\
+	pixel_ptr = (char *)video_in_ptr + ((y) * VIDEO_IN_XY_STRIDE) + (x) ;\
 	*(char *)pixel_ptr = (color);\
 } while(0)
 	
@@ -86,6 +86,13 @@ struct timespec delay_time ;
 
 #define VGA_WIDTH 640
 #define VGA_HEIGHT 480
+
+// Video-In DMA uses X-Y addressing mode in this design.
+#define VIDEO_IN_WIDTH 640U
+#define VIDEO_IN_HEIGHT 288U
+#define VIDEO_IN_XY_STRIDE 1024U
+#define VIDEO_IN_REQUIRED_SPAN (VIDEO_IN_XY_STRIDE * VIDEO_IN_HEIGHT)
+#define VIDEO_IN_MAP_SPAN ((FPGA_ONCHIP_SPAN > VIDEO_IN_REQUIRED_SPAN) ? FPGA_ONCHIP_SPAN : VIDEO_IN_REQUIRED_SPAN)
 
 static unsigned int crc32_table[256];
 static int crc32_table_initialized = 0;
@@ -250,6 +257,11 @@ int main(void)
 		video_in_resolution,
 		(video_in_resolution >> 16) & 0xFFFFU,
 		video_in_resolution & 0xFFFFU);
+	if (FPGA_ONCHIP_SPAN < VIDEO_IN_REQUIRED_SPAN) {
+		printf("Video-In mmap span expanded to %u bytes (header span %u).\n",
+			(unsigned int)VIDEO_IN_MAP_SPAN,
+			(unsigned int)FPGA_ONCHIP_SPAN);
+	}
 	h2p_lw_video_edge_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x10);
 	*h2p_lw_video_edge_control_addr = 0x01 ; // 1 means edges
 	*h2p_lw_video_edge_control_addr = 0x00 ; // 1 means edges
@@ -282,7 +294,7 @@ int main(void)
 	
 	// === get video input =======================
 	// on-chip RAM
-	video_in_virtual_base = mmap( NULL, FPGA_ONCHIP_SPAN, ( PROT_READ | PROT_WRITE ), MAP_SHARED, fd, FPGA_ONCHIP_BASE); 
+		video_in_virtual_base = mmap( NULL, VIDEO_IN_MAP_SPAN, ( PROT_READ | PROT_WRITE ), MAP_SHARED, fd, FPGA_ONCHIP_BASE); 
 	if( video_in_virtual_base == MAP_FAILED ) {
 		printf( "ERROR: mmap3() failed...\n" );
 		close( fd );
@@ -332,7 +344,7 @@ int main(void)
 	}
 
 	if (video_in_virtual_base != NULL && video_in_virtual_base != MAP_FAILED) {
-		munmap(video_in_virtual_base, FPGA_ONCHIP_SPAN);
+		munmap(video_in_virtual_base, VIDEO_IN_MAP_SPAN);
 	}
 	if (vga_pixel_virtual_base != NULL && vga_pixel_virtual_base != MAP_FAILED) {
 		munmap(vga_pixel_virtual_base, FPGA_ONCHIP_SPAN);
@@ -467,8 +479,8 @@ int save_vga_png(const char *filename)
 ****************************************************************************************/
 int  video_in_read_pixel(int x, int y){
 	char  *pixel_ptr ;
-	// stride = 640 = (y<<9) + (y<<7)
-	pixel_ptr = (char *)video_in_ptr + ((y<<9) + (y<<7)) + (x) ;
+	// X-Y mode stride for width 640 is 1024 bytes per row.
+	pixel_ptr = (char *)video_in_ptr + (y * VIDEO_IN_XY_STRIDE) + x ;
 	return *pixel_ptr ;
 }
 

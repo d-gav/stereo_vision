@@ -7,7 +7,7 @@ from typing import List
 class StereoConfig:
     input_dir: Path
     output_dir: Path
-    methods: List[str] = field(default_factory=lambda: ["bm", "sgbm", "sad"])
+    methods: List[str] = field(default_factory=lambda: ["bm", "sgbm", "sad_l1", "census_hamming"])
     swap_inputs: bool = True
     crop_height: int | None = 288
     use_clahe: bool = True
@@ -16,6 +16,17 @@ class StereoConfig:
     bm_block_size: int = 15
     sgbm_num_disparities: int = 128
     sgbm_block_size: int = 5
-    sad_max_disparity: int = 96
-    sad_window_size: int = 9
+    sad_max_disparities: List[int] = field(default_factory=lambda: [96])
+    sad_window_sizes: List[int] = field(default_factory=lambda: [9])
+    sad_vshift_values: List[int] = field(default_factory=lambda: [2])
+    sgbm_vshift_values: List[int] = field(default_factory=lambda: [0, 2, 4])
+    sgbm_vshift_block_sizes: List[int] = field(default_factory=lambda: [5])
+    sgbm_vshift_validation_windows: List[int] = field(default_factory=lambda: [7])
+    # Legacy scalar used as fallback when the list fields are empty.
+    sgbm_vshift_validation_window: int = 7
+    census_max_disparities: List[int] = field(default_factory=lambda: [64])
+    census_window_sizes: List[int] = field(default_factory=lambda: [7])
+    census_aggregation_window: int = 5
+    census_vshift_values: List[int] = field(default_factory=lambda: [2])
+    census_vshift_aggregation_windows: List[int] = field(default_factory=lambda: [5])
 

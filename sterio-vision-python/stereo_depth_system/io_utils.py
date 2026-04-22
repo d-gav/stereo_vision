@@ -55,7 +55,8 @@ def normalize_for_display(array: np.ndarray) -> np.ndarray:
         hi = lo + 1.0
 
     clipped = np.clip(arr, lo, hi)
-    normalized = ((clipped - lo) / (hi - lo) * 255.0).astype(np.uint8)
-    normalized[~finite] = 0
+    scaled = (clipped - lo) / (hi - lo) * 255.0
+    scaled = np.nan_to_num(scaled, nan=0.0, posinf=255.0, neginf=0.0)
+    normalized = np.clip(scaled, 0.0, 255.0).astype(np.uint8)
     return normalized
 

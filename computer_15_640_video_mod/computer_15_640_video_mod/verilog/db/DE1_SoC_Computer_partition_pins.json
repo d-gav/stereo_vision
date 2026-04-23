@@ -288,6 +288,10 @@
 					"strict" : false
 				},
 				{
+					"name" : "SW[3]",
+					"strict" : false
+				},
+				{
 					"name" : "TD_DATA[5]",
 					"strict" : false
 				},

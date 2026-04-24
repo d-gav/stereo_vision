@@ -39,6 +39,10 @@ python run_stereo_experiments.py `
   --crop-height 288
 ```
 
+Optional: add `--min-disparity N` to suppress low-disparity noise.
+Values below `N` are marked invalid and appear blue in preview colormaps.
+For SAD methods this is applied *after* matching (full search is still used).
+
 ### SAD-Only Grid Search (L1 + L2)
 
 ```powershell
@@ -64,10 +68,43 @@ python run_stereo_experiments.py `
   --methods "sad_l1_vshift,sad_l2_vshift" `
   --swap-inputs `
   --crop-height 288 `
+  --min-disparity 6 `
   --sad-max-disparities "48,64,96" `
   --sad-window-sizes "7,9,13" `
   --sad-vshifts "0,2,4"
 ```
+
+### Preprocessing Sweep for a Fixed SAD Configuration
+
+Use this to hold SAD parameters fixed (e.g. `d=85`, `3x3`, `vshift=3`) and test
+multiple preprocessing combinations automatically.
+
+```powershell
+python run_stereo_experiments.py `
+  --input-dir "test-images-4-19/split" `
+  --output-dir "test-images-4-19/depth-results-sad-best-pre-sweep" `
+  --methods "sad_l1_vshift,sad_l2_vshift" `
+  --swap-inputs `
+  --crop-height 288 `
+  --sad-max-disparities "85" `
+  --sad-window-widths "3" `
+  --sad-window-heights "3" `
+  --sad-vshifts "3" `
+  --preprocess-sweep `
+  --preprocess-clahe-options "off,on" `
+  --preprocess-median-ksizes "0,3,5"
+```
+
+This writes one subfolder per preprocessing variant (for example
+`pre_clahe_off_med0`, `pre_clahe_on_med3`, ...), plus
+`preprocess_sweep_summary.json` at the sweep root with per-method mean valid ratio
+for each variant.
+
+It also writes cross-variant comparison grids to:
+
+- `<output>/preprocess_grids/<pair_name>/<method>_preprocess_grid.png`
+
+where rows are median blur settings and columns are CLAHE on/off.
 
 ### SGBM with Vertical Shifts
 

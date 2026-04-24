@@ -19,6 +19,7 @@ from .io_utils import (
     save_preview_png,
 )
 from .methods import (
+    compute_census_descriptors,
     compute_census_debug_views,
     compute_census_hamming_custom,
     compute_census_hamming_custom_vshift,
@@ -77,9 +78,9 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
             "shape_used": [int(left.shape[0]), int(left.shape[1])],
             "method_results": [],
         }
-        sad_grid_cells: Dict[str, Dict[Tuple[int, int], np.ndarray]] = {"l1": {}, "l2": {}}
-        sad_vshift_disp_cells: Dict[str, Dict[Tuple[int, int, int], np.ndarray]] = {"l1": {}, "l2": {}}
-        sad_vshift_map_cells: Dict[str, Dict[Tuple[int, int, int], np.ndarray]] = {"l1": {}, "l2": {}}
+        sad_grid_cells: Dict[str, Dict[Tuple[Tuple[int, int], int], np.ndarray]] = {"l1": {}, "l2": {}}
+        sad_vshift_disp_cells: Dict[str, Dict[Tuple[int, int, int, int], np.ndarray]] = {"l1": {}, "l2": {}}
+        sad_vshift_map_cells: Dict[str, Dict[Tuple[int, int, int, int], np.ndarray]] = {"l1": {}, "l2": {}}
         sgbm_vshift_disp_cells: Dict[Tuple[int, int, int], np.ndarray] = {}
         sgbm_vshift_map_cells: Dict[Tuple[int, int, int], np.ndarray] = {}
         census_grid_cells: Dict[Tuple[int, int], np.ndarray] = {}
@@ -87,15 +88,61 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
         census_descriptor_pair_cells: Dict[Tuple[int, int], np.ndarray] = {}
         census_vshift_disp_cells: Dict[Tuple[int, int, int, int], np.ndarray] = {}
         census_vshift_map_cells: Dict[Tuple[int, int, int, int], np.ndarray] = {}
+        census_descriptor_cache: Dict[int, Tuple[np.ndarray, np.ndarray]] = {}
+        census_debug_cache: Dict[int, Dict[str, np.ndarray]] = {}
 
         pair_out_dir = cfg.output_dir / pair_name
+        pair_runs_dir = pair_out_dir / "runs"
+        pair_grids_dir = pair_out_dir / "grids"
         ensure_dir(pair_out_dir)
+        ensure_dir(pair_runs_dir)
+        ensure_dir(pair_grids_dir)
         cv2.imwrite(str(pair_out_dir / "input_left_used.png"), left)
         cv2.imwrite(str(pair_out_dir / "input_right_used.png"), right)
 
+        def _get_census_descriptors_for_window(window_size: int) -> Tuple[np.ndarray, np.ndarray]:
+            w_key = int(window_size)
+            cached = census_descriptor_cache.get(w_key)
+            if cached is not None:
+                return cached
+            left_bytes, right_bytes = compute_census_descriptors(left, right, w_key)
+            census_descriptor_cache[w_key] = (left_bytes, right_bytes)
+            return left_bytes, right_bytes
+
+        def _get_census_debug_assets(window_size: int) -> Dict[str, np.ndarray]:
+            w_key = int(window_size)
+            cached = census_debug_cache.get(w_key)
+            if cached is not None:
+                return cached
+            left_desc, right_desc = _get_census_descriptors_for_window(w_key)
+            left_debug = compute_census_debug_views(left, w_key, descriptor=left_desc)
+            right_debug = compute_census_debug_views(right, w_key, descriptor=right_desc)
+            popcount_side = _merge_left_right_debug(
+                left_debug["census_popcount"],
+                right_debug["census_popcount"],
+                left_title="Left popcount",
+                right_title="Right popcount",
+            )
+            descriptor_side = _merge_left_right_debug(
+                left_debug["census_descriptor_rgb"],
+                right_debug["census_descriptor_rgb"],
+                left_title="Left descriptor",
+                right_title="Right descriptor",
+            )
+            assets = {
+                "left_popcount": left_debug["census_popcount"],
+                "right_popcount": right_debug["census_popcount"],
+                "left_descriptor_rgb": left_debug["census_descriptor_rgb"],
+                "right_descriptor_rgb": right_debug["census_descriptor_rgb"],
+                "popcount_side": popcount_side,
+                "descriptor_side": descriptor_side,
+            }
+            census_debug_cache[w_key] = assets
+            return assets
+
         for job in method_jobs:
             method_name = job["name"]
-            method_out_dir = pair_out_dir / method_name
+            method_out_dir = pair_runs_dir / method_name
             ensure_dir(method_out_dir)
             vshift_map: np.ndarray | None = None
             vshift_value_used: int | None = None
@@ -105,7 +152,9 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
                     left=left,
                     right=right,
                     max_disparity=int(job["max_disparity"]),
-                    window_size=int(job["window_size"]),
+                    window_width=int(job["window_width"]),
+                    window_height=int(job["window_height"]),
+                    min_disparity=0,
                     cost_mode=job["cost_mode"],
                 )
             elif job["type"] == "sad_vshift":
@@ -114,7 +163,9 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
                     left=left,
                     right=right,
                     max_disparity=int(job["max_disparity"]),
-                    window_size=int(job["window_size"]),
+                    window_width=int(job["window_width"]),
+                    window_height=int(job["window_height"]),
+                    min_disparity=0,
                     max_vertical_shift=vshift_value_used,
                     cost_mode=job["cost_mode"],
                 )
@@ -126,49 +177,64 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
                     num_disparities=cfg.sgbm_num_disparities,
                     block_size=int(job.get("block_size", cfg.sgbm_block_size)),
                     max_vertical_shift=vshift_value_used,
+                    min_disparity=cfg.min_disparity,
                     validation_window=int(job.get("validation_window", cfg.sgbm_vshift_validation_window)),
+                    validation_height_scale=cfg.sgbm_vshift_validation_height_scale,
                 )
             elif job["type"] == "census":
+                win = int(job["window_size"])
+                left_desc, right_desc = _get_census_descriptors_for_window(win)
                 disparity = compute_census_hamming_custom(
                     left=left,
                     right=right,
                     max_disparity=int(job["max_disparity"]),
-                    census_window=int(job["window_size"]),
+                    census_window=win,
                     aggregation_window=int(job["aggregation_window"]),
+                    min_disparity=cfg.min_disparity,
+                    left_desc=left_desc,
+                    right_desc=right_desc,
                 )
-                left_debug = compute_census_debug_views(left, int(job["window_size"]))
-                right_debug = compute_census_debug_views(right, int(job["window_size"]))
-                cv2.imwrite(str(method_out_dir / "census_left_popcount.png"), left_debug["census_popcount"])
-                cv2.imwrite(str(method_out_dir / "census_right_popcount.png"), right_debug["census_popcount"])
-                cv2.imwrite(str(method_out_dir / "census_left_descriptor_rgb.png"), left_debug["census_descriptor_rgb"])
-                cv2.imwrite(str(method_out_dir / "census_right_descriptor_rgb.png"), right_debug["census_descriptor_rgb"])
-
-                popcount_side = _merge_left_right_debug(
-                    left_debug["census_popcount"],
-                    right_debug["census_popcount"],
-                    left_title="Left popcount",
-                    right_title="Right popcount",
-                )
-                descriptor_side = _merge_left_right_debug(
-                    left_debug["census_descriptor_rgb"],
-                    right_debug["census_descriptor_rgb"],
-                    left_title="Left descriptor",
-                    right_title="Right descriptor",
-                )
-                cv2.imwrite(str(method_out_dir / "census_popcount_side_by_side.png"), popcount_side)
-                cv2.imwrite(str(method_out_dir / "census_descriptor_side_by_side.png"), descriptor_side)
+                debug_assets = _get_census_debug_assets(win)
+                cv2.imwrite(str(method_out_dir / "census_left_popcount.png"), debug_assets["left_popcount"])
+                cv2.imwrite(str(method_out_dir / "census_right_popcount.png"), debug_assets["right_popcount"])
+                cv2.imwrite(str(method_out_dir / "census_left_descriptor_rgb.png"), debug_assets["left_descriptor_rgb"])
+                cv2.imwrite(str(method_out_dir / "census_right_descriptor_rgb.png"), debug_assets["right_descriptor_rgb"])
+                cv2.imwrite(str(method_out_dir / "census_popcount_side_by_side.png"), debug_assets["popcount_side"])
+                cv2.imwrite(str(method_out_dir / "census_descriptor_side_by_side.png"), debug_assets["descriptor_side"])
+                popcount_side = debug_assets["popcount_side"]
+                descriptor_side = debug_assets["descriptor_side"]
             elif job["type"] == "census_vshift":
                 vshift_value_used = int(job["max_vertical_shift"])
+                win = int(job["window_size"])
+                left_desc, right_desc = _get_census_descriptors_for_window(win)
                 disparity, vshift_map = compute_census_hamming_custom_vshift(
                     left=left,
                     right=right,
                     max_disparity=int(job["max_disparity"]),
-                    census_window=int(job["window_size"]),
+                    census_window=win,
                     aggregation_window=int(job["aggregation_window"]),
                     max_vertical_shift=vshift_value_used,
+                    min_disparity=cfg.min_disparity,
+                    left_desc=left_desc,
+                    right_desc=right_desc,
                 )
+                debug_assets = _get_census_debug_assets(win)
+                cv2.imwrite(str(method_out_dir / "census_left_popcount.png"), debug_assets["left_popcount"])
+                cv2.imwrite(str(method_out_dir / "census_right_popcount.png"), debug_assets["right_popcount"])
+                cv2.imwrite(str(method_out_dir / "census_left_descriptor_rgb.png"), debug_assets["left_descriptor_rgb"])
+                cv2.imwrite(str(method_out_dir / "census_right_descriptor_rgb.png"), debug_assets["right_descriptor_rgb"])
+                cv2.imwrite(str(method_out_dir / "census_popcount_side_by_side.png"), debug_assets["popcount_side"])
+                cv2.imwrite(str(method_out_dir / "census_descriptor_side_by_side.png"), debug_assets["descriptor_side"])
             else:
                 disparity = methods[job["method"]](left, right, cfg)
+
+            # For SAD variants, keep full disparity search but post-mask tiny disparities
+            # so noise is visualized as invalid (dark blue in colormaps).
+            if job["type"] in {"sad", "sad_vshift"} and cfg.min_disparity > 0:
+                low_disp_mask = np.isfinite(disparity) & (disparity < float(cfg.min_disparity))
+                disparity[low_disp_mask] = np.nan
+                if vshift_map is not None:
+                    vshift_map[low_disp_mask] = np.nan
             depth = disparity_to_relative_depth(disparity)
 
             save_float_map(method_out_dir / "disparity.npy", disparity)
@@ -190,14 +256,16 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
 
             sad_meta = _parse_sad_variant(method_name)
             if sad_meta is not None:
-                sad_grid_cells[sad_meta["cost_mode"]][(sad_meta["window_size"], sad_meta["max_disparity"])] = color_disp
+                sad_window = (int(sad_meta["window_height"]), int(sad_meta["window_width"]))
+                sad_grid_cells[sad_meta["cost_mode"]][(sad_window, int(sad_meta["max_disparity"]))] = color_disp
 
             sad_vshift_meta = _parse_sad_vshift_variant(method_name)
             if sad_vshift_meta is not None:
                 key = (
-                    sad_vshift_meta["vshift"],
-                    sad_vshift_meta["window_size"],
-                    sad_vshift_meta["max_disparity"],
+                    int(sad_vshift_meta["vshift"]),
+                    int(sad_vshift_meta["window_height"]),
+                    int(sad_vshift_meta["window_width"]),
+                    int(sad_vshift_meta["max_disparity"]),
                 )
                 sad_vshift_disp_cells[sad_vshift_meta["cost_mode"]][key] = color_disp
                 if vshift_color is not None:
@@ -237,18 +305,21 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
                 method_stats.update(_vshift_stats(vshift_map, vshift_value_used))
             pair_result["method_results"].append(method_stats)
 
-        grid_paths = _write_sad_grids(pair_out_dir, sad_grid_cells)
+        grid_paths = _write_sad_grids(pair_grids_dir, sad_grid_cells)
         if grid_paths:
             pair_result["sad_grid_paths"] = grid_paths
         sad_vshift_grid_paths = _write_sad_vshift_grids(
-            pair_out_dir=pair_out_dir,
+            pair_out_dir=pair_grids_dir,
             sad_vshift_disp_cells=sad_vshift_disp_cells,
             sad_vshift_map_cells=sad_vshift_map_cells,
+            row_param=cfg.sad_vshift_grid_row_param,
+            col_param=cfg.sad_vshift_grid_col_param,
+            panel_param=cfg.sad_vshift_grid_panel_param,
         )
         if sad_vshift_grid_paths:
             pair_result["sad_vshift_grid_paths"] = sad_vshift_grid_paths
         sgbm_vshift_grid_paths = _write_sgbm_vshift_grids(
-            pair_out_dir=pair_out_dir,
+            pair_out_dir=pair_grids_dir,
             sgbm_vshift_disp_cells=sgbm_vshift_disp_cells,
             sgbm_vshift_map_cells=sgbm_vshift_map_cells,
         )
@@ -263,18 +334,18 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
                 "vshift_abs_mean": best_sgbm.get("vshift_abs_mean"),
                 "output_dir": best_sgbm["output_dir"],
             }
-        census_grid_paths = _write_census_grids(pair_out_dir, census_grid_cells)
+        census_grid_paths = _write_census_grids(pair_grids_dir, census_grid_cells)
         if census_grid_paths:
             pair_result["census_grid_paths"] = census_grid_paths
         census_transform_grid_paths = _write_census_transform_grids(
-            pair_out_dir=pair_out_dir,
+            pair_out_dir=pair_grids_dir,
             census_popcount_pair_cells=census_popcount_pair_cells,
             census_descriptor_pair_cells=census_descriptor_pair_cells,
         )
         if census_transform_grid_paths:
             pair_result["census_transform_grid_paths"] = census_transform_grid_paths
         census_vshift_grid_paths = _write_census_vshift_grids(
-            pair_out_dir=pair_out_dir,
+            pair_out_dir=pair_grids_dir,
             census_vshift_disp_cells=census_vshift_disp_cells,
             census_vshift_map_cells=census_vshift_map_cells,
         )
@@ -308,7 +379,10 @@ def run_pipeline(cfg: StereoConfig) -> Dict[str, Any]:
 def _build_method_jobs(cfg: StereoConfig, selected: List[str]) -> List[Dict[str, Any]]:
     jobs: List[Dict[str, Any]] = []
     max_disps = [max(1, int(v)) for v in cfg.sad_max_disparities]
-    windows = [max(3, int(v)) for v in cfg.sad_window_sizes]
+    raw_widths = cfg.sad_window_widths or cfg.sad_window_sizes
+    raw_heights = cfg.sad_window_heights or cfg.sad_window_sizes
+    sad_widths = _unique_preserve_order_ints([_ensure_odd_min(v, 3) for v in raw_widths]) or [9]
+    sad_heights = _unique_preserve_order_ints([_ensure_odd_min(v, 3) for v in raw_heights]) or [9]
     sad_vshifts = [max(0, int(v)) for v in cfg.sad_vshift_values] or [0]
     sgbm_vshifts = [max(0, int(v)) for v in cfg.sgbm_vshift_values] or [0]
     census_disps = [max(1, int(v)) for v in cfg.census_max_disparities]
@@ -318,60 +392,68 @@ def _build_method_jobs(cfg: StereoConfig, selected: List[str]) -> List[Dict[str,
     for method in selected:
         if method in {"sad", "sad_l1"}:
             for d in max_disps:
-                for w in windows:
-                    jobs.append(
-                        {
-                            "name": f"sad_l1_d{d}_w{w}",
-                            "type": "sad",
-                            "method": method,
-                            "cost_mode": "l1",
-                            "max_disparity": d,
-                            "window_size": w,
-                        }
-                    )
-        elif method == "sad_l2":
-            for d in max_disps:
-                for w in windows:
-                    jobs.append(
-                        {
-                            "name": f"sad_l2_d{d}_w{w}",
-                            "type": "sad",
-                            "method": method,
-                            "cost_mode": "l2",
-                            "max_disparity": d,
-                            "window_size": w,
-                        }
-                    )
-        elif method in {"sad_vshift", "sad_l1_vshift"}:
-            for v in sad_vshifts:
-                for d in max_disps:
-                    for w in windows:
+                for h in sad_heights:
+                    for w in sad_widths:
                         jobs.append(
                             {
-                                "name": f"sad_l1_vs{v}_d{d}_w{w}",
-                                "type": "sad_vshift",
+                                "name": f"sad_l1_d{d}_h{h}_w{w}",
+                                "type": "sad",
                                 "method": method,
                                 "cost_mode": "l1",
                                 "max_disparity": d,
-                                "window_size": w,
-                                "max_vertical_shift": v,
+                                "window_width": w,
+                                "window_height": h,
                             }
                         )
-        elif method == "sad_l2_vshift":
-            for v in sad_vshifts:
-                for d in max_disps:
-                    for w in windows:
+        elif method == "sad_l2":
+            for d in max_disps:
+                for h in sad_heights:
+                    for w in sad_widths:
                         jobs.append(
                             {
-                                "name": f"sad_l2_vs{v}_d{d}_w{w}",
-                                "type": "sad_vshift",
+                                "name": f"sad_l2_d{d}_h{h}_w{w}",
+                                "type": "sad",
                                 "method": method,
                                 "cost_mode": "l2",
                                 "max_disparity": d,
-                                "window_size": w,
-                                "max_vertical_shift": v,
+                                "window_width": w,
+                                "window_height": h,
                             }
                         )
+        elif method in {"sad_vshift", "sad_l1_vshift"}:
+            for v in sad_vshifts:
+                for d in max_disps:
+                    for h in sad_heights:
+                        for w in sad_widths:
+                            jobs.append(
+                                {
+                                    "name": f"sad_l1_vs{v}_d{d}_h{h}_w{w}",
+                                    "type": "sad_vshift",
+                                    "method": method,
+                                    "cost_mode": "l1",
+                                    "max_disparity": d,
+                                    "window_width": w,
+                                    "window_height": h,
+                                    "max_vertical_shift": v,
+                                }
+                            )
+        elif method == "sad_l2_vshift":
+            for v in sad_vshifts:
+                for d in max_disps:
+                    for h in sad_heights:
+                        for w in sad_widths:
+                            jobs.append(
+                                {
+                                    "name": f"sad_l2_vs{v}_d{d}_h{h}_w{w}",
+                                    "type": "sad_vshift",
+                                    "method": method,
+                                    "cost_mode": "l2",
+                                    "max_disparity": d,
+                                    "window_width": w,
+                                    "window_height": h,
+                                    "max_vertical_shift": v,
+                                }
+                            )
         elif method == "sgbm_vshift":
             raw_bs = [_ensure_odd_min(v, 3) for v in cfg.sgbm_vshift_block_sizes]
             raw_vw = [_ensure_odd_min(v, 3) for v in cfg.sgbm_vshift_validation_windows]
@@ -436,26 +518,47 @@ def _build_method_jobs(cfg: StereoConfig, selected: List[str]) -> List[Dict[str,
 
 
 def _parse_sad_variant(method_name: str) -> Dict[str, int | str] | None:
-    match = re.fullmatch(r"sad_(l1|l2)_d(\d+)_w(\d+)", method_name)
-    if not match:
-        return None
-    return {
-        "cost_mode": match.group(1),
-        "max_disparity": int(match.group(2)),
-        "window_size": int(match.group(3)),
-    }
+    match = re.fullmatch(r"sad_(l1|l2)_d(\d+)_h(\d+)_w(\d+)", method_name)
+    if match:
+        return {
+            "cost_mode": match.group(1),
+            "max_disparity": int(match.group(2)),
+            "window_height": int(match.group(3)),
+            "window_width": int(match.group(4)),
+        }
+    match_legacy = re.fullmatch(r"sad_(l1|l2)_d(\d+)_w(\d+)", method_name)
+    if match_legacy:
+        w = int(match_legacy.group(3))
+        return {
+            "cost_mode": match_legacy.group(1),
+            "max_disparity": int(match_legacy.group(2)),
+            "window_height": w,
+            "window_width": w,
+        }
+    return None
 
 
 def _parse_sad_vshift_variant(method_name: str) -> Dict[str, int | str] | None:
-    match = re.fullmatch(r"sad_(l1|l2)_vs(\d+)_d(\d+)_w(\d+)", method_name)
-    if not match:
-        return None
-    return {
-        "cost_mode": match.group(1),
-        "vshift": int(match.group(2)),
-        "max_disparity": int(match.group(3)),
-        "window_size": int(match.group(4)),
-    }
+    match = re.fullmatch(r"sad_(l1|l2)_vs(\d+)_d(\d+)_h(\d+)_w(\d+)", method_name)
+    if match:
+        return {
+            "cost_mode": match.group(1),
+            "vshift": int(match.group(2)),
+            "max_disparity": int(match.group(3)),
+            "window_height": int(match.group(4)),
+            "window_width": int(match.group(5)),
+        }
+    match_legacy = re.fullmatch(r"sad_(l1|l2)_vs(\d+)_d(\d+)_w(\d+)", method_name)
+    if match_legacy:
+        w = int(match_legacy.group(4))
+        return {
+            "cost_mode": match_legacy.group(1),
+            "vshift": int(match_legacy.group(2)),
+            "max_disparity": int(match_legacy.group(3)),
+            "window_height": w,
+            "window_width": w,
+        }
+    return None
 
 
 def _parse_sgbm_vshift_variant(method_name: str) -> Dict[str, int] | None:
@@ -501,7 +604,7 @@ def _parse_census_vshift_variant(method_name: str) -> Dict[str, int] | None:
 
 def _write_sad_grids(
     pair_out_dir: Path,
-    sad_grid_cells: Dict[str, Dict[Tuple[int, int], np.ndarray]],
+    sad_grid_cells: Dict[str, Dict[Tuple[Tuple[int, int], int], np.ndarray]],
 ) -> Dict[str, str]:
     out: Dict[str, str] = {}
     rendered: Dict[str, np.ndarray] = {}
@@ -588,39 +691,50 @@ def _write_census_transform_grids(
 
 def _write_sad_vshift_grids(
     pair_out_dir: Path,
-    sad_vshift_disp_cells: Dict[str, Dict[Tuple[int, int, int], np.ndarray]],
-    sad_vshift_map_cells: Dict[str, Dict[Tuple[int, int, int], np.ndarray]],
+    sad_vshift_disp_cells: Dict[str, Dict[Tuple[int, int, int, int], np.ndarray]],
+    sad_vshift_map_cells: Dict[str, Dict[Tuple[int, int, int, int], np.ndarray]],
+    row_param: str,
+    col_param: str,
+    panel_param: str,
 ) -> Dict[str, str]:
     """Build grids for SAD-with-vertical-shift experiments.
 
-    For each cost mode, produce one (w x d) grid per vshift value, then stack
-    all per-vshift grids into a single combined image labeled with the vshift.
-    Also produce a parallel set of grids showing the per-pixel chosen vshift map.
+    For each cost mode, produce one (row_param x col_param) panel per panel_param
+    value. Any remaining parameters not assigned to row/col/panel are grouped into
+    separate panel sets and included in panel titles.
     """
     out: Dict[str, str] = {}
     rendered_disp: Dict[str, np.ndarray] = {}
+    valid_params = {"window_height", "window_width", "vshift", "max_disparity"}
+    row = row_param if row_param in valid_params else "window_height"
+    col = col_param if col_param in valid_params else "vshift"
+    panel = panel_param if panel_param in valid_params else "max_disparity"
+    if col == row:
+        # Keep user intent for rows, fallback columns to vshift.
+        col = "vshift" if row != "vshift" else "window_width"
+    if panel == row or panel == col:
+        for candidate in ("max_disparity", "vshift", "window_height", "window_width"):
+            if candidate != row and candidate != col:
+                panel = candidate
+                break
 
     for cost_mode in ("l1", "l2"):
         cells = sad_vshift_disp_cells[cost_mode]
         if not cells:
             continue
 
-        per_vshift_images: List[Tuple[int, np.ndarray]] = []
-        vshift_values = sorted({k[0] for k in cells.keys()})
-        for v in vshift_values:
-            sub_cells = {(k[1], k[2]): img for k, img in cells.items() if k[0] == v}
-            if not sub_cells:
-                continue
-            windows = sorted({k[0] for k in sub_cells.keys()})
-            max_disparities = sorted({k[1] for k in sub_cells.keys()})
-            title = f"SAD {cost_mode.upper()} vshift=+/-{v} disparity"
-            grid = _build_labeled_grid(sub_cells, windows, max_disparities, title)
-            per_vshift_images.append((v, grid))
-
-        if not per_vshift_images:
+        panels = _build_sad_param_panels(
+            cells=cells,
+            cost_mode=cost_mode,
+            row_param=row,
+            col_param=col,
+            panel_param=panel,
+            is_map=False,
+        )
+        if not panels:
             continue
 
-        combined = _stack_with_padding([img for _, img in per_vshift_images], gap=24)
+        combined = _stack_with_padding(panels, gap=24)
         path = pair_out_dir / f"sad_{cost_mode}_vshift_grid.png"
         cv2.imwrite(str(path), combined)
         out[f"sad_{cost_mode}_vshift_grid"] = str(path)
@@ -637,26 +751,105 @@ def _write_sad_vshift_grids(
         if not cells:
             continue
 
-        per_vshift_images: List[Tuple[int, np.ndarray]] = []
-        vshift_values = sorted({k[0] for k in cells.keys()})
-        for v in vshift_values:
-            sub_cells = {(k[1], k[2]): img for k, img in cells.items() if k[0] == v}
-            if not sub_cells:
-                continue
-            windows = sorted({k[0] for k in sub_cells.keys()})
-            max_disparities = sorted({k[1] for k in sub_cells.keys()})
-            title = f"SAD {cost_mode.upper()} vshift=+/-{v} chosen-row (blue=up, green=0, red=down)"
-            grid = _build_labeled_grid(sub_cells, windows, max_disparities, title)
-            per_vshift_images.append((v, grid))
-
-        if not per_vshift_images:
+        panels = _build_sad_param_panels(
+            cells=cells,
+            cost_mode=cost_mode,
+            row_param=row,
+            col_param=col,
+            panel_param=panel,
+            is_map=True,
+        )
+        if not panels:
             continue
-        combined = _stack_with_padding([img for _, img in per_vshift_images], gap=24)
+        combined = _stack_with_padding(panels, gap=24)
         path = pair_out_dir / f"sad_{cost_mode}_vshift_map_grid.png"
         cv2.imwrite(str(path), combined)
         out[f"sad_{cost_mode}_vshift_map_grid"] = str(path)
 
     return out
+
+
+def _build_sad_param_panels(
+    cells: Dict[Tuple[int, int, int, int], np.ndarray],
+    cost_mode: str,
+    row_param: str,
+    col_param: str,
+    panel_param: str,
+    is_map: bool,
+) -> List[np.ndarray]:
+    # Key order: (vshift, window_height, window_width, max_disparity)
+    remaining = [p for p in ("vshift", "window_height", "window_width", "max_disparity") if p not in {row_param, col_param, panel_param}]
+    remaining_a = remaining[0] if remaining else None
+    remaining_b = remaining[1] if len(remaining) > 1 else None
+
+    def value_for(param: str, key: Tuple[int, int, int, int]) -> int:
+        if param == "vshift":
+            return int(key[0])
+        if param == "window_height":
+            return int(key[1])
+        if param == "window_width":
+            return int(key[2])
+        if param == "max_disparity":
+            return int(key[3])
+        return 0
+
+    group_keys = sorted(
+        {
+            (
+                value_for(panel_param, key),
+                value_for(remaining_a, key) if remaining_a is not None else -1,
+                value_for(remaining_b, key) if remaining_b is not None else -1,
+            )
+            for key in cells.keys()
+        }
+    )
+    panels: List[np.ndarray] = []
+    for panel_value, rem_a_val, rem_b_val in group_keys:
+        sub: Dict[Tuple[int, int], np.ndarray] = {}
+        for key, img in cells.items():
+            if value_for(panel_param, key) != panel_value:
+                continue
+            if remaining_a is not None and value_for(remaining_a, key) != rem_a_val:
+                continue
+            if remaining_b is not None and value_for(remaining_b, key) != rem_b_val:
+                continue
+            r = value_for(row_param, key)
+            c = value_for(col_param, key)
+            sub[(r, c)] = img
+        if not sub:
+            continue
+
+        row_values = sorted({k[0] for k in sub.keys()})
+        col_values = sorted({k[1] for k in sub.keys()})
+        mode_label = "chosen-row" if is_map else "disparity"
+        title_parts = [f"SAD {cost_mode.upper()} {mode_label}", f"{_short_param_label(panel_param)}={panel_value}"]
+        if remaining_a is not None:
+            title_parts.append(f"{_short_param_label(remaining_a)}={rem_a_val}")
+        if remaining_b is not None:
+            title_parts.append(f"{_short_param_label(remaining_b)}={rem_b_val}")
+        if is_map:
+            title_parts.append("(B=up, G=0, R=down)")
+        title = ", ".join(title_parts)
+        panels.append(
+            _build_row_col_grid(
+                cells=sub,
+                row_values=row_values,
+                col_values=col_values,
+                row_label=_short_param_label(row_param),
+                col_label=_short_param_label(col_param),
+                title=title,
+            )
+        )
+    return panels
+
+
+def _short_param_label(param: str) -> str:
+    return {
+        "vshift": "vs",
+        "window_height": "h",
+        "window_width": "w",
+        "max_disparity": "d",
+    }.get(param, param)
 
 
 def _write_sgbm_vshift_grids(
@@ -739,8 +932,10 @@ def _write_census_vshift_grids(
     """Build Census + Hamming vshift grids.
 
     Cells are keyed by (vshift, aggregation_window, census_window, max_disparity).
-    For each (vshift, aggregation_window) group, build a (census_w x max_disp)
-    grid and stack all groups vertically with titles.
+    We render *sets of square grids* where:
+      - columns = vshift
+      - rows = census window size
+    and each set is for one (aggregation_window, max_disparity) combo.
     """
     out: Dict[str, str] = {}
 
@@ -752,23 +947,27 @@ def _write_census_vshift_grids(
             return None
         vshifts = sorted({k[0] for k in cells.keys()})
         agg_wins = sorted({k[1] for k in cells.keys()})
+        max_disparities = sorted({k[3] for k in cells.keys()})
 
         groups: List[np.ndarray] = []
-        for v in vshifts:
-            for a in agg_wins:
+        for a in agg_wins:
+            for d in max_disparities:
                 sub: Dict[Tuple[int, int], np.ndarray] = {}
                 for (v_k, a_k, w_k, d_k), img in cells.items():
-                    if v_k == v and a_k == a:
-                        sub[(w_k, d_k)] = img
+                    if a_k == a and d_k == d:
+                        # row = window size, col = vshift
+                        sub[(w_k, v_k)] = img
                 if not sub:
                     continue
                 windows = sorted({k[0] for k in sub.keys()})
-                max_disparities = sorted({k[1] for k in sub.keys()})
-                grid = _build_labeled_grid(
+                shifts = sorted({k[1] for k in sub.keys()})
+                grid = _build_row_col_grid(
                     cells=sub,
-                    windows=windows,
-                    max_disparities=max_disparities,
-                    title=f"{title_base} [vs=+/-{v}, aw={a}]",
+                    row_values=windows,
+                    col_values=shifts,
+                    row_label="w",
+                    col_label="vs",
+                    title=f"{title_base} [aw={a}, d={d}]",
                 )
                 groups.append(grid)
 
@@ -841,9 +1040,10 @@ def _build_row_col_grid(
 
     for i, r in enumerate(row_values):
         y = top_h + gap + i * (cell_h + gap)
+        row_text = _format_window_label(r) if row_label.startswith("w") else str(r)
         cv2.putText(
             canvas,
-            f"{row_label}={r}",
+            f"{row_label}={row_text}",
             (12, y + cell_h // 2),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.6,
@@ -955,7 +1155,8 @@ def _build_labeled_grid(
 
     for i, w in enumerate(windows):
         y = top_h + gap + i * (cell_h + gap)
-        cv2.putText(canvas, f"w={w}", (16, y + cell_h // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
+        w_text = _format_window_label(w)
+        cv2.putText(canvas, f"w={w_text}", (16, y + cell_h // 2), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (255, 255, 255), 2, cv2.LINE_AA)
         for j, d in enumerate(max_disparities):
             x = left_w + gap + j * (cell_w + gap)
             cell = cells.get((w, d))
@@ -1027,6 +1228,13 @@ def _ensure_bgr(image: np.ndarray) -> np.ndarray:
     if image.ndim == 2:
         return cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     return image
+
+
+def _format_window_label(window_value: Any) -> str:
+    if isinstance(window_value, tuple) and len(window_value) == 2:
+        h, w = window_value
+        return f"{h}x{w}"
+    return str(window_value)
 
 
 def _ensure_odd_min(value: int, min_value: int) -> int:

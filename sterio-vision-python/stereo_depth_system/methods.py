@@ -15,20 +15,22 @@ POPCOUNT_LUT = np.array([bin(i).count("1") for i in range(256)], dtype=np.uint8)
 def compute_bm(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
     num_disp = _normalize_num_disparities(cfg.bm_num_disparities)
     block_size = _normalize_odd(cfg.bm_block_size, min_value=5)
+    min_disp = max(0, int(cfg.min_disparity))
 
     matcher = cv2.StereoBM_create(numDisparities=num_disp, blockSize=block_size)
     disp = matcher.compute(left, right).astype(np.float32) / 16.0
-    disp[disp < 0] = np.nan
+    disp[disp < min_disp] = np.nan
     return disp
 
 
 def compute_sgbm(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
     num_disp = _normalize_num_disparities(cfg.sgbm_num_disparities)
     block_size = _normalize_odd(cfg.sgbm_block_size, min_value=3)
+    min_disp = max(0, int(cfg.min_disparity))
     channels = 1
 
     matcher = cv2.StereoSGBM_create(
-        minDisparity=0,
+        minDisparity=min_disp,
         numDisparities=num_disp,
         blockSize=block_size,
         P1=8 * channels * (block_size**2),
@@ -42,7 +44,7 @@ def compute_sgbm(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.n
     )
 
     disp = matcher.compute(left, right).astype(np.float32) / 16.0
-    disp[disp < 0] = np.nan
+    disp[disp < min_disp] = np.nan
     return disp
 
 
@@ -50,26 +52,33 @@ def compute_sad_custom(
     left: np.ndarray,
     right: np.ndarray,
     max_disparity: int,
-    window_size: int,
+    window_width: int,
+    window_height: int,
+    min_disparity: int,
     cost_mode: Literal["l1", "l2"],
 ) -> np.ndarray:
     max_disp = max(1, int(max_disparity))
-    win = _normalize_odd(window_size, min_value=3)
-    half = win // 2
+    min_disp = max(0, int(min_disparity))
+    if min_disp > max_disp:
+        min_disp = max_disp
+    win_w = _normalize_odd(window_width, min_value=3)
+    win_h = _normalize_odd(window_height, min_value=3)
+    half_w = win_w // 2
+    half_h = win_h // 2
 
     left_f = left.astype(np.float32)
     right_f = right.astype(np.float32)
     h, w = left.shape
     disparity = np.full((h, w), np.nan, dtype=np.float32)
 
-    if w <= max_disp + 2 * half or h <= 2 * half:
+    if w <= max_disp + 2 * half_w or h <= 2 * half_h:
         return disparity
 
     best_cost = np.full((h, w), np.inf, dtype=np.float32)
     best_disp = np.zeros((h, w), dtype=np.float32)
 
     # Use C-optimized filtering for window aggregation, and only loop over disparity.
-    for d in range(0, max_disp + 1):
+    for d in range(min_disp, max_disp + 1):
         shifted = np.zeros_like(right_f)
         if d == 0:
             shifted[:, :] = right_f
@@ -85,18 +94,19 @@ def compute_sad_custom(
         agg_cost = cv2.boxFilter(
             pixel_cost,
             ddepth=-1,
-            ksize=(win, win),
+            ksize=(win_w, win_h),
             normalize=False,
             borderType=cv2.BORDER_REPLICATE,
         )
 
         # Force invalid regions to +inf for this disparity.
-        if d + half > 0:
-            agg_cost[:, : d + half] = np.inf
-        if half > 0:
-            agg_cost[:, w - half :] = np.inf
-            agg_cost[:half, :] = np.inf
-            agg_cost[h - half :, :] = np.inf
+        if d + half_w > 0:
+            agg_cost[:, : d + half_w] = np.inf
+        if half_w > 0:
+            agg_cost[:, w - half_w :] = np.inf
+        if half_h > 0:
+            agg_cost[:half_h, :] = np.inf
+            agg_cost[h - half_h :, :] = np.inf
 
         improve = agg_cost < best_cost
         best_cost[improve] = agg_cost[improve]
@@ -109,21 +119,29 @@ def compute_sad_custom(
 
 
 def compute_sad_l1(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
+    widths = cfg.sad_window_widths or cfg.sad_window_sizes
+    heights = cfg.sad_window_heights or cfg.sad_window_sizes
     return compute_sad_custom(
         left,
         right,
         max_disparity=cfg.sad_max_disparities[0],
-        window_size=cfg.sad_window_sizes[0],
+        window_width=widths[0],
+        window_height=heights[0],
+        min_disparity=0,
         cost_mode="l1",
     )
 
 
 def compute_sad_l2(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
+    widths = cfg.sad_window_widths or cfg.sad_window_sizes
+    heights = cfg.sad_window_heights or cfg.sad_window_sizes
     return compute_sad_custom(
         left,
         right,
         max_disparity=cfg.sad_max_disparities[0],
-        window_size=cfg.sad_window_sizes[0],
+        window_width=widths[0],
+        window_height=heights[0],
+        min_disparity=0,
         cost_mode="l2",
     )
 
@@ -132,7 +150,9 @@ def compute_sad_custom_vshift(
     left: np.ndarray,
     right: np.ndarray,
     max_disparity: int,
-    window_size: int,
+    window_width: int,
+    window_height: int,
+    min_disparity: int,
     max_vertical_shift: int,
     cost_mode: Literal["l1", "l2"],
 ) -> Tuple[np.ndarray, np.ndarray]:
@@ -147,8 +167,13 @@ def compute_sad_custom_vshift(
     Returns (disparity, vshift_map); both have NaN where no valid match was found.
     """
     max_disp = max(1, int(max_disparity))
-    win = _normalize_odd(window_size, min_value=3)
-    half = win // 2
+    min_disp = max(0, int(min_disparity))
+    if min_disp > max_disp:
+        min_disp = max_disp
+    win_w = _normalize_odd(window_width, min_value=3)
+    win_h = _normalize_odd(window_height, min_value=3)
+    half_w = win_w // 2
+    half_h = win_h // 2
     vmax = max(0, int(max_vertical_shift))
 
     left_f = left.astype(np.float32)
@@ -157,7 +182,7 @@ def compute_sad_custom_vshift(
     disparity = np.full((h, w), np.nan, dtype=np.float32)
     vshift_map = np.full((h, w), np.nan, dtype=np.float32)
 
-    if w <= max_disp + 2 * half or h <= 2 * half + 2 * vmax:
+    if w <= max_disp + 2 * half_w or h <= 2 * half_h + 2 * vmax:
         return disparity, vshift_map
 
     best_cost = np.full((h, w), np.inf, dtype=np.float32)
@@ -167,7 +192,7 @@ def compute_sad_custom_vshift(
     for vy in range(-vmax, vmax + 1):
         shifted_v = _shift_image_vertical(right_f, vy)
 
-        for d in range(0, max_disp + 1):
+        for d in range(min_disp, max_disp + 1):
             shifted = np.zeros_like(right_f)
             if d == 0:
                 shifted[:, :] = shifted_v
@@ -183,17 +208,17 @@ def compute_sad_custom_vshift(
             agg_cost = cv2.boxFilter(
                 pixel_cost,
                 ddepth=-1,
-                ksize=(win, win),
+                ksize=(win_w, win_h),
                 normalize=False,
                 borderType=cv2.BORDER_REPLICATE,
             )
 
-            if d + half > 0:
-                agg_cost[:, : d + half] = np.inf
-            if half > 0:
-                agg_cost[:, w - half :] = np.inf
-            top_invalid = half + max(0, vy)
-            bot_invalid = half + max(0, -vy)
+            if d + half_w > 0:
+                agg_cost[:, : d + half_w] = np.inf
+            if half_w > 0:
+                agg_cost[:, w - half_w :] = np.inf
+            top_invalid = half_h + max(0, vy)
+            bot_invalid = half_h + max(0, -vy)
             if top_invalid > 0:
                 agg_cost[:top_invalid, :] = np.inf
             if bot_invalid > 0:
@@ -216,7 +241,9 @@ def compute_sgbm_vshift(
     num_disparities: int,
     block_size: int,
     max_vertical_shift: int,
+    min_disparity: int = 0,
     validation_window: int = 7,
+    validation_height_scale: int = 1,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Run SGBM at multiple vertical offsets of the right image and pick the best per pixel.
 
@@ -229,9 +256,12 @@ def compute_sgbm_vshift(
     Returns (disparity, vshift_map).
     """
     num_disp = _normalize_num_disparities(num_disparities)
+    min_disp = max(0, int(min_disparity))
     bs = _normalize_odd(block_size, min_value=3)
     vmax = max(0, int(max_vertical_shift))
     val_win = _normalize_odd(validation_window, min_value=3)
+    val_scale = max(1, int(validation_height_scale))
+    val_win_h = _normalize_odd(val_win * val_scale, min_value=3)
     channels = 1
 
     h, w = left.shape
@@ -248,7 +278,7 @@ def compute_sgbm_vshift(
         right_shifted = _shift_image_vertical(right, vy).astype(right.dtype)
 
         matcher = cv2.StereoSGBM_create(
-            minDisparity=0,
+            minDisparity=min_disp,
             numDisparities=num_disp,
             blockSize=bs,
             P1=8 * channels * (bs**2),
@@ -261,7 +291,7 @@ def compute_sgbm_vshift(
             mode=cv2.STEREO_SGBM_MODE_SGBM_3WAY,
         )
         disp_raw = matcher.compute(left, right_shifted).astype(np.float32) / 16.0
-        valid_sgbm = disp_raw > 0
+        valid_sgbm = disp_raw >= min_disp
 
         right_shifted_f = right_shifted.astype(np.float32)
         src_x = xs_grid.astype(np.float32) - disp_raw
@@ -272,7 +302,7 @@ def compute_sgbm_vshift(
         cost = cv2.boxFilter(
             pixel_cost,
             ddepth=-1,
-            ksize=(val_win, val_win),
+            ksize=(val_win, val_win_h),
             normalize=False,
             borderType=cv2.BORDER_REPLICATE,
         )
@@ -359,8 +389,14 @@ def compute_census_hamming_custom(
     max_disparity: int,
     census_window: int,
     aggregation_window: int,
+    min_disparity: int = 0,
+    left_desc: np.ndarray | None = None,
+    right_desc: np.ndarray | None = None,
 ) -> np.ndarray:
     max_disp = max(1, int(max_disparity))
+    min_disp = max(0, int(min_disparity))
+    if min_disp > max_disp:
+        min_disp = max_disp
     census_win = _normalize_odd(census_window, min_value=3)
     agg_win = _normalize_odd(aggregation_window, min_value=1)
     census_half = census_win // 2
@@ -371,13 +407,15 @@ def compute_census_hamming_custom(
     if w <= max_disp + 2 * census_half or h <= 2 * census_half:
         return disparity
 
-    left_desc = _census_transform_bytes(left, census_win)
-    right_desc = _census_transform_bytes(right, census_win)
+    if left_desc is None:
+        left_desc = _census_transform_bytes(left, census_win)
+    if right_desc is None:
+        right_desc = _census_transform_bytes(right, census_win)
 
     best_cost = np.full((h, w), np.inf, dtype=np.float32)
     best_disp = np.zeros((h, w), dtype=np.float32)
 
-    for d in range(0, max_disp + 1):
+    for d in range(min_disp, max_disp + 1):
         shifted = np.zeros_like(right_desc)
         if d == 0:
             shifted[:, :] = right_desc
@@ -422,6 +460,9 @@ def compute_census_hamming_custom_vshift(
     census_window: int,
     aggregation_window: int,
     max_vertical_shift: int,
+    min_disparity: int = 0,
+    left_desc: np.ndarray | None = None,
+    right_desc: np.ndarray | None = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Census + Hamming matcher with an additional vertical search range.
 
@@ -433,6 +474,9 @@ def compute_census_hamming_custom_vshift(
     where no valid match was found.
     """
     max_disp = max(1, int(max_disparity))
+    min_disp = max(0, int(min_disparity))
+    if min_disp > max_disp:
+        min_disp = max_disp
     census_win = _normalize_odd(census_window, min_value=3)
     agg_win = _normalize_odd(aggregation_window, min_value=1)
     census_half = census_win // 2
@@ -445,8 +489,10 @@ def compute_census_hamming_custom_vshift(
     if w <= max_disp + 2 * census_half or h <= 2 * census_half + 2 * vmax:
         return disparity, vshift_map
 
-    left_desc = _census_transform_bytes(left, census_win)
-    right_desc = _census_transform_bytes(right, census_win)
+    if left_desc is None:
+        left_desc = _census_transform_bytes(left, census_win)
+    if right_desc is None:
+        right_desc = _census_transform_bytes(right, census_win)
 
     best_cost = np.full((h, w), np.inf, dtype=np.float32)
     best_disp = np.zeros((h, w), dtype=np.float32)
@@ -455,7 +501,7 @@ def compute_census_hamming_custom_vshift(
     for vy in range(-vmax, vmax + 1):
         shifted_v = _shift_image_vertical(right_desc, vy)
 
-        for d in range(0, max_disp + 1):
+        for d in range(min_disp, max_disp + 1):
             shifted = np.zeros_like(right_desc)
             if d == 0:
                 shifted[:, :] = shifted_v
@@ -507,14 +553,29 @@ def compute_census_hamming(left: np.ndarray, right: np.ndarray, cfg: StereoConfi
         max_disparity=cfg.census_max_disparities[0],
         census_window=cfg.census_window_sizes[0],
         aggregation_window=cfg.census_aggregation_window,
+        min_disparity=cfg.min_disparity,
     )
 
 
-def compute_census_debug_views(image: np.ndarray, census_window: int) -> Dict[str, np.ndarray]:
+def compute_census_descriptors(
+    left: np.ndarray,
+    right: np.ndarray,
+    census_window: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Build Census descriptor-byte volumes for a stereo pair."""
+    win = _normalize_odd(census_window, min_value=3)
+    return _census_transform_bytes(left, win), _census_transform_bytes(right, win)
+
+
+def compute_census_debug_views(
+    image: np.ndarray,
+    census_window: int,
+    descriptor: np.ndarray | None = None,
+) -> Dict[str, np.ndarray]:
     """
     Return visualization-friendly images for the Census descriptor.
     """
-    desc = _census_transform_bytes(image, census_window)
+    desc = descriptor if descriptor is not None else _census_transform_bytes(image, census_window)
     popcount = _popcount_bytes(desc).astype(np.float32)
 
     bits = (_normalize_odd(census_window, min_value=3) ** 2) - 1
@@ -538,11 +599,15 @@ def compute_census_debug_views(image: np.ndarray, census_window: int) -> Dict[st
 
 
 def compute_sad_l1_vshift(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
+    widths = cfg.sad_window_widths or cfg.sad_window_sizes
+    heights = cfg.sad_window_heights or cfg.sad_window_sizes
     disp, _ = compute_sad_custom_vshift(
         left,
         right,
         max_disparity=cfg.sad_max_disparities[0],
-        window_size=cfg.sad_window_sizes[0],
+        window_width=widths[0],
+        window_height=heights[0],
+        min_disparity=0,
         max_vertical_shift=cfg.sad_vshift_values[0] if cfg.sad_vshift_values else 0,
         cost_mode="l1",
     )
@@ -550,11 +615,15 @@ def compute_sad_l1_vshift(left: np.ndarray, right: np.ndarray, cfg: StereoConfig
 
 
 def compute_sad_l2_vshift(left: np.ndarray, right: np.ndarray, cfg: StereoConfig) -> np.ndarray:
+    widths = cfg.sad_window_widths or cfg.sad_window_sizes
+    heights = cfg.sad_window_heights or cfg.sad_window_sizes
     disp, _ = compute_sad_custom_vshift(
         left,
         right,
         max_disparity=cfg.sad_max_disparities[0],
-        window_size=cfg.sad_window_sizes[0],
+        window_width=widths[0],
+        window_height=heights[0],
+        min_disparity=0,
         max_vertical_shift=cfg.sad_vshift_values[0] if cfg.sad_vshift_values else 0,
         cost_mode="l2",
     )
@@ -568,7 +637,9 @@ def compute_sgbm_vshift_default(left: np.ndarray, right: np.ndarray, cfg: Stereo
         num_disparities=cfg.sgbm_num_disparities,
         block_size=cfg.sgbm_block_size,
         max_vertical_shift=cfg.sgbm_vshift_values[0] if cfg.sgbm_vshift_values else 0,
+        min_disparity=cfg.min_disparity,
         validation_window=cfg.sgbm_vshift_validation_window,
+        validation_height_scale=cfg.sgbm_vshift_validation_height_scale,
     )
     return disp
 
@@ -585,6 +656,7 @@ def compute_census_hamming_vshift_default(left: np.ndarray, right: np.ndarray, c
         census_window=cfg.census_window_sizes[0],
         aggregation_window=agg_win,
         max_vertical_shift=vshift,
+        min_disparity=cfg.min_disparity,
     )
     return disp
 

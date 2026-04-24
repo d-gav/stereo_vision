@@ -6,21 +6,28 @@ module mem_block_intf #(
 	parameter int MAX_DISP         = 63,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
-	parameter int NUM_SAD_UNITS    = (FRAME_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE
+	parameter int NUM_SAD_UNITS    = (FRAME_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE,
+	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
+	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
 	input logic clk,
 	input logic rst,
 
-	input logic [PIXEL_W-1:0] left_row_bank  [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1],
-	input logic [PIXEL_W-1:0] right_row_bank [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1],
+	output logic mem_req,
+	output logic mem_bank, // 0 = left, 1 = right
+	output logic [ROW_W-1:0] mem_row,
+	output logic [COL_W-1:0] mem_col,
+	input  logic [PIXEL_W-1:0] mem_rdata,
+	input  logic mem_rvalid,
 
 	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1]
 );
 
 	localparam int HALF_BLOCK = BLOCK_SIZE / 2;
-	localparam int X_W        = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH);
-	localparam int Y_W        = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT);
+	localparam int X_W        = COL_W;
+	localparam int Y_W        = ROW_W;
 	localparam int PHASE_W    = (BLOCK_SIZE <= 1) ? 1 : $clog2(BLOCK_SIZE);
+	localparam int UNIT_W     = (NUM_SAD_UNITS <= 1) ? 1 : $clog2(NUM_SAD_UNITS);
 	localparam int X_MIN      = HALF_BLOCK;
 	localparam int X_MAX      = HALF_FRAME_WIDTH - HALF_BLOCK - 1;
 
@@ -44,20 +51,27 @@ module mem_block_intf #(
 	logic           unit_center_valid [0:NUM_SAD_UNITS-1];
 
 
-    // Request pipeline for SAD 
-    // At stage 0, new request is issued, we assign x, d, and phase
-    // At stage 2, memory is ready and SAD can be evaluated.
+	logic [X_W-1:0]     cur_x; // current x pixel
+	logic [DISP_W-1:0]  cur_d; // current disparity for right image
+	logic [PHASE_W-1:0] cur_phase; // current row phase
+	logic [UNIT_W-1:0]  cur_unit; // current SAD unit
+	logic              phase_init_pending;
 
-	logic req_valid [0:2];
-	logic [X_W-1:0]     req_x      [0:2];
-	logic [DISP_W-1:0]  req_d      [0:2];
-	logic [PHASE_W-1:0] req_phase  [0:2];
-	logic               req_last_d [0:2];
+	logic [PIXEL_W-1:0] left_col_buf  [0:BLOCK_SIZE-1];
+	logic [PIXEL_W-1:0] right_col_buf [0:BLOCK_SIZE-1];
 
+	logic [BLOCK_SIZE:0] left_cols_remaining;
+	logic [BLOCK_SIZE:0] right_cols_remaining;
+	logic [PHASE_W-1:0]  left_col_idx;
+	logic [PHASE_W-1:0]  right_col_idx;
+	logic [PHASE_W-1:0]  row_idx;
+	logic               cur_bank; // 0 = left, 1 = right
+	logic               pending_read;
+	logic               need_init;
 
-	logic [X_W-1:0]     cur_x; // the current x pixel for every unit  (e.g. [0 ... 319])
-	logic [DISP_W-1:0]  cur_d; // the current disparity being processed for a given pixel in reference image (e.g. [0 ... 128])
-	logic [PHASE_W-1:0] cur_phase; // the current row phase (e.g. [0 ... BLOCK_SIZE-1]) that determines vertical center of each unit's block
+	logic left_pulse;
+	logic right_pulse;
+	logic eval_pulse;
 
 
 
@@ -89,94 +103,92 @@ module mem_block_intf #(
 		end
 	endfunction
 
-	integer u;
-	integer r;
-	integer c;
+
+	generate
+		for (g = 0; g < NUM_SAD_UNITS; g++) begin : GEN_WINDOWS
+			sliding_window #(
+				.BLOCK_SIZE(BLOCK_SIZE),
+				.PIXEL_W(PIXEL_W)
+			) u_ref_window (
+				.clk(clk),
+				.rst(rst),
+				.valid_in(left_pulse && (cur_unit == g[UNIT_W-1:0])),
+				.pixel_in_col(left_col_buf),
+				.block_out(left_blocks[g])
+			);
+
+			sliding_window #(
+				.BLOCK_SIZE(BLOCK_SIZE),
+				.PIXEL_W(PIXEL_W)
+			) u_match_window (
+				.clk(clk),
+				.rst(rst),
+				.valid_in(right_pulse && (cur_unit == g[UNIT_W-1:0])),
+				.pixel_in_col(right_col_buf),
+				.block_out(right_blocks[g])
+			);
+		end
+	endgenerate
+
+
 	integer y_center_i;
+	integer u;
+	integer ur;
+	integer xr;
 	integer y_addr_i;
-	integer x_left_i;
-	integer x_right_i;
+	integer x_left_col_i;
+	integer x_right_col_i;
+	logic row_advance;
 
 	always_comb begin
-		// for each SAD unit: 
+		// default evals
 		for (u = 0; u < NUM_SAD_UNITS; u++) begin
-            // assign y: which block am I? how big is a block? where am I in current phase? 
-			y_center_i = (u * BLOCK_SIZE) + req_phase[2];
+			sad_eval[u] = {SAD_W{1'b1}};
+			unit_center_y[u] = '0;
+			unit_center_valid[u] = 1'b0;
+		end
 
-			// Keep a packed version of center y for downstream map writeback.
-			if ((y_center_i >= 0) && (y_center_i < FRAME_HEIGHT)) begin
-				unit_center_y[u] = y_center_i[Y_W-1:0];
-			end else begin
-				unit_center_y[u] = '0;
-			end
+		y_center_i = (cur_unit * BLOCK_SIZE) + cur_phase;
+		if ((y_center_i >= 0) && (y_center_i < FRAME_HEIGHT)) begin
+			unit_center_y[cur_unit] = y_center_i[Y_W-1:0];
+		end
 
-			// Mark whether this unit/window request is valid for SAD evaluation.
-			// Checks include vertical bounds, horizontal center bounds, and
-			// right-image disparity reachability.
-			unit_center_valid[u] = req_valid[2]
-				&& (y_center_i >= HALF_BLOCK) // half block halo from top
-				&& (y_center_i + HALF_BLOCK < FRAME_HEIGHT) // half block halo from bottom
-				&& (req_x[2] >= X_MIN_L) // horizontal center bounds
-				&& (req_x[2] <= X_MAX_L) // horizontal center bounds
-				&& (req_x[2] >= (req_d[2] + HALF_BLOCK)); // right-image disparity reachability
+		unit_center_valid[cur_unit] =
+			(y_center_i >= HALF_BLOCK)
+			&& (y_center_i + HALF_BLOCK < FRAME_HEIGHT)
+			&& (cur_x >= X_MIN_L)
+			&& (cur_x <= X_MAX_L)
+			&& (cur_x >= (cur_d + HALF_BLOCK));
 
-			// Gather both reference (left) and candidate (right-shifted by disparity)
-			// blocks from row-banked memories. Out-of-range samples are zero-padded.
-			for (r = 0; r < BLOCK_SIZE; r++) begin
-				for (c = 0; c < BLOCK_SIZE; c++) begin
-					y_addr_i  = y_center_i - HALF_BLOCK + r;
-					x_left_i  = req_x[2] - HALF_BLOCK + c;
-					x_right_i = req_x[2] - req_d[2] - HALF_BLOCK + c;
-
-					if ((y_addr_i >= 0) && (y_addr_i < FRAME_HEIGHT)
-						&& (x_left_i >= 0) && (x_left_i < HALF_FRAME_WIDTH)) begin
-						left_blocks[u][r][c] = left_row_bank[y_addr_i][x_left_i];
-					end else begin
-						left_blocks[u][r][c] = '0;
-					end
-
-					if ((y_addr_i >= 0) && (y_addr_i < FRAME_HEIGHT)
-						&& (x_right_i >= 0) && (x_right_i < HALF_FRAME_WIDTH)) begin
-						right_blocks[u][r][c] = right_row_bank[y_addr_i][x_right_i];
-					end else begin
-						right_blocks[u][r][c] = '0;
-					end
-				end
-			end
-
-			// Invalid windows get max SAD so they never win the min comparison.
-			if (unit_center_valid[u]) begin
-				sad_eval[u] = sad_value[u];
-			end else begin
-				sad_eval[u] = {SAD_W{1'b1}};
-			end
+		if (unit_center_valid[cur_unit]) begin
+			sad_eval[cur_unit] = sad_value[cur_unit];
 		end
 	end
 
-	integer ur;
-	integer xr;
 	always_ff @(posedge clk or posedge rst) begin
 		if (rst) begin
-			// Initialize scan position and request pipeline.
+			// Initialize scan position and control state.
 			cur_x <= X_MIN_L;
 			cur_d <= '0;
 			cur_phase <= '0;
+			cur_unit <= '0;
+			phase_init_pending <= 1'b1;
+			need_init <= 1'b0;
 
-			req_valid[0] <= 1'b0;
-			req_valid[1] <= 1'b0;
-			req_valid[2] <= 1'b0;
-			req_x[0] <= '0;
-			req_x[1] <= '0;
-			req_x[2] <= '0;
-			req_d[0] <= '0;
-			req_d[1] <= '0;
-			req_d[2] <= '0;
-			req_phase[0] <= '0;
-			req_phase[1] <= '0;
-			req_phase[2] <= '0;
-			req_last_d[0] <= 1'b0;
-			req_last_d[1] <= 1'b0;
-			req_last_d[2] <= 1'b0;
+			left_cols_remaining <= BLOCK_SIZE;
+			right_cols_remaining <= BLOCK_SIZE;
+			left_col_idx <= '0;
+			right_col_idx <= '0;
+			row_idx <= '0;
+			cur_bank <= 1'b0;
+			pending_read <= 1'b0;
+			mem_req <= 1'b0;
+			mem_bank <= 1'b0;
+			mem_row <= '0;
+			mem_col <= '0;
+			left_pulse <= 1'b0;
+			right_pulse <= 1'b0;
+			eval_pulse <= 1'b0;
 
 			for (ur = 0; ur < NUM_SAD_UNITS; ur++) begin
 				best_sad[ur] <= {SAD_W{1'b1}};
@@ -189,58 +201,154 @@ module mem_block_intf #(
 				end
 			end
 		end else begin
-			// Request metadata pipeline for 2-cycle memory latency:
-			// stage 0 = issue, stage 2 = SAD consume.
-			req_valid[2] <= req_valid[1];
-			req_x[2] <= req_x[1];
-			req_d[2] <= req_d[1];
-			req_phase[2] <= req_phase[1];
-			req_last_d[2] <= req_last_d[1];
+			left_pulse <= 1'b0;
+			right_pulse <= 1'b0;
+			eval_pulse <= 1'b0;
+			row_advance = 1'b0;
+			mem_req <= pending_read;
 
-			req_valid[1] <= req_valid[0];
-			req_x[1] <= req_x[0];
-			req_d[1] <= req_d[0];
-			req_phase[1] <= req_phase[0];
-			req_last_d[1] <= req_last_d[0];
-
-			// Issue next request (x, disparity, row phase).
-			req_valid[0] <= 1'b1;
-			req_x[0] <= cur_x;
-			req_d[0] <= cur_d;
-			req_phase[0] <= cur_phase;
-			req_last_d[0] <= (cur_d == MAX_DISP_L);
-
-			// Disparity-serial schedule:
-			// d increments fastest; then x; then row phase.
-			if (cur_d == MAX_DISP_L) begin
-				cur_d <= '0;
-				if (cur_x == X_MAX_L) begin
-					cur_x <= X_MIN_L;
-					if (cur_phase == MAX_PHASE_L) begin
-						cur_phase <= '0;
+			// Issue or complete memory reads for column loading.
+			if (pending_read) begin
+				if (mem_rvalid) begin
+					if (cur_bank == 1'b0) begin
+						left_col_buf[row_idx] <= mem_rdata;
 					end else begin
-						cur_phase <= cur_phase + 1'b1;
+						right_col_buf[row_idx] <= mem_rdata;
+					end
+					pending_read <= 1'b0;
+					row_advance = 1;
+				end
+			end else if (left_cols_remaining != 0 || right_cols_remaining != 0) begin
+				// Select bank if needed.
+				if ((left_cols_remaining != 0) && (cur_bank == 1'b1)) begin
+					cur_bank <= 1'b0;
+					row_idx <= '0;
+				end else if ((right_cols_remaining != 0) && (cur_bank == 1'b0) && (left_cols_remaining == 0)) begin
+					cur_bank <= 1'b1;
+					row_idx <= '0;
+				end
+
+				// Load one row of the active column.
+				y_addr_i = (cur_unit * BLOCK_SIZE) + cur_phase - HALF_BLOCK + row_idx;
+				if (cur_bank == 1'b0) begin
+					if (phase_init_pending && (cur_x == X_MIN_L) && (cur_d == '0)) begin
+						x_left_col_i = cur_x - HALF_BLOCK + left_col_idx;
+					end else begin
+						x_left_col_i = cur_x + HALF_BLOCK;
+					end
+					if ((y_addr_i >= 0) && (y_addr_i < FRAME_HEIGHT)
+						&& (x_left_col_i >= 0) && (x_left_col_i < HALF_FRAME_WIDTH)) begin
+						mem_req <= 1'b1;
+						mem_bank <= 1'b0;
+						mem_row <= y_addr_i[Y_W-1:0];
+						mem_col <= x_left_col_i[X_W-1:0];
+						pending_read <= 1'b1;
+					end else begin
+						left_col_buf[row_idx] <= '0;
+						row_advance = 1;
 					end
 				end else begin
-					cur_x <= cur_x + 1'b1;
+					if (phase_init_pending && (cur_x == X_MIN_L) && (cur_d == '0)) begin
+						x_right_col_i = (cur_x - cur_d) - HALF_BLOCK + right_col_idx;
+					end else begin
+						x_right_col_i = (cur_x - cur_d) + HALF_BLOCK;
+					end
+					if ((y_addr_i >= 0) && (y_addr_i < FRAME_HEIGHT)
+						&& (x_right_col_i >= 0) && (x_right_col_i < HALF_FRAME_WIDTH)) begin
+						mem_req <= 1'b1;
+						mem_bank <= 1'b1;
+						mem_row <= y_addr_i[Y_W-1:0];
+						mem_col <= x_right_col_i[X_W-1:0];
+						pending_read <= 1'b1;
+					end else begin
+						right_col_buf[row_idx] <= '0;
+						row_advance = 1;
+					end
 				end
-			end else begin
-				cur_d <= cur_d + 1'b1;
 			end
 
-			// For each unit, track running minimum SAD over all disparities.
-			// On final disparity, commit winning disparity to disp_map.
-			for (ur = 0; ur < NUM_SAD_UNITS; ur++) begin
-				if (req_valid[2]) begin
-					if ((req_d[2] == '0) || (sad_eval[ur] < best_sad[ur])) begin
-						best_sad[ur] <= sad_eval[ur];
-						best_disp[ur] <= req_d[2];
-						if (req_last_d[2] && unit_center_valid[ur]) begin
-							disp_map[unit_center_y[ur]][req_x[2]] <= disp_to_u8(req_d[2]);
-						end
-					end else if (req_last_d[2] && unit_center_valid[ur]) begin
-						disp_map[unit_center_y[ur]][req_x[2]] <= disp_to_u8(best_disp[ur]);
+			if (row_advance == 1) begin
+				if (row_idx == BLOCK_SIZE-1) begin
+					row_idx <= '0;
+					if (cur_bank == 1'b0) begin
+						left_pulse <= 1'b1;
+						left_cols_remaining <= left_cols_remaining - 1'b1;
+						left_col_idx <= left_col_idx + 1'b1;
+					end else begin
+						right_pulse <= 1'b1;
+						right_cols_remaining <= right_cols_remaining - 1'b1;
+						right_col_idx <= right_col_idx + 1'b1;
 					end
+				end else begin
+					row_idx <= row_idx + 1'b1;
+				end
+			end
+
+			// Setup/evaluate when no column loads are pending.
+			if ((left_cols_remaining == 0) && (right_cols_remaining == 0) && !pending_read) begin
+				if (need_init) begin
+					if (phase_init_pending && (cur_x == X_MIN_L) && (cur_d == '0)) begin
+						left_cols_remaining <= BLOCK_SIZE;
+						right_cols_remaining <= BLOCK_SIZE;
+						cur_bank <= 1'b0;
+					end else begin
+						left_cols_remaining <= (cur_d == '0) ? 1 : 0;
+						right_cols_remaining <= 1;
+						cur_bank <= (cur_d == '0) ? 1'b0 : 1'b1;
+					end
+					left_col_idx <= '0;
+					right_col_idx <= '0;
+					row_idx <= '0;
+					need_init <= 1'b0;
+				end else begin
+					eval_pulse <= 1'b1;
+					need_init <= 1'b1;
+				end
+			end
+
+			// Evaluate SAD and advance scanning indices.
+			if (eval_pulse) begin
+				if ((cur_d == '0) || (sad_eval[cur_unit] < best_sad[cur_unit])) begin
+					best_sad[cur_unit] <= sad_eval[cur_unit];
+					best_disp[cur_unit] <= cur_d;
+				end
+
+				if ((cur_d == MAX_DISP_L) && unit_center_valid[cur_unit]) begin
+					if ((cur_d == '0) || (sad_eval[cur_unit] < best_sad[cur_unit])) begin
+						disp_map[unit_center_y[cur_unit]][cur_x] <= disp_to_u8(cur_d);
+					end else begin
+						disp_map[unit_center_y[cur_unit]][cur_x] <= disp_to_u8(best_disp[cur_unit]);
+					end
+				end
+
+				// Advance unit -> disparity -> x -> phase.
+				if (cur_unit == NUM_SAD_UNITS-1) begin
+					cur_unit <= '0;
+					if (cur_d == MAX_DISP_L) begin
+						cur_d <= '0;
+						if (cur_x == X_MAX_L) begin
+							cur_x <= X_MIN_L;
+							if (cur_phase == MAX_PHASE_L) begin
+								cur_phase <= '0;
+								phase_init_pending <= 1'b1;
+							end else begin
+								cur_phase <= cur_phase + 1'b1;
+								phase_init_pending <= 1'b1;
+							end
+						end else begin
+							cur_x <= cur_x + 1'b1;
+						end
+					end else begin
+						cur_d <= cur_d + 1'b1;
+					end
+				end else begin
+					cur_unit <= cur_unit + 1'b1;
+				end
+
+				// Clear phase init after all units finish the initial load at x=min, d=0.
+				if (phase_init_pending && (cur_unit == NUM_SAD_UNITS-1)
+					&& (cur_x == X_MIN_L) && (cur_d == '0)) begin
+					phase_init_pending <= 1'b0;
 				end
 			end
 		end

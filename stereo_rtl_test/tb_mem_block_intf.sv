@@ -17,16 +17,15 @@ module tb_mem_block_intf #(
 	localparam int X_MIN      = HALF_BLOCK;
 	localparam int X_MAX      = HALF_FRAME_WIDTH - HALF_BLOCK - 1;
 	localparam int X_COUNT    = X_MAX - X_MIN + 1;
-	localparam int TOTAL_EVALS = BLOCK_SIZE * X_COUNT * (MAX_DISP + 1) * NUM_SAD_UNITS;
+	localparam int TOTAL_EVALS = BLOCK_SIZE * X_COUNT * (MAX_DISP + 1);
 
 	logic clk;
 	logic rst;
 
 	logic mem_req;
 	logic mem_bank;
-	logic [ROW_W-1:0] mem_row;
 	logic [COL_W-1:0] mem_col;
-	logic [PIXEL_W-1:0] mem_rdata;
+	logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1];
 	logic mem_rvalid;
 
 	logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
@@ -36,12 +35,12 @@ module tb_mem_block_intf #(
 
 	logic req_q;
 	logic bank_q;
-	logic [ROW_W-1:0] row_q;
 	logic [COL_W-1:0] col_q;
 
 	string left_hex_path;
 	string right_hex_path;
 	string out_hex_path;
+	string vcd_path;
 	int max_cycles;
 	int progress_stride;
 
@@ -51,11 +50,22 @@ module tb_mem_block_intf #(
 	int rst_cycles;
 
 	function automatic int flat_idx(
-		input logic [ROW_W-1:0] row,
+		input int row,
 		input logic [COL_W-1:0] col
 	);
 		flat_idx = (row * HALF_FRAME_WIDTH) + col;
 	endfunction
+
+	initial begin
+		if (!$value$plusargs("VCD=%s", vcd_path)) begin
+			vcd_path = "tb_mem_block_intf.vcd";
+		end
+		$dumpfile(vcd_path);
+		$dumpvars(0, tb_mem_block_intf);
+		$display("[TB] VCD=%s", vcd_path);
+	end
+
+	integer rr;
 
 	initial begin
 		if (!$value$plusargs("LEFT_HEX=%s", left_hex_path)) begin
@@ -114,25 +124,29 @@ module tb_mem_block_intf #(
 		if (rst) begin
 			req_q <= 1'b0;
 			bank_q <= 1'b0;
-			row_q <= '0;
 			col_q <= '0;
 			mem_rvalid <= 1'b0;
-			mem_rdata <= '0;
+			for (rr = 0; rr < FRAME_HEIGHT; rr++) begin
+				mem_rdata[rr] <= '0;
+			end
 		end else begin
 			mem_rvalid <= req_q;
 			if (req_q) begin
-				if (bank_q) begin
-					mem_rdata <= right_mem[flat_idx(row_q, col_q)];
-				end else begin
-					mem_rdata <= left_mem[flat_idx(row_q, col_q)];
+				for (rr = 0; rr < FRAME_HEIGHT; rr++) begin
+					if (bank_q) begin
+						mem_rdata[rr] <= right_mem[flat_idx(rr, col_q)];
+					end else begin
+						mem_rdata[rr] <= left_mem[flat_idx(rr, col_q)];
+					end
 				end
 			end else begin
-				mem_rdata <= '0;
+				for (rr = 0; rr < FRAME_HEIGHT; rr++) begin
+					mem_rdata[rr] <= '0;
+				end
 			end
 
 			req_q <= mem_req;
 			bank_q <= mem_bank;
-			row_q <= mem_row;
 			col_q <= mem_col;
 		end
 	end
@@ -140,7 +154,7 @@ module tb_mem_block_intf #(
 	always_ff @(posedge clk) begin
 		if (rst) begin
 			eval_count <= 0;
-		end else if (dut.eval_pulse) begin
+		end else if (dut.state_q == 3'd4) begin
 			eval_count <= eval_count + 1;
 		end
 	end
@@ -161,7 +175,6 @@ module tb_mem_block_intf #(
 		.rst(rst),
 		.mem_req(mem_req),
 		.mem_bank(mem_bank),
-		.mem_row(mem_row),
 		.mem_col(mem_col),
 		.mem_rdata(mem_rdata),
 		.mem_rvalid(mem_rvalid),
@@ -171,9 +184,11 @@ module tb_mem_block_intf #(
 	integer fd;
 	integer r;
 	integer c;
+	bit timed_out;
 	initial begin
 		cycles = 0;
 		rst_wait_cycles = 0;
+		timed_out = 1'b0;
 		$display("[TB] Waiting for reset release...");
 		while (rst !== 1'b0) begin
 			@(posedge clk);
@@ -182,8 +197,7 @@ module tb_mem_block_intf #(
 				$display("[TB] still waiting rst=%b wait_cycles=%0d t=%0t", rst, rst_wait_cycles, $time);
 			end
 			if (rst_wait_cycles > 100000) begin
-				$error("Reset did not deassert within timeout. rst=%b t=%0t", rst, $time);
-				$finish;
+				$fatal(1, "Reset did not deassert within timeout. rst=%b t=%0t", rst, $time);
 			end
 		end
 		$display("[TB] Reset released at t=%0t", $time);
@@ -194,19 +208,17 @@ module tb_mem_block_intf #(
 			cycles = cycles + 1;
 			if ((cycles == 1) || ((cycles % progress_stride) == 0) || ((cycles % 1000) == 0)) begin
 				$display(
-					"[TB] cycles=%0d evals=%0d/%0d req=%0b rvalid=%0b pend=%0b bank=%0b row=%0d lcols=%0d rcols=%0d need_init=%0b unit=%0d d=%0d x=%0d",
+					"[TB] cycles=%0d evals=%0d/%0d req=%0b rvalid=%0b bank=%0b col=%0d state=%0d col_idx=%0d phase=%0d d=%0d x=%0d",
 					cycles,
 					eval_count,
 					TOTAL_EVALS,
 					mem_req,
 					mem_rvalid,
-					dut.pending_read,
-					dut.cur_bank,
-					dut.row_idx,
-					dut.left_cols_remaining,
-					dut.right_cols_remaining,
-					dut.need_init,
-					dut.cur_unit,
+					mem_bank,
+					mem_col,
+					dut.state_q,
+					dut.col_idx,
+					dut.cur_phase,
 					dut.cur_d,
 					dut.cur_x
 				);
@@ -214,16 +226,15 @@ module tb_mem_block_intf #(
 		end
 
 		if (eval_count < TOTAL_EVALS) begin
-			$error("Timeout: cycles=%0d evals=%0d/%0d", cycles, eval_count, TOTAL_EVALS);
-			$finish;
+			timed_out = 1'b1;
+			$display("[TB] WARNING: Timeout reached, writing partial disparity output.");
 		end
 
 		repeat (4) @(posedge clk);
 
 		fd = $fopen(out_hex_path, "w");
 		if (fd == 0) begin
-			$error("Failed to open output file: %s", out_hex_path);
-			$finish;
+			$fatal(1, "Failed to open output file: %s", out_hex_path);
 		end
 
 		for (r = 0; r < FRAME_HEIGHT; r++) begin
@@ -232,6 +243,10 @@ module tb_mem_block_intf #(
 			end
 		end
 		$fclose(fd);
+
+		if (timed_out) begin
+			$fatal(1, "Timeout: cycles=%0d evals=%0d/%0d (partial disparity written to %s)", cycles, eval_count, TOTAL_EVALS, out_hex_path);
+		end
 
 		$display("[TB] Done: wrote disparity hex to %s", out_hex_path);
 		$finish;

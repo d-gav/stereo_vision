@@ -26,6 +26,9 @@ static void print_usage(const char *prog)
         "  --window-h  N   Odd SAD window height (default %d, max %d)\n"
         "  --max-disp  N   Maximum disparity (default %d, max %d)\n"
         "  --vshift    N   Vertical shift applied to target (default %d)\n"
+        "  --vshift-pm N   Also search shifts in [vshift-N, vshift+N] (default %d)\n"
+        "  --continuous    Recompute continuously (no 'r' key required)\n"
+        "  --period-ms N   Continuous loop period in ms (default %d)\n"
         "  --no-swap       Do not swap captured left/right halves\n"
         "  --no-neon       Disable NEON fast path\n"
         "  --rgb332        Use RGB332 jet colormap (requires Qsys color buf)\n"
@@ -34,17 +37,33 @@ static void print_usage(const char *prog)
         STEREO_DEFAULT_WINDOW_W, STEREO_MAX_WINDOW,
         STEREO_DEFAULT_WINDOW_H, STEREO_MAX_WINDOW,
         STEREO_DEFAULT_MAX_DISP, STEREO_MAX_MAX_DISP,
-        STEREO_DEFAULT_V_SHIFT);
+        STEREO_DEFAULT_V_SHIFT,
+        STEREO_DEFAULT_V_SHIFT_PM,
+        10);
 }
 
-static int parse_args(int argc, char **argv, stereo_params_t *params)
+typedef struct app_options {
+    int continuous;
+    int period_ms;
+} app_options_t;
+
+static int parse_args(int argc, char **argv,
+                      stereo_params_t *params,
+                      app_options_t *opts)
 {
     stereo_params_defaults(params);
+    opts->continuous = 0;
+    opts->period_ms = 10;
+
     for (int i = 1; i < argc; ++i) {
         const char *arg = argv[i];
         if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
             print_usage(argv[0]);
             return -1;
+        } else if (strcmp(arg, "--continuous") == 0) {
+            opts->continuous = 1;
+        } else if (i + 1 < argc && strcmp(arg, "--period-ms") == 0) {
+            opts->period_ms = atoi(argv[++i]);
         } else if (strcmp(arg, "--no-swap") == 0) {
             params->swap_lr = 0;
         } else if (strcmp(arg, "--no-neon") == 0) {
@@ -59,12 +78,19 @@ static int parse_args(int argc, char **argv, stereo_params_t *params)
             params->max_disparity = atoi(argv[++i]);
         } else if (i + 1 < argc && strcmp(arg, "--vshift") == 0) {
             params->v_shift = atoi(argv[++i]);
+        } else if (i + 1 < argc && strcmp(arg, "--vshift-pm") == 0) {
+            params->v_shift_pm = atoi(argv[++i]);
         } else {
             fprintf(stderr, "Unknown argument: %s\n", arg);
             print_usage(argv[0]);
             return -1;
         }
     }
+
+    if (opts->period_ms < 0) {
+        opts->period_ms = 0;
+    }
+
     stereo_params_normalize(params);
     return 0;
 }
@@ -134,13 +160,14 @@ static void draw_status_text(volatile unsigned int *vga_char_ptr,
                              const stereo_params_t *params,
                              double last_ms)
 {
-    char buf[96];
+    char buf[120];
     vga_text_clear(vga_char_ptr);
 
     snprintf(buf, sizeof(buf),
-             "SAD  w=%d h=%d maxD=%d vshift=%d swap=%d neon=%d cmap=%s",
+             "SAD  w=%d h=%d maxD=%d vshift=%d+-%d swap=%d neon=%d cmap=%s",
              params->window_w, params->window_h, params->max_disparity,
-             params->v_shift, params->swap_lr, params->use_neon,
+             params->v_shift, params->v_shift_pm,
+             params->swap_lr, params->use_neon,
              params->colormap_mode ? "rgb332" : "gray");
     vga_text(vga_char_ptr, 1, 55, buf);
 
@@ -184,7 +211,8 @@ static double run_once(const stereo_params_t *params,
 int main(int argc, char **argv)
 {
     stereo_params_t params;
-    if (parse_args(argc, argv, &params) != 0) {
+    app_options_t opts;
+    if (parse_args(argc, argv, &params, &opts) != 0) {
         return 1;
     }
 
@@ -237,7 +265,7 @@ int main(int argc, char **argv)
     while (!quit) {
         char key;
         ssize_t n = read(STDIN_FILENO, &key, 1);
-        int dirty = 0;
+        int dirty = opts.continuous ? 1 : 0;
         if (n == 1) {
             switch (key) {
                 case 'q': case 'Q': quit = 1; break;
@@ -284,7 +312,13 @@ int main(int argc, char **argv)
             draw_status_text(hw.vga_char_ptr, &params, last_ms);
         }
 
-        usleep(10000);
+        if (opts.continuous) {
+            if (opts.period_ms > 0) {
+                usleep((useconds_t)opts.period_ms * 1000u);
+            }
+        } else {
+            usleep(10000);
+        }
     }
 
     if (raw_ok) restore_terminal(&saved_tty);

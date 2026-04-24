@@ -285,39 +285,43 @@ void stereo_sad_compute(const stereo_params_t *params,
     memset(ws->best_d,    0x00, plane_u8_bytes);
 
     const int use_neon = (STEREO_HAVE_NEON && params->use_neon) ? 1 : 0;
+    const int v_shift_lo = params->v_shift - params->v_shift_pm;
+    const int v_shift_hi = params->v_shift + params->v_shift_pm;
 
     for (int d = 0; d <= params->max_disparity; ++d) {
-        if (use_neon) {
-            stereo_sad_compute_ad_neon(ws->ref_img, ws->tgt_img, ws->ad,
-                                       width, height, ws->u8_stride,
-                                       d, params->v_shift);
-        } else {
-            stereo_sad_compute_ad_scalar(ws->ref_img, ws->tgt_img, ws->ad,
-                                         width, height, ws->u8_stride,
-                                         d, params->v_shift);
-        }
+        for (int v_shift = v_shift_lo; v_shift <= v_shift_hi; ++v_shift) {
+            if (use_neon) {
+                stereo_sad_compute_ad_neon(ws->ref_img, ws->tgt_img, ws->ad,
+                                           width, height, ws->u8_stride,
+                                           d, v_shift);
+            } else {
+                stereo_sad_compute_ad_scalar(ws->ref_img, ws->tgt_img, ws->ad,
+                                             width, height, ws->u8_stride,
+                                             d, v_shift);
+            }
 
-        stereo_sad_horizontal_sum(ws->ad, ws->hsum,
-                                  width, height,
-                                  ws->u8_stride, ws->u32_stride,
-                                  params->window_w);
+            stereo_sad_horizontal_sum(ws->ad, ws->hsum,
+                                      width, height,
+                                      ws->u8_stride, ws->u32_stride,
+                                      params->window_w);
 
-        if (use_neon) {
-            stereo_sad_vertical_sum_neon(ws->hsum, ws->agg,
-                                         width, height, ws->u32_stride,
-                                         params->window_h);
-        } else {
-            stereo_sad_vertical_sum_scalar(ws->hsum, ws->agg,
-                                           width, height, ws->u32_stride,
-                                           params->window_h);
-        }
+            if (use_neon) {
+                stereo_sad_vertical_sum_neon(ws->hsum, ws->agg,
+                                             width, height, ws->u32_stride,
+                                             params->window_h);
+            } else {
+                stereo_sad_vertical_sum_scalar(ws->hsum, ws->agg,
+                                               width, height, ws->u32_stride,
+                                               params->window_h);
+            }
 
-        if (use_neon) {
-            stereo_sad_update_best_neon(ws->agg, ws->best_cost, ws->best_d,
-                                        width, height, ws->u32_stride, d);
-        } else {
-            stereo_sad_update_best_scalar(ws->agg, ws->best_cost, ws->best_d,
-                                          width, height, ws->u32_stride, d);
+            if (use_neon) {
+                stereo_sad_update_best_neon(ws->agg, ws->best_cost, ws->best_d,
+                                            width, height, ws->u32_stride, d);
+            } else {
+                stereo_sad_update_best_scalar(ws->agg, ws->best_cost, ws->best_d,
+                                              width, height, ws->u32_stride, d);
+            }
         }
     }
 

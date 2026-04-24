@@ -99,7 +99,11 @@ make NEON=0
   --window-w 9 \
   --window-h 9 \
   --max-disp 32 \
-  --vshift 0
+  --vshift 0 \
+  --vshift-pm 0
+
+`--vshift-pm N` expands matching to search target rows in
+`[vshift-N, vshift+N]` for every disparity candidate.
 ```
 
 Runtime keys:

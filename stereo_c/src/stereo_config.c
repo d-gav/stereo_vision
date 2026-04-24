@@ -31,6 +31,7 @@ void stereo_params_defaults(stereo_params_t *p)
     p->window_h       = STEREO_DEFAULT_WINDOW_H;
     p->max_disparity  = STEREO_DEFAULT_MAX_DISP;
     p->v_shift        = STEREO_DEFAULT_V_SHIFT;
+    p->v_shift_pm     = STEREO_DEFAULT_V_SHIFT_PM;
 
     p->swap_lr        = STEREO_SWAP_LR_DEFAULT;
     p->use_neon       = 1;
@@ -83,6 +84,8 @@ int stereo_params_normalize(stereo_params_t *p)
 
     if (p->v_shift < -32) { p->v_shift = -32; changed = 1; }
     if (p->v_shift >  32) { p->v_shift =  32; changed = 1; }
+    if (p->v_shift_pm < 0) { p->v_shift_pm = 0; changed = 1; }
+    if (p->v_shift_pm > 32) { p->v_shift_pm = 32; changed = 1; }
 
     if (p->swap_lr) p->swap_lr = 1;
     if (p->use_neon) p->use_neon = 1;

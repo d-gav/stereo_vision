@@ -38,6 +38,7 @@
 #define STEREO_DEFAULT_WINDOW_H       9
 #define STEREO_DEFAULT_MAX_DISP       32
 #define STEREO_DEFAULT_V_SHIFT        0
+#define STEREO_DEFAULT_V_SHIFT_PM     0
 
 /* The captured pair's left half is actually the right camera and vice
  * versa; set to 1 by default so we compute standard-convention disparity. */
@@ -62,6 +63,7 @@ typedef struct stereo_params {
     int window_h;            /* odd */
     int max_disparity;
     int v_shift;             /* target row offset applied to target image */
+    int v_shift_pm;          /* search target shift in [v_shift-pm, v_shift+pm] */
 
     /* Behavioral flags */
     int swap_lr;             /* 1 if capture[left] is right camera */

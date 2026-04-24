@@ -103,6 +103,7 @@ for each variant.
 It also writes cross-variant comparison grids to:
 
 - `<output>/preprocess_grids/<pair_name>/<method>_preprocess_grid.png`
+- `<output>/preprocess_grids/<pair_name>/input_processed_preprocess_grid.png`
 
 where rows are median blur settings and columns are CLAHE on/off.
 

@@ -477,13 +477,24 @@ def _write_preprocess_comparison_grids(
 
     # pair_name -> method_name -> {(median, clahe): image}
     cells: dict[str, dict[str, dict[tuple[int, bool], np.ndarray]]] = {}
+    # pair_name -> {(median, clahe): side-by-side processed input image}
+    input_cells: dict[str, dict[tuple[int, bool], np.ndarray]] = {}
     for result in sweep_results:
         med = int(result["median_blur_ksize"])
         clahe = bool(result["use_clahe"])
+        variant_root = Path(str(result.get("output_dir", "")))
         summary = result["summary"]
         for pair in summary.get("pairs_processed", []):
             pair_name = str(pair.get("pair_name", "unknown_pair"))
             cells.setdefault(pair_name, {})
+            input_cells.setdefault(pair_name, {})
+
+            pair_dir = variant_root / pair_name
+            left_used = cv2.imread(str(pair_dir / "input_left_used.png"), cv2.IMREAD_GRAYSCALE)
+            right_used = cv2.imread(str(pair_dir / "input_right_used.png"), cv2.IMREAD_GRAYSCALE)
+            if left_used is not None and right_used is not None:
+                input_cells[pair_name][(med, clahe)] = _build_input_pair_preview(left_used, right_used)
+
             for method_result in pair.get("method_results", []):
                 method_name = str(method_result.get("method", "unknown_method"))
                 out_dir = Path(str(method_result.get("output_dir", "")))
@@ -503,6 +514,19 @@ def _write_preprocess_comparison_grids(
         pair_out_dir = grids_root / pair_name
         pair_out_dir.mkdir(parents=True, exist_ok=True)
         all_paths[pair_name] = {}
+
+        pair_input_cells = input_cells.get(pair_name, {})
+        if pair_input_cells:
+            input_grid = _build_preprocess_grid(
+                cells=pair_input_cells,
+                row_values=sorted_rows,
+                col_values=sorted_cols,
+                title="Processed inputs across preprocessing (Left | Right)",
+            )
+            input_path = pair_out_dir / "input_processed_preprocess_grid.png"
+            cv2.imwrite(str(input_path), input_grid)
+            all_paths[pair_name]["input_processed_grid"] = str(input_path)
+
         for method_name, method_cells in methods.items():
             if not method_cells:
                 continue
@@ -579,6 +603,18 @@ def _safe_filename(value: str) -> str:
         else:
             out.append("_")
     return "".join(out)
+
+
+def _build_input_pair_preview(left_gray: np.ndarray, right_gray: np.ndarray) -> np.ndarray:
+    """Create a single cell preview as Left|Right in BGR."""
+    left_bgr = cv2.cvtColor(left_gray, cv2.COLOR_GRAY2BGR)
+    right_bgr = cv2.cvtColor(right_gray, cv2.COLOR_GRAY2BGR)
+    h = min(left_bgr.shape[0], right_bgr.shape[0])
+    left_bgr = left_bgr[:h, :]
+    right_bgr = right_bgr[:h, :]
+    gap = 6
+    spacer = np.full((h, gap, 3), 20, dtype=np.uint8)
+    return np.concatenate([left_bgr, spacer, right_bgr], axis=1)
 
 
 if __name__ == "__main__":

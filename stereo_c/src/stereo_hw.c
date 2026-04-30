@@ -14,6 +14,9 @@
 #define STEREO_VIDEO_IN_REQUIRED_SPAN \
     ((size_t)STEREO_VIDEO_IN_STRIDE * (size_t)STEREO_FRAME_HEIGHT)
 
+#define STEREO_VGA_REQUIRED_SPAN \
+    ((size_t)STEREO_VGA_STRIDE * (size_t)STEREO_VGA_HEIGHT)
+
 int stereo_hw_init(stereo_hw_t *hw)
 {
     if (hw == NULL) {
@@ -61,6 +64,9 @@ int stereo_hw_init(stereo_hw_t *hw)
     hw->vga_char_ptr = (volatile unsigned int *)hw->vga_char_base;
 
     hw->onchip_map_span = FPGA_ONCHIP_SPAN;
+    if (STEREO_VGA_REQUIRED_SPAN > hw->onchip_map_span) {
+        hw->onchip_map_span = STEREO_VGA_REQUIRED_SPAN;
+    }
     hw->vga_pixel_base = mmap(NULL, hw->onchip_map_span, PROT_READ | PROT_WRITE,
                               MAP_SHARED, hw->fd, SDRAM_BASE);
     if (hw->vga_pixel_base == MAP_FAILED) {

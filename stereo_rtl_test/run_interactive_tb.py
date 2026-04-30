@@ -60,18 +60,32 @@ def _write_hex(pixels: Iterable[int], out_path: Path) -> None:
 
 def _read_hex(path: Path, expected_count: int) -> list[int]:
     vals: list[int] = []
+    unknown_count = 0
     with path.open("r", encoding="ascii") as f:
-        for line in f:
+        for line_num, line in enumerate(f, start=1):
             s = line.strip()
             if not s:
                 continue
-            vals.append(int(s, 16) & 0xFF)
+            if any(ch in "xXzZ?" for ch in s):
+                unknown_count += 1
+                vals.append(0)
+                continue
+            try:
+                vals.append(int(s, 16) & 0xFF)
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"Invalid hex value at {path}:{line_num}: {s}"
+                ) from exc
     if len(vals) < expected_count:
         raise RuntimeError(
             f"Disparity hex has too few entries: got {len(vals)}, expected {expected_count}"
         )
     if len(vals) > expected_count:
         vals = vals[:expected_count]
+    if unknown_count:
+        print(
+            f"[WARN] Replaced {unknown_count} x/z disparity entries with 00 while building PNG."
+        )
     return vals
 
 

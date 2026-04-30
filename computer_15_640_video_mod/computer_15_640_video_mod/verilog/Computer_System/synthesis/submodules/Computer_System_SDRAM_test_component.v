@@ -1,4 +1,4 @@
-//Legal Notice: (C)2022 Altera Corporation. All rights reserved.  Your
+//Legal Notice: (C)2026 Altera Corporation. All rights reserved.  Your
 //use of Altera Corporation's design tools, logic functions and other
 //software and tools, and its AMPP partner logic functions, and any
 //output files any of the foregoing (including device programming or
@@ -32,8 +32,8 @@ module Computer_System_SDRAM_test_component_ram_module (
                                                        )
 ;
 
-  output  [ 15: 0] q;
-  input   [ 15: 0] data;
+  output  [  7: 0] q;
+  input   [  7: 0] data;
   input   [ 24: 0] rdaddress;
   input            rdclken;
   input   [ 24: 0] wraddress;
@@ -41,8 +41,8 @@ module Computer_System_SDRAM_test_component_ram_module (
   input            wren;
 
 
-reg     [ 15: 0] mem_array [33554431: 0];
-wire    [ 15: 0] q;
+reg     [  7: 0] mem_array [33554431: 0];
+wire    [  7: 0] q;
 reg     [ 24: 0] read_address;
 
 //synthesis translate_off
@@ -93,7 +93,7 @@ initial
 //           lpm_ram_dp_component.lpm_indata = "REGISTERED",
 //           lpm_ram_dp_component.lpm_outdata = "UNREGISTERED",
 //           lpm_ram_dp_component.lpm_rdaddress_control = "UNREGISTERED",
-//           lpm_ram_dp_component.lpm_width = 16,
+//           lpm_ram_dp_component.lpm_width = 8,
 //           lpm_ram_dp_component.lpm_widthad = 25,
 //           lpm_ram_dp_component.lpm_wraddress_control = "REGISTERED",
 //           lpm_ram_dp_component.suppress_memory_conversion_warnings = "ON";
@@ -128,14 +128,14 @@ module Computer_System_SDRAM_test_component (
                                             )
 ;
 
-  inout   [ 15: 0] zs_dq;
+  inout   [  7: 0] zs_dq;
   input            clk;
   input   [ 12: 0] zs_addr;
   input   [  1: 0] zs_ba;
   input            zs_cas_n;
   input            zs_cke;
   input            zs_cs_n;
-  input   [  1: 0] zs_dqm;
+  input            zs_dqm;
   input            zs_ras_n;
   input            zs_we_n;
 
@@ -149,29 +149,29 @@ wire             cas_n;
 wire             cke;
 wire    [  2: 0] cmd_code;
 wire             cs_n;
-wire    [  1: 0] dqm;
+wire             dqm;
 wire    [  2: 0] index;
 reg     [  2: 0] latency;
-wire    [  1: 0] mask;
-wire    [ 15: 0] mem_bytes;
+wire             mask;
+wire    [  7: 0] mem_bytes;
 wire             ras_n;
 reg     [ 24: 0] rd_addr_pipe_0;
 reg     [ 24: 0] rd_addr_pipe_1;
 reg     [ 24: 0] rd_addr_pipe_2;
-reg     [  1: 0] rd_mask_pipe_0;
-reg     [  1: 0] rd_mask_pipe_1;
-reg     [  1: 0] rd_mask_pipe_2;
+reg              rd_mask_pipe_0;
+reg              rd_mask_pipe_1;
+reg              rd_mask_pipe_2;
 reg     [  2: 0] rd_valid_pipe;
 wire    [ 24: 0] read_addr;
-wire    [ 15: 0] read_data;
-wire    [  1: 0] read_mask;
-wire    [ 15: 0] read_temp;
+wire    [  7: 0] read_data;
+wire             read_mask;
+wire    [  7: 0] read_temp;
 wire             read_valid;
-wire    [ 15: 0] rmw_temp;
+wire    [  7: 0] rmw_temp;
 wire    [ 24: 0] test_addr;
 wire    [ 23: 0] txt_code;
 wire             we_n;
-wire    [ 15: 0] zs_dq;
+wire    [  7: 0] zs_dq;
 initial
   begin
     $write("\n");
@@ -206,8 +206,7 @@ initial
   assign addr_col = a[9 : 0];
   assign test_addr = {addr_crb, addr_col};
   assign mem_bytes = read_data;
-  assign rmw_temp[7 : 0] = dqm[0] ? mem_bytes[7 : 0] : zs_dq[7 : 0];
-  assign rmw_temp[15 : 8] = dqm[1] ? mem_bytes[15 : 8] : zs_dq[15 : 8];
+  assign rmw_temp = dqm ? mem_bytes : zs_dq;
   // Handle Input.
   always @(posedge clk)
     begin
@@ -233,8 +232,7 @@ initial
     end
 
 
-  assign read_temp[7 : 0] = mask[0] ? 8'bz : read_data[7 : 0];
-  assign read_temp[15 : 8] = mask[1] ? 8'bz : read_data[15 : 8];
+  assign read_temp = mask ? 8'bz : read_data;
   //use index to select which pipeline stage drives addr
   assign read_addr = (index == 0)? rd_addr_pipe_0 :
     (index == 1)? rd_addr_pipe_1 :
@@ -252,7 +250,7 @@ initial
 
   assign index = latency - 1'b1;
   assign mask = read_mask;
-  assign zs_dq = read_valid ? read_temp : {16{1'bz}};
+  assign zs_dq = read_valid ? read_temp : {8{1'bz}};
 
 //synthesis translate_off
 //////////////// SIMULATION-ONLY CONTENTS

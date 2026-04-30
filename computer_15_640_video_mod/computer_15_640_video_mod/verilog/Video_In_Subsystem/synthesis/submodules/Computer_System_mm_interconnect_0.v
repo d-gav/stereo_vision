@@ -62,7 +62,7 @@ module Computer_System_mm_interconnect_0 (
 		output wire [7:0]   VGA_Subsystem_pixel_dma_master_readdata,                               //                                                                .readdata
 		output wire         VGA_Subsystem_pixel_dma_master_readdatavalid,                          //                                                                .readdatavalid
 		input  wire         VGA_Subsystem_pixel_dma_master_lock,                                   //                                                                .lock
-		output wire [16:0]  Onchip_SRAM_s2_address,                                                //                                                  Onchip_SRAM_s2.address
+		output wire [17:0]  Onchip_SRAM_s2_address,                                                //                                                  Onchip_SRAM_s2.address
 		output wire         Onchip_SRAM_s2_write,                                                  //                                                                .write
 		input  wire [7:0]   Onchip_SRAM_s2_readdata,                                               //                                                                .readdata
 		output wire [7:0]   Onchip_SRAM_s2_writedata,                                              //                                                                .writedata
@@ -777,7 +777,7 @@ module Computer_System_mm_interconnect_0 (
 	);
 
 	altera_merlin_slave_translator #(
-		.AV_ADDRESS_W                   (17),
+		.AV_ADDRESS_W                   (18),
 		.AV_DATA_W                      (8),
 		.UAV_DATA_W                     (8),
 		.AV_BURSTCOUNT_W                (1),

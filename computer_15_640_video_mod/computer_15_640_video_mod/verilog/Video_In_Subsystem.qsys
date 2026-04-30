@@ -41,6 +41,14 @@
          type = "int";
       }
    }
+   element Video_In.external_interface
+   {
+      datum _tags
+      {
+         value = "";
+         type = "String";
+      }
+   }
    element Video_In_CSC
    {
       datum _sortIndex
@@ -148,7 +156,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Edge_Detection_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">Video_In_Subsystem_Edge_Detection_Subsystem</parameter>
  </module>
  <module name="Sys_Clk" kind="clock_source" version="18.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />
@@ -201,11 +209,11 @@
   <parameter name="add_value_plane_4" value="0" />
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
-  <parameter name="drop_bottom" value="2" />
+  <parameter name="drop_bottom" value="0" />
   <parameter name="drop_left" value="40" />
   <parameter name="drop_right" value="40" />
-  <parameter name="drop_top" value="2" />
-  <parameter name="height_in" value="244" />
+  <parameter name="drop_top" value="0" />
+  <parameter name="height_in" value="288" />
   <parameter name="width_in" value="720" />
  </module>
  <module
@@ -220,10 +228,10 @@
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
   <parameter name="dma_enabled" value="false" />
-  <parameter name="height" value="240" />
+  <parameter name="height" value="288" />
   <parameter name="mode">From Stream to Memory</parameter>
   <parameter name="start_address" value="134217728" />
-  <parameter name="width" value="320" />
+  <parameter name="width" value="640" />
  </module>
  <module
    name="Video_In_RGB_Resampler"
@@ -234,18 +242,18 @@
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="alpha" value="1023" />
   <parameter name="input_type" value="24-bit RGB" />
-  <parameter name="output_type" value="8-bit RGB" />
+  <parameter name="output_type" value="8-bit Grayscale" />
  </module>
  <module
    name="Video_In_Scaler"
    kind="altera_up_avalon_video_scaler"
    version="18.0"
-   enabled="1">
+   enabled="0">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
-  <parameter name="height_in" value="240" />
+  <parameter name="height_in" value="284" />
   <parameter name="height_scaling" value="1" />
   <parameter name="include_channel" value="false" />
   <parameter name="width_in" value="640" />
@@ -260,7 +268,7 @@
    kind="avalon_streaming"
    version="18.1"
    start="Video_In_Clipper.avalon_clipper_source"
-   end="Video_In_Scaler.avalon_scaler_sink" />
+   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="18.1"
@@ -276,11 +284,6 @@
    version="18.1"
    start="Video_In_RGB_Resampler.avalon_rgb_source"
    end="Video_In_Clipper.avalon_clipper_sink" />
- <connection
-   kind="avalon_streaming"
-   version="18.1"
-   start="Video_In_Scaler.avalon_scaler_source"
-   end="Video_In_DMA.avalon_dma_sink" />
  <connection
    kind="avalon_streaming"
    version="18.1"

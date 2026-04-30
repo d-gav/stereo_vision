@@ -358,30 +358,25 @@ output					HPS_USB_STP;
 //=======================================================
 
 // Stereo layout assumptions:
-//  - Input is a single 320x240 frame where left/right views are side-by-side.
-//  - Left view uses x=[0..159], right view uses x=[160..319].
-//  - SW[2]=0 displays left on VGA, SW[2]=1 displays right on VGA.
-//  - SW[3]=1 masks odd rows (writes zeros) for debug.
-//  - SW[4]=1 enables LUT remap from source x/y to corrected VGA x/y.
-localparam FULL_FRAME_WIDTH  = 320;
-localparam HALF_FRAME_WIDTH  = 160;
-localparam FRAME_HEIGHT      = 240;
-localparam NUM_ROW_BANKS     = 4;
-localparam ROWS_PER_BANK     = FRAME_HEIGHT / NUM_ROW_BANKS;
-localparam BANK_DEPTH        = HALF_FRAME_WIDTH * ROWS_PER_BANK;
-localparam TOTAL_BANK_DEPTH  = NUM_ROW_BANKS * BANK_DEPTH;
-localparam LUT_DEPTH         = FULL_FRAME_WIDTH * FRAME_HEIGHT;
+//  - Input is a 640x288 side-by-side frame.
+//  - Left camera output occupies x=[0..314].
+//  - Gap occupies x=[315..318] and is treated as invalid by mapping.
+//  - Right camera output occupies x=[319..633].
+localparam FULL_FRAME_WIDTH  = 640;
+localparam HALF_FRAME_WIDTH  = 320;
+localparam FRAME_HEIGHT      = 288;
+localparam LEFT_OUTPUT_X_START  = 0;
+localparam LEFT_LUT_WIDTH       = 315;
+localparam INTER_CAMERA_GAP     = 4;
+localparam RIGHT_OUTPUT_X_START = LEFT_OUTPUT_X_START + LEFT_LUT_WIDTH + INTER_CAMERA_GAP;
+localparam RIGHT_LUT_WIDTH      = 315;
 
 wire			[15: 0]	hex3_hex0;
 //wire			[15: 0]	hex5_hex4;
 
-// Row-banked BRAM-style storage for left/right views.
-reg [7:0] left_row_bank  [0:TOTAL_BANK_DEPTH-1];
-reg [7:0] right_row_bank [0:TOTAL_BANK_DEPTH-1];
-
-// Packed LUT payload format in bits [16:0]: {src_x[16:8], src_y[7:0]}.
-// This is the minimum width for 320x240 source coordinates.
-(* ramstyle = "M10K" *) reg [16:0] undistort_lut [0:LUT_DEPTH-1];
+// Row-per-bank BRAM-style storage for left/right views.
+reg [7:0] left_row_bank  [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+reg [7:0] right_row_bank [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
 
 //assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
 //assign HEX1 = ~hex3_hex0[14: 8];
@@ -429,41 +424,52 @@ reg [19:0] hs_count ;
 // pixel address is
 reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
 reg [7:0] current_pixel_color1, current_pixel_color2 ;
-reg old_lut_in_range;
+reg old_poly_valid;
+reg map_enable_latched;
+reg read_video_start;
+wire [9:0] read_video_map_x;
+wire [9:0] read_video_map_y;
+wire read_video_map_valid;
+wire read_video_map_done;
+wire raw_read_valid =
+	(old_video_in_y_cood < FRAME_HEIGHT) &&
+	((old_video_in_x_cood < LEFT_LUT_WIDTH) ||
+	 ((old_video_in_x_cood >= RIGHT_OUTPUT_X_START) &&
+	  (old_video_in_x_cood < (RIGHT_OUTPUT_X_START + RIGHT_LUT_WIDTH))));
+wire [9:0] read_video_x = map_enable_latched ? read_video_map_x : old_video_in_x_cood;
+wire [9:0] read_video_y = map_enable_latched ? read_video_map_y : old_video_in_y_cood;
+wire read_video_valid = map_enable_latched ? read_video_map_valid : raw_read_valid;
+wire read_video_done = map_enable_latched ? read_video_map_done : 1'b1;
 
-wire lut_enable = SW[4];
-wire [17:0] read_lut_row_offset = ({8'b0, video_in_y_cood} << 8) + ({8'b0, video_in_y_cood} << 6);
-wire [16:0] read_lut_index = read_lut_row_offset[16:0] + video_in_x_cood;
-wire [16:0] read_lut_word = undistort_lut[read_lut_index];
-wire [8:0] read_lut_src_x = read_lut_word[16:8];
-wire [7:0] read_lut_src_y = read_lut_word[7:0];
-wire read_lut_in_range = (read_lut_src_x < FULL_FRAME_WIDTH) && (read_lut_src_y < FRAME_HEIGHT);
-
-wire [9:0] read_video_x = lut_enable ? (read_lut_in_range ? {1'b0, read_lut_src_x} : 10'd0) : video_in_x_cood;
-wire [9:0] read_video_y = lut_enable ? (read_lut_in_range ? {2'b0, read_lut_src_y} : 10'd0) : video_in_y_cood;
-
-wire [9:0] write_vga_x = old_video_in_x_cood + vga_x_cood;
+wire [9:0] write_vga_x = old_video_in_x_cood - vga_x_cood;
 wire [9:0] write_vga_y = old_video_in_y_cood + vga_y_cood;
 
 // compute address
 assign vga_bus_addr = vga_out_base_address + {22'b0,write_vga_x} + ({22'b0,write_vga_y}<<10) ;
-assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b0,read_video_y}<<9) ;	 
+assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b0,read_video_y}<<10) ;	 
 
 
 
 reg display_right_sel;
-wire right_read_side = old_video_in_x_cood >= HALF_FRAME_WIDTH ? 1'b1 : 1'b0;
+wire right_read_side = old_video_in_x_cood >= RIGHT_OUTPUT_X_START ? 1'b1 : 1'b0;
 
 //The address for the pixel in the right bank we are writing to
 wire [9:0] right_cam_mem_x_cood ;
 
-assign right_cam_mem_x_cood = old_video_in_x_cood - HALF_FRAME_WIDTH ;
+assign right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START ;
 
-wire [15:0] bank_address =  (old_video_in_y_cood * HALF_FRAME_WIDTH) + (right_read_side ? right_cam_mem_x_cood : old_video_in_x_cood) ; 
-
-initial begin
-	$readmemb("undistort_lut_320x240_x100_y50.memh", undistort_lut);
-end
+stereo_radial_mapper_q15 stereo_radial_mapper_inst (
+	.clk(CLOCK2_50),
+	.reset_n(KEY[0]),
+	.start(read_video_start),
+	.dst_x(video_in_x_cood),
+	.dst_y(video_in_y_cood),
+	.src_x(read_video_map_x),
+	.src_y(read_video_map_y),
+	.valid(read_video_map_valid),
+	.done(read_video_map_done),
+	.busy()
+);
 
 always @(posedge CLOCK2_50) begin //CLOCK_50
 
@@ -473,31 +479,36 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		bus_read <= 0 ; // set to one if a read opeation from bus
 		bus_write <= 0 ; // set to on if a write operation to bus
 		// base address of upper-left corner of the screen
-		vga_x_cood <= 10'd100 ;
-		vga_y_cood <= 10'd50 ;
+		vga_x_cood <= 10'd0 ;
+		vga_y_cood <= 10'd0 ;
 		video_in_x_cood <= 0 ;
 		old_video_in_x_cood <= 0 ;
 		video_in_y_cood <= 0 ;
 		old_video_in_y_cood <= 0 ;
 	    bus_byte_enable <= 4'b0001;
-		old_lut_in_range <= 1'b1;
+		old_poly_valid <= 1'b0;
+		map_enable_latched <= 1'b1;
+		read_video_start <= 1'b0;
 		display_right_sel <= SW[2];
 		timer <= 0;
 	end
 	else begin
-		timer <= timer + 1;
+		 timer <= timer + 1;
+		 read_video_start <= 1'b0;
 	end
 	
 	// write to the bus-master
 	// and put in a small delay to aviod bus hogging
 	// timer delay can be set to 2**n-1, so 3, 7, 15, 31
 	// bigger numbers mean slower frame update to VGA
-	if (state==0 && SW[0] && (timer & 3)==0 ) begin //
-		state <= 1;	
+	if (state==0 && SW[0] && (timer & 5) == 0) begin //
+		state <= 11;
+		// SW[3]=1: radial remap, SW[3]=0: identity/bypass read.
+		map_enable_latched <= SW[3];
+		read_video_start <= 1'b1;
 		// read all the pixels in the video input
 		old_video_in_x_cood <= video_in_x_cood ;
 		old_video_in_y_cood <= video_in_y_cood ;
-		old_lut_in_range <= lut_enable ? read_lut_in_range : 1'b1;
 
 		video_in_x_cood <= video_in_x_cood + 10'd1 ;
 		if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
@@ -509,10 +520,20 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 		end
 		// one byte data
 		bus_byte_enable <= 4'b0001;
-		// read first pixel
+	end
+
+	// Wait for mapper completion (or bypass immediately when mapping is disabled).
+	if (state==11 && read_video_done) begin
+		state <= 10;
+		old_poly_valid <= read_video_valid;
+	end
+
+	// Mapper finished, issue read request now.
+	if (state==10) begin
+		state <= 1;
+		bus_byte_enable <= 4'b0001;
 		bus_addr <= video_in_bus_addr ;
-		// signal the bus that a read is requested
-		bus_read <= 1'b1 ;	
+		bus_read <= 1'b1 ;
 	end
 	
 	// finish the  read
@@ -520,24 +541,22 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	if (state==1 && bus_ack==1) begin
 		state <= 8 ; //state <= 2 ;
 		bus_read <= 1'b0 ;
-		current_pixel_color1 <= bus_read_data ;
+		current_pixel_color1 <= old_poly_valid ? bus_read_data[7:0] : 8'h00 ;
 	end
 	
 	// write a pixel to VGA memory
 	if (state==8) begin
 		if (right_read_side) begin
-			right_row_bank[bank_address] = current_pixel_color1;
+			right_row_bank[old_video_in_y_cood][right_cam_mem_x_cood] = current_pixel_color1;
 		end else begin
-			left_row_bank[bank_address] = current_pixel_color1;
+			left_row_bank[old_video_in_y_cood][old_video_in_x_cood] = current_pixel_color1;
 		end
 
 		state <= 9 ;
 		bus_write <= 1'b1;
 		bus_addr <= vga_bus_addr ;
-		if (lut_enable && !old_lut_in_range)
-			bus_write_data <= 8'h00;
-		else
-			bus_write_data <= current_pixel_color1;
+		// Always write sampled pixel color (or black if mapping was invalid).
+		bus_write_data <= current_pixel_color1;
 		bus_byte_enable <= 4'b0001;
 
 		
@@ -550,6 +569,15 @@ always @(posedge CLOCK2_50) begin //CLOCK_50
 	end
 	
 end // always @(posedge state_clock)
+
+
+//
+// Block Matching Memory Interface
+//
+
+
+
+
 
 //=======================================================
 //  Structural coding
@@ -588,6 +616,9 @@ Computer_System The_System (
 	.video_in_clk27_reset					(),
 	.video_in_TD_RESET						(),
 	.video_in_overflow_flag					(),
+	
+	//PIO out
+	.pio_test_test_export(32'd5),
 	
 	.ebab_video_in_external_interface_address     (bus_addr),     // 
 	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable

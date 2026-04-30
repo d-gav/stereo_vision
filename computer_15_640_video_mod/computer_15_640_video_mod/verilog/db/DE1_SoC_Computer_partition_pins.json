@@ -116,6 +116,26 @@
 					"strict" : false
 				},
 				{
+					"name" : "DRAM_ADDR[0]",
+					"strict" : false
+				},
+				{
+					"name" : "DRAM_ADDR[1]",
+					"strict" : false
+				},
+				{
+					"name" : "DRAM_ADDR[2]",
+					"strict" : false
+				},
+				{
+					"name" : "DRAM_ADDR[3]",
+					"strict" : false
+				},
+				{
+					"name" : "DRAM_ADDR[4]",
+					"strict" : false
+				},
+				{
 					"name" : "DRAM_ADDR[5]",
 					"strict" : false
 				},
@@ -164,39 +184,11 @@
 					"strict" : false
 				},
 				{
-					"name" : "DRAM_LDQM",
-					"strict" : false
-				},
-				{
 					"name" : "DRAM_RAS_N",
 					"strict" : false
 				},
 				{
-					"name" : "DRAM_UDQM",
-					"strict" : false
-				},
-				{
 					"name" : "DRAM_WE_N",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_ADDR[0]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_ADDR[1]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_ADDR[2]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_ADDR[3]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_ADDR[4]",
 					"strict" : false
 				},
 				{
@@ -237,38 +229,6 @@
 				},
 				{
 					"name" : "DRAM_DQ[7]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[8]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[9]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[10]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[11]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[12]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[13]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[14]",
-					"strict" : false
-				},
-				{
-					"name" : "DRAM_DQ[15]",
 					"strict" : false
 				},
 				{
@@ -328,7 +288,7 @@
 					"strict" : false
 				},
 				{
-					"name" : "SW[4]",
+					"name" : "SW[3]",
 					"strict" : false
 				},
 				{

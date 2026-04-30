@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<simPackage>
+ <file
+   path="simulation/submodules/Computer_System_Video_In_Subsystem.v"
+   type="VERILOG"
+   library="Video_In_Subsystem" />
+ <file
+   path="simulation/submodules/Computer_System_VGA_Subsystem.v"
+   type="VERILOG"
+   library="VGA_Subsystem" />
+ <file
+   path="simulation/submodules/Computer_System_System_PLL.v"
+   type="VERILOG"
+   library="System_PLL" />
+ <file
+   path="simulation/submodules/Computer_System_SDRAM.v"
+   type="VERILOG"
+   library="SDRAM" />
+ <file
+   path="simulation/submodules/Computer_System_SDRAM_test_component.v"
+   type="VERILOG"
+   library="SDRAM" />
+ <file
+   path="simulation/submodules/altera_up_avalon_video_dma_ctrl_addr_trans.v"
+   type="VERILOG"
+   library="Pixel_DMA_Addr_Translation" />
+ <file
+   path="simulation/submodules/Computer_System_Onchip_SRAM.v"
+   type="VERILOG"
+   library="Onchip_SRAM" />
+ <file
+   path="simulation/submodules/Computer_System_EBAB_video_in.v"
+   type="VERILOG"
+   library="EBAB_video_in" />
+ <file
+   path="simulation/submodules/altera_up_av_config_serial_bus_controller.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_slow_clock_generator.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_dc2.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_d5m.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_lcm.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ltm.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_de1_soc.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_de2_115.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_de2i_150.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_de10_standard.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_audio.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_adv7180.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/altera_up_av_config_auto_init_ob_adv7181.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/Computer_System_AV_Config.v"
+   type="VERILOG"
+   library="AV_Config" />
+ <file
+   path="simulation/submodules/Computer_System_ARM_A9_HPS.v"
+   type="VERILOG"
+   library="ARM_A9_HPS" />
+ <file path="simulation/Computer_System.v" type="VERILOG" />
+ <topLevel name="Computer_System" />
+ <deviceFamily name="cyclonev" />
+ <modelMap
+   controllerPath="Computer_System.ARM_A9_HPS"
+   modelPath="Computer_System.ARM_A9_HPS" />
+ <modelMap
+   controllerPath="Computer_System.ARM_A9_HPS.fpga_interfaces"
+   modelPath="Computer_System.ARM_A9_HPS.fpga_interfaces" />
+ <modelMap
+   controllerPath="Computer_System.ARM_A9_HPS.hps_io"
+   modelPath="Computer_System.ARM_A9_HPS.hps_io" />
+ <modelMap
+   controllerPath="Computer_System.Onchip_SRAM"
+   modelPath="Computer_System.Onchip_SRAM" />
+</simPackage>

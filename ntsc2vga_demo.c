@@ -39,6 +39,7 @@ volatile unsigned int *h2p_lw_video_in_resolution_addr=NULL;
 //volatile unsigned int *h2p_lw_video_in_control_addr=NULL;
 
 volatile unsigned int *h2p_lw_video_edge_control_addr=NULL;
+volatile unsigned int *h2p_lw_test_pio=NULL;
 
 // pixel buffer
 volatile unsigned int * vga_pixel_ptr = NULL ;
@@ -72,7 +73,8 @@ char shared_str[64];
 	
 #define VIDEO_IN_PIXEL(x,y,color) do{\
 	char  *pixel_ptr ;\
-	pixel_ptr = (char *)video_in_ptr + ((y)<<9) + (x) ;\
+	// X-Y mode stride for width 640 is 1024 bytes per row.\
+	pixel_ptr = (char *)video_in_ptr + ((y) * VIDEO_IN_XY_STRIDE) + (x) ;\
 	*(char *)pixel_ptr = (color);\
 } while(0)
 	
@@ -84,6 +86,13 @@ struct timespec delay_time ;
 
 #define VGA_WIDTH 640
 #define VGA_HEIGHT 480
+
+// Video-In DMA uses X-Y addressing mode in this design.
+#define VIDEO_IN_WIDTH 640U
+#define VIDEO_IN_HEIGHT 288U
+#define VIDEO_IN_XY_STRIDE 1024U
+#define VIDEO_IN_REQUIRED_SPAN (VIDEO_IN_XY_STRIDE * VIDEO_IN_HEIGHT)
+#define VIDEO_IN_MAP_SPAN ((FPGA_ONCHIP_SPAN > VIDEO_IN_REQUIRED_SPAN) ? FPGA_ONCHIP_SPAN : VIDEO_IN_REQUIRED_SPAN)
 
 static unsigned int crc32_table[256];
 static int crc32_table_initialized = 0;
@@ -214,6 +223,7 @@ int main(void)
 	char png_filename[128];
 	struct termios saved_terminal;
 	int raw_terminal_enabled = 0;
+	unsigned int video_in_resolution;
 
 	// Declare volatile pointers to I/O registers (volatile 	// means that IO load and store instructions will be used 	// to access these pointer locations, 
 	// instead of regular memory loads and stores) 
@@ -237,10 +247,21 @@ int main(void)
 		close( fd );
 		return(1);
 	}
+	h2p_lw_test_pio=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x0);
     h2p_lw_video_in_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x0c);
 	h2p_lw_video_in_resolution_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x08);
 	*(h2p_lw_video_in_control_addr) = 0x04 ; // turn on video capture
-	*(h2p_lw_video_in_resolution_addr) = 0x00f00140 ;  // high 240 low 320
+	// Resolution is read-only in this DMA core; read it back for diagnostics.
+	video_in_resolution = *(h2p_lw_video_in_resolution_addr);
+	printf("Video-In DMA resolution (RO): 0x%08X (Y=%u, X=%u)\n",
+		video_in_resolution,
+		(video_in_resolution >> 16) & 0xFFFFU,
+		video_in_resolution & 0xFFFFU);
+	if (FPGA_ONCHIP_SPAN < VIDEO_IN_REQUIRED_SPAN) {
+		printf("Video-In mmap span expanded to %u bytes (header span %u).\n",
+			(unsigned int)VIDEO_IN_MAP_SPAN,
+			(unsigned int)FPGA_ONCHIP_SPAN);
+	}
 	h2p_lw_video_edge_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x10);
 	*h2p_lw_video_edge_control_addr = 0x01 ; // 1 means edges
 	*h2p_lw_video_edge_control_addr = 0x00 ; // 1 means edges
@@ -273,7 +294,7 @@ int main(void)
 	
 	// === get video input =======================
 	// on-chip RAM
-	video_in_virtual_base = mmap( NULL, FPGA_ONCHIP_SPAN, ( PROT_READ | PROT_WRITE ), MAP_SHARED, fd, FPGA_ONCHIP_BASE); 
+		video_in_virtual_base = mmap( NULL, VIDEO_IN_MAP_SPAN, ( PROT_READ | PROT_WRITE ), MAP_SHARED, fd, FPGA_ONCHIP_BASE); 
 	if( video_in_virtual_base == MAP_FAILED ) {
 		printf( "ERROR: mmap3() failed...\n" );
 		close( fd );
@@ -294,6 +315,8 @@ int main(void)
 	} else {
 		printf("Warning: raw terminal mode unavailable, input may require Enter.\n");
 	}
+
+	printf("value read from h2p lw bus: %d", *h2p_lw_test_pio); 
 
 	while (1) {
 		bytes_read = read(STDIN_FILENO, &key, 1);
@@ -321,7 +344,7 @@ int main(void)
 	}
 
 	if (video_in_virtual_base != NULL && video_in_virtual_base != MAP_FAILED) {
-		munmap(video_in_virtual_base, FPGA_ONCHIP_SPAN);
+		munmap(video_in_virtual_base, VIDEO_IN_MAP_SPAN);
 	}
 	if (vga_pixel_virtual_base != NULL && vga_pixel_virtual_base != MAP_FAILED) {
 		munmap(vga_pixel_virtual_base, FPGA_ONCHIP_SPAN);
@@ -339,114 +362,116 @@ int main(void)
 
 int save_vga_png(const char *filename)
 {
-	FILE *fp;
-	unsigned char png_signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
-	unsigned char ihdr[13];
-	unsigned char *raw = NULL;
-	unsigned char *idat = NULL;
-	unsigned int adler;
-	size_t raw_size;
-	size_t raw_pos;
-	size_t idat_size;
-	size_t idat_pos;
-	size_t remaining;
-	size_t max_blocks;
-	int x, y;
+    FILE *fp;
+    unsigned char png_signature[8] = {137, 80, 78, 71, 13, 10, 26, 10};
+    unsigned char ihdr[13];
+    unsigned char *raw = NULL;
+    unsigned char *idat = NULL;
+    unsigned int adler;
+    size_t raw_size;
+    size_t raw_pos;
+    size_t idat_size;
+    size_t idat_pos;
+    size_t remaining;
+    size_t max_blocks;
+    int x, y;
 
-	raw_size = (size_t)VGA_HEIGHT * (1 + ((size_t)VGA_WIDTH * 3));
-	max_blocks = (raw_size + 65534U) / 65535U;
-	idat_size = 2 + raw_size + (max_blocks * 5U) + 4;
+    /* CHANGE 1: Calculate raw size for 1 byte per pixel instead of 3 */
+    raw_size = (size_t)VGA_HEIGHT * (1 + (size_t)VGA_WIDTH);
+    max_blocks = (raw_size + 65534U) / 65535U;
+    idat_size = 2 + raw_size + (max_blocks * 5U) + 4;
 
-	raw = (unsigned char *)malloc(raw_size);
-	idat = (unsigned char *)malloc(idat_size);
-	if (raw == NULL || idat == NULL) {
-		free(raw);
-		free(idat);
-		return -1;
-	}
+    raw = (unsigned char *)malloc(raw_size);
+    idat = (unsigned char *)malloc(idat_size);
+    if (raw == NULL || idat == NULL) {
+        free(raw);
+        free(idat);
+        return -1;
+    }
 
-	for (y = 0; y < VGA_HEIGHT; y++) {
-		size_t row_start = (size_t)y * (1 + ((size_t)VGA_WIDTH * 3));
-		raw[row_start] = 0;
-		for (x = 0; x < VGA_WIDTH; x++) {
-			unsigned char pix = (unsigned char)(VGA_read_pixel(x, y) & 0xFF);
-			unsigned char r = (unsigned char)((((pix >> 5) & 0x07U) * 255U) / 7U);
-			unsigned char g = (unsigned char)((((pix >> 2) & 0x07U) * 255U) / 7U);
-			unsigned char b = (unsigned char)(((pix & 0x03U) * 255U) / 3U);
-			size_t out = row_start + 1 + ((size_t)x * 3);
-			raw[out] = r;
-			raw[out + 1] = g;
-			raw[out + 2] = b;
-		}
-	}
+    for (y = 0; y < VGA_HEIGHT; y++) {
+        /* CHANGE 2: Scanline width is now just 1 + VGA_WIDTH */
+        size_t row_start = (size_t)y * (1 + (size_t)VGA_WIDTH);
+        raw[row_start] = 0; /* No filter for this row */
+        
+        for (x = 0; x < VGA_WIDTH; x++) {
+            /* CHANGE 3: Read the 8-bit grayscale value and write it directly */
+            unsigned char pix = (unsigned char)(VGA_read_pixel(x, y) & 0xFF);
+            size_t out = row_start + 1 + (size_t)x;
+            raw[out] = pix; 
+        }
+    }
 
-	idat_pos = 0;
-	idat[idat_pos++] = 0x78;
-	idat[idat_pos++] = 0x01;
+    idat_pos = 0;
+    idat[idat_pos++] = 0x78;
+    idat[idat_pos++] = 0x01;
 
-	raw_pos = 0;
-	remaining = raw_size;
-	while (remaining > 0) {
-		unsigned int block_len = (remaining > 65535U) ? 65535U : (unsigned int)remaining;
-		unsigned int nlen = 0xFFFFU - block_len;
-		idat[idat_pos++] = (remaining > 65535U) ? 0x00 : 0x01;
-		idat[idat_pos++] = (unsigned char)(block_len & 0xFFU);
-		idat[idat_pos++] = (unsigned char)((block_len >> 8) & 0xFFU);
-		idat[idat_pos++] = (unsigned char)(nlen & 0xFFU);
-		idat[idat_pos++] = (unsigned char)((nlen >> 8) & 0xFFU);
-		memcpy(idat + idat_pos, raw + raw_pos, block_len);
-		idat_pos += block_len;
-		raw_pos += block_len;
-		remaining -= block_len;
-	}
+    raw_pos = 0;
+    remaining = raw_size;
+    while (remaining > 0) {
+        unsigned int block_len = (remaining > 65535U) ? 65535U : (unsigned int)remaining;
+        unsigned int nlen = 0xFFFFU - block_len;
+        idat[idat_pos++] = (remaining > 65535U) ? 0x00 : 0x01;
+        idat[idat_pos++] = (unsigned char)(block_len & 0xFFU);
+        idat[idat_pos++] = (unsigned char)((block_len >> 8) & 0xFFU);
+        idat[idat_pos++] = (unsigned char)(nlen & 0xFFU);
+        idat[idat_pos++] = (unsigned char)((nlen >> 8) & 0xFFU);
+        memcpy(idat + idat_pos, raw + raw_pos, block_len);
+        idat_pos += block_len;
+        raw_pos += block_len;
+        remaining -= block_len;
+    }
 
-	adler = adler32_calc(raw, raw_size);
-	idat[idat_pos++] = (unsigned char)((adler >> 24) & 0xFFU);
-	idat[idat_pos++] = (unsigned char)((adler >> 16) & 0xFFU);
-	idat[idat_pos++] = (unsigned char)((adler >> 8) & 0xFFU);
-	idat[idat_pos++] = (unsigned char)(adler & 0xFFU);
+    adler = adler32_calc(raw, raw_size);
+    idat[idat_pos++] = (unsigned char)((adler >> 24) & 0xFFU);
+    idat[idat_pos++] = (unsigned char)((adler >> 16) & 0xFFU);
+    idat[idat_pos++] = (unsigned char)((adler >> 8) & 0xFFU);
+    idat[idat_pos++] = (unsigned char)(adler & 0xFFU);
 
-	fp = fopen(filename, "wb");
-	if (fp == NULL) {
-		free(raw);
-		free(idat);
-		return -1;
-	}
+    fp = fopen(filename, "wb");
+    if (fp == NULL) {
+        free(raw);
+        free(idat);
+        return -1;
+    }
 
-	if (fwrite(png_signature, 1, sizeof(png_signature), fp) != sizeof(png_signature)) {
-		fclose(fp);
-		free(raw);
-		free(idat);
-		return -1;
-	}
+    if (fwrite(png_signature, 1, sizeof(png_signature), fp) != sizeof(png_signature)) {
+        fclose(fp);
+        free(raw);
+        free(idat);
+        return -1;
+    }
 
-	ihdr[0] = (unsigned char)((VGA_WIDTH >> 24) & 0xFFU);
-	ihdr[1] = (unsigned char)((VGA_WIDTH >> 16) & 0xFFU);
-	ihdr[2] = (unsigned char)((VGA_WIDTH >> 8) & 0xFFU);
-	ihdr[3] = (unsigned char)(VGA_WIDTH & 0xFFU);
-	ihdr[4] = (unsigned char)((VGA_HEIGHT >> 24) & 0xFFU);
-	ihdr[5] = (unsigned char)((VGA_HEIGHT >> 16) & 0xFFU);
-	ihdr[6] = (unsigned char)((VGA_HEIGHT >> 8) & 0xFFU);
-	ihdr[7] = (unsigned char)(VGA_HEIGHT & 0xFFU);
-	ihdr[8] = 8;
-	ihdr[9] = 2;
-	ihdr[10] = 0;
-	ihdr[11] = 0;
-	ihdr[12] = 0;
+    ihdr[0] = (unsigned char)((VGA_WIDTH >> 24) & 0xFFU);
+    ihdr[1] = (unsigned char)((VGA_WIDTH >> 16) & 0xFFU);
+    ihdr[2] = (unsigned char)((VGA_WIDTH >> 8) & 0xFFU);
+    ihdr[3] = (unsigned char)(VGA_WIDTH & 0xFFU);
+    ihdr[4] = (unsigned char)((VGA_HEIGHT >> 24) & 0xFFU);
+    ihdr[5] = (unsigned char)((VGA_HEIGHT >> 16) & 0xFFU);
+    ihdr[6] = (unsigned char)((VGA_HEIGHT >> 8) & 0xFFU);
+    ihdr[7] = (unsigned char)(VGA_HEIGHT & 0xFFU);
+    ihdr[8] = 8; /* Bit depth: 8 bits per channel/pixel */
+    
+    /* CHANGE 4: Color Type 0 = Grayscale (was 2 for Truecolor) */
+    ihdr[9] = 0; 
+    
+    ihdr[10] = 0;
+    ihdr[11] = 0;
+    ihdr[12] = 0;
 
-	if (write_png_chunk(fp, "IHDR", ihdr, sizeof(ihdr)) != 0 ||
-		write_png_chunk(fp, "IDAT", idat, idat_pos) != 0 ||
-		write_png_chunk(fp, "IEND", NULL, 0) != 0) {
-		fclose(fp);
-		free(raw);
-		free(idat);
-		return -1;
-	}
+    if (write_png_chunk(fp, "IHDR", ihdr, sizeof(ihdr)) != 0 ||
+        write_png_chunk(fp, "IDAT", idat, idat_pos) != 0 ||
+        write_png_chunk(fp, "IEND", NULL, 0) != 0) {
+        fclose(fp);
+        free(raw);
+        free(idat);
+        return -1;
+    }
 
-	fclose(fp);
-	free(raw);
-	free(idat);
-	return 0;
+    fclose(fp);
+    free(raw);
+    free(idat);
+    return 0;
 }
 
 /****************************************************************************************
@@ -454,7 +479,8 @@ int save_vga_png(const char *filename)
 ****************************************************************************************/
 int  video_in_read_pixel(int x, int y){
 	char  *pixel_ptr ;
-	pixel_ptr = (char *)video_in_ptr + ((y)<<9) + (x) ;
+	// X-Y mode stride for width 640 is 1024 bytes per row.
+	pixel_ptr = (char *)video_in_ptr + (y * VIDEO_IN_XY_STRIDE) + x ;
 	return *pixel_ptr ;
 }
 

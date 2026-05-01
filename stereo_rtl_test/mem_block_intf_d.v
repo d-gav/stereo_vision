@@ -34,15 +34,13 @@ module mem_block_intf #(
 	localparam logic [DISP_W-1:0]   MAX_DISP_L  = MAX_DISP;
 	localparam logic [PHASE_W-1:0]  MAX_PHASE_L = STRIPE_HEIGHT - 1;
 
-	typedef enum logic [2:0] {
-		IDLE,                  //
-		INCR_DISP,             // Inner loop: shift matching block to the right, load single column
-		INCR_X,                // Mid loop: shift reference block to the right, write out best disparity for previous x position, load 5 new columns in reference 
-		INCR_PHASE,            // Outer loop: shift both blocks down by one row
-	} state_t;
+	localparam [2:0] IDLE       = 3'd0;
+	localparam [2:0] INCR_DISP  = 3'd1;  // Inner loop: shift matching block to the right, load single column
+	localparam [2:0] INCR_X     = 3'd2;  // Mid loop: shift reference block to the right, write out best disparity for previous x position, load 5 new columns in reference
+	localparam [2:0] INCR_PHASE = 3'd3;  // Outer loop: shift both blocks down by one row
 
-	state_t curr_state;
-	state_t next_state;
+	logic [2:0] curr_state;
+	logic [2:0] next_state;
 
 	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
 	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];

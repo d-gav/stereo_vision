@@ -123,7 +123,7 @@ def _compile_and_run(
         "block_match_pkg.sv",
         "block_match.sv",
         "sliding_window.sv",
-        "mem_block_intf.v",
+        "mem_block_intf_d.v",
         "tb_mem_block_intf.sv",
     ]
 

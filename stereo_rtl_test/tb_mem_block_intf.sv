@@ -247,10 +247,15 @@ module tb_mem_block_intf #(
 		while (!started) begin
 			@(posedge clk);
 		end
-		$display("[TB] Entering run loop...");
+
+		// Wait for DUT to leave IDLE (go takes effect)
+		while (dut.curr_state == 3'd0) begin
+			@(posedge clk);
+		end
+		$display("[TB] Entering run loop (DUT left IDLE at t=%0t)...", $time);
 
 		// Wait for DUT to return to IDLE (done processing) or timeout
-		while (!done && (cycles < max_cycles)) begin
+		while ((dut.curr_state != 3'd0) && (cycles < max_cycles)) begin
 			@(posedge clk);
 			cycles = cycles + 1;
 			if ((cycles == 1) || ((cycles % progress_stride) == 0)) begin
@@ -271,7 +276,7 @@ module tb_mem_block_intf #(
 			end
 		end
 
-		if (!done) begin
+		if (dut.curr_state != 3'd0) begin
 			timed_out = 1'b1;
 			$display("[TB] WARNING: Timeout reached, writing partial disparity output.");
 		end else begin

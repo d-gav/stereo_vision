@@ -19,7 +19,14 @@ module mem_block_intf #(
 	output logic [COL_W-1:0] mem_col,
 	input  logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
 
-	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1]
+	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1],
+
+	// Pipeline head (stage 0) exposed for testbench observability
+	output logic [PHASE_W-1:0]       pipe0_phase,
+	output logic [COL_W-1:0]         pipe0_col_x,
+	output logic signed [DISP_W:0]   pipe0_disp,
+	output logic                     pipe0_valid,
+	output logic                     pipe0_to_ref
 );
 
 	localparam int HALF_BLOCK    = BLOCK_SIZE / 2;
@@ -135,6 +142,13 @@ module mem_block_intf #(
 	logic to_ref_block_pipeline[2:0]; // True if going to ref block, false if going to match block
 	logic valid_rd_pipeline [2:0];
 
+	// Expose pipeline head
+	assign pipe0_phase  = phase_pipeline[0];
+	assign pipe0_col_x  = col_x_pipeline[0];
+	assign pipe0_disp   = disp_pipeline[0];
+	assign pipe0_valid  = valid_rd_pipeline[0];
+	assign pipe0_to_ref = to_ref_block_pipeline[0];
+
 
 
 	// result is back of pipeline
@@ -170,9 +184,9 @@ module mem_block_intf #(
 	logic phase_complete; // the reference and matching blocks have shifted in enough rows to fill the block 
 	assign phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 2);
 	logic PHASE_match_read; // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
-	assign PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt < BLOCK_SIZE);
+	assign PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt <= BLOCK_SIZE-1);
 	logic PHASE_ref_read; // the cycles where we're loading rows for the reference block
-	assign PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt >= BLOCK_SIZE && phase_cnt < (BLOCK_SIZE)*2) && !PHASE_match_read;
+	assign PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt > (BLOCK_SIZE-1) && phase_cnt < (BLOCK_SIZE)*2);
 
 	logic [$clog2(BLOCK_SIZE+4)-1:0] x_cnt;
 	logic [$clog2(BLOCK_SIZE+4)-1:0] x_cnt_next;
@@ -180,14 +194,14 @@ module mem_block_intf #(
 	assign match_full_x = (x_cnt == BLOCK_SIZE + 3);
 
 	logic INCR_X_reading_ref; // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
-	assign INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE);
+	assign INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == (BLOCK_SIZE));
 	logic INCR_X_reading_match; // the cycles where we're still loading columns for the matching block
-	assign INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE);
+	assign INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < (BLOCK_SIZE));
 	
 	
 
 	logic in_disp_bounds;
-	assign in_disp_bounds = (reg_disp < $signed({1'b0, MAX_DISP_L})) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
+	assign in_disp_bounds = (reg_disp < ($signed({1'b0, MAX_DISP_L}))) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
 	always_ff @(posedge clk) begin
@@ -288,9 +302,9 @@ module mem_block_intf #(
 						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
-						col_x_pipeline[0] <= curr_col_x;
-						disp_pipeline[0] <= curr_disp;
-						phase_pipeline[0] <= curr_phase;
+						col_x_pipeline[0] <= reg_col_x;
+						disp_pipeline[0] <= reg_disp;
+						phase_pipeline[0] <= reg_phase;
 
 						
 						disp_out_bounds_cnt <= 0;
@@ -392,7 +406,7 @@ module mem_block_intf #(
 						// Issue memory reads for new reference block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b0; // left block
-						mem_col <= reg_col_x;
+						mem_col <= curr_col_x;
 
 						col_x_pipeline[0] <= curr_col_x;
 						disp_pipeline[0] <= curr_disp;
@@ -404,13 +418,15 @@ module mem_block_intf #(
 						// Issue memory reads for new matching block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
+						mem_col <= $signed({1'b0, curr_col_x}) + curr_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
 						disp_pipeline[0] <= curr_disp;
 						phase_pipeline[0] <= curr_phase;
 						to_ref_block_pipeline[0] <= 1'b0;
+					end else begin
+						valid_rd_pipeline[0] <= 1'b0;
 					end
 					
 
@@ -471,9 +487,9 @@ module mem_block_intf #(
 					next_state = INCR_DISP;
 					curr_disp = reg_disp + 1;
 				end else begin
-					if (disp_out_bounds_cnt == 3) begin
+					if (disp_out_bounds_cnt == 2) begin
 						next_state = INCR_X;
-						curr_disp = -$signed(BLOCK_SIZE - 1);
+						curr_disp = '0;
 					end else begin
 						next_state = INCR_DISP;
 						curr_disp = reg_disp; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
@@ -486,7 +502,7 @@ module mem_block_intf #(
 				if (reg_col_x < X_MAX_L) begin
 					if (match_full_x) begin
 						next_state = INCR_DISP;
-						curr_col_x = reg_col_x + 1;
+						curr_col_x = reg_col_x;
 						curr_phase = reg_phase;
 						curr_disp = '0; // reset disparity to 0 for new reference block position
 					end else if (INCR_X_reading_match) begin
@@ -514,7 +530,7 @@ module mem_block_intf #(
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
-						curr_disp = -$signed(1); 
+						curr_disp = '0;
 						curr_phase = reg_phase;
 					end else begin
 						next_state = INCR_PHASE;
@@ -523,8 +539,8 @@ module mem_block_intf #(
 							curr_disp = reg_disp + 1;
 							curr_col_x = reg_col_x;
 						end else if (PHASE_ref_read) begin
-							curr_disp = -$signed(1);
-							curr_col_x = col_x_pipeline[0] + 1;
+							curr_disp = '0;
+							curr_col_x = reg_col_x + 1;
 						end else begin
 							next_state = INCR_PHASE;
 						end

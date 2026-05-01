@@ -64,6 +64,13 @@ module tb_mem_block_intf #(
 	logic started; // tracks whether go has been asserted
 	logic done;    // DUT returned to IDLE after processing
 
+	// Pipeline head (stage 0) from DUT
+	logic [PHASE_W-1:0]      pipe0_phase;
+	logic [COL_W-1:0]        pipe0_col_x;
+	logic signed [DISP_W:0]  pipe0_disp;
+	logic                    pipe0_valid;
+	logic                    pipe0_to_ref;
+
 	assign best_disp0_probe = dut.best_disp[0];
 	assign best_disp0_has_x = (^best_disp0_probe === 1'bx);
 	assign best_disp_mid_probe = dut.best_disp[PROBE_U];
@@ -95,6 +102,11 @@ module tb_mem_block_intf #(
 		$dumpvars(0, cur_x_probe);
 		$dumpvars(0, best_sad_mid_probe);
 		$dumpvars(0, sad_mid_probe);
+		$dumpvars(0, pipe0_phase);
+		$dumpvars(0, pipe0_col_x);
+		$dumpvars(0, pipe0_disp);
+		$dumpvars(0, pipe0_valid);
+		$dumpvars(0, pipe0_to_ref);
 		$display("[TB] VCD=%s", vcd_path);
 		$display("[TB] PROBE_U=%0d", PROBE_U);
 	end
@@ -219,7 +231,12 @@ module tb_mem_block_intf #(
 		.mem_bank(mem_bank),
 		.mem_col(mem_col),
 		.mem_rdata(mem_rdata),
-		.disp_map(disp_map)
+		.disp_map(disp_map),
+		.pipe0_phase(pipe0_phase),
+		.pipe0_col_x(pipe0_col_x),
+		.pipe0_disp(pipe0_disp),
+		.pipe0_valid(pipe0_valid),
+		.pipe0_to_ref(pipe0_to_ref)
 	);
 
 	integer fd;

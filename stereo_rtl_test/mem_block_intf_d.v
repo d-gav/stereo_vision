@@ -166,15 +166,15 @@ module mem_block_intf #(
 	logic PHASE_ref_read; // the cycles where we're loading rows for the reference block
 	assign PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt >= BLOCK_SIZE && phase_cnt < (BLOCK_SIZE)*2) && !PHASE_match_read;
 
-	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt;
-	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt_next;
+	logic [$clog2(BLOCK_SIZE+4)-1:0] x_cnt;
+	logic [$clog2(BLOCK_SIZE+4)-1:0] x_cnt_next;
 	logic match_full_x; // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
-	assign match_full_x = (x_cnt == BLOCK_SIZE + 2);
+	assign match_full_x = (x_cnt == BLOCK_SIZE + 3);
 
 	logic INCR_X_reading_ref; // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
-	assign INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1);
+	assign INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE);
 	logic INCR_X_reading_match; // the cycles where we're still loading columns for the matching block
-	assign INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE-1);
+	assign INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE);
 	
 	
 
@@ -274,7 +274,7 @@ module mem_block_intf #(
 					if (in_disp_bounds) begin
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= col_x_pipeline[0] + disp_pipeline[0];
+						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -332,7 +332,7 @@ module mem_block_intf #(
 						// Issue memory reads for new matching block column
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= col_x_pipeline[0] + disp_pipeline[0];
+						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -393,7 +393,7 @@ module mem_block_intf #(
 						// Issue memory reads for new matching block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= col_x_pipeline[0] + disp_pipeline[0];
+						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -461,7 +461,7 @@ module mem_block_intf #(
 				end else begin
 					if (disp_out_bounds_cnt == 2) begin
 						next_state = INCR_X;
-						curr_disp = -BLOCK_SIZE;
+						curr_disp = -(BLOCK_SIZE - 1);
 					end else begin
 						next_state = INCR_DISP;
 						curr_disp = disp_pipeline[0]; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
@@ -492,7 +492,7 @@ module mem_block_intf #(
 				end else begin
 					next_state = INCR_PHASE;
 					curr_col_x = '0;
-					curr_disp = -BLOCK_SIZE; // reset disparity to -starting value for new reference block position
+					curr_disp = '0; // reset disparity to -starting value for new reference block position
 					curr_phase = phase_pipeline[0] + 1;
 				end
 			end
@@ -502,7 +502,7 @@ module mem_block_intf #(
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
-						curr_disp = disp_pipeline[0]; // hold current disparity
+						curr_disp = '0; 
 						curr_phase = phase_pipeline[0];
 					end else begin
 						next_state = INCR_PHASE;

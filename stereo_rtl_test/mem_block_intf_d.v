@@ -155,7 +155,7 @@ module mem_block_intf #(
 
 	logic [PHASE_W-1:0] curr_phase;
 	logic [X_W-1:0] curr_col_x;
-	logic [DISP_W-1:0] curr_disp;
+	logic signed [DISP_W:0] curr_disp;
 
 
 	//counters to figure out state transitions
@@ -167,9 +167,9 @@ module mem_block_intf #(
 
 	logic [$clog2(BLOCK_SIZE+1)-1:0] x_cnt;
 	logic [$clog2(BLOCK_SIZE+1)-1:0] x_cnt_next;
-	logic match_full_x = (x_cnt == BLOCK_SIZE) + 2; // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
+	logic match_full_x = (x_cnt == BLOCK_SIZE + 2); // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
 
-	logic INCR_x_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1); // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
+	logic INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1); // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
 	logic INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE-1); // the cycles where we're still loading columns for the matching block
 	
 	
@@ -182,27 +182,34 @@ module mem_block_intf #(
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
 			disp_pipeline[0] <= '0;
-			valid_rd_pipeline[0]      <= 1'b0;
+			valid_rd_pipeline[0] <= 1'b0;
+			to_ref_block_pipeline[0] <= 1'b0;
 
 			phase_pipeline[1] <= '0;
 			col_x_pipeline[1] <= '0;
 			disp_pipeline[1] <= '0;
-			valid_rd_pipeline[1]      <= 1'b0;
-			
+			valid_rd_pipeline[1] <= 1'b0;
+			to_ref_block_pipeline[1] <= 1'b0;
 
 			phase_pipeline[2] <= '0;
 			col_x_pipeline[2] <= '0;
 			disp_pipeline[2] <= '0;
-			valid_rd_pipeline[2]      <= 1'b0;
+			valid_rd_pipeline[2] <= 1'b0;
+			to_ref_block_pipeline[2] <= 1'b0;
 		end else begin
 			// shift pipeline
 			phase_pipeline[1] <= phase_pipeline[0];
 			col_x_pipeline[1] <= col_x_pipeline[0];
 			disp_pipeline[1] <= disp_pipeline[0];
+			valid_rd_pipeline[1] <= valid_rd_pipeline[0];
+			to_ref_block_pipeline[1] <= to_ref_block_pipeline[0];
+			
 
 			phase_pipeline[2] <= phase_pipeline[1];
 			col_x_pipeline[2] <= col_x_pipeline[1];
 			disp_pipeline[2] <= disp_pipeline[1];
+			valid_rd_pipeline[2] <= valid_rd_pipeline[1];
+			to_ref_block_pipeline[2] <= to_ref_block_pipeline[1];
 
 			// update FSM state
 			curr_state <= next_state;
@@ -214,7 +221,7 @@ module mem_block_intf #(
 
 			phase_pipeline[0] <= phase_pipeline[0]; // default to holding the current value in the pipeline
 			col_x_pipeline[0] <= col_x_pipeline[0];
-			disp_pipeline[0] <= ;
+			disp_pipeline[0] <= disp_pipeline[0];
 			valid_rd_pipeline[0] <= 1'b0;
 
 			// issue new request
@@ -226,7 +233,7 @@ module mem_block_intf #(
 					disp_pipeline[0] <= '0;
 
 					// no read during idle
-					valid_rd[0]      <= 1'b0;
+					valid_rd_pipeline[0] <= 1'b0;
 
 				end
 
@@ -255,14 +262,20 @@ module mem_block_intf #(
 
 					// catch valid memory read and update right block buffer
 					if (valid_rd_result) begin
-						// write the new column to the appropriate place in the right block buffer
-						right_col_buf[phase_result][col_x_result - curr_disp] <= mem_rdata[phase_result];
+						// write the new column to each compute unit's right block buffer
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+							end
+						end
 						slide_matching <= 1'b1; 
 
-						// update best SAD and disparity
-						if (sad_value[phase_result] < best_sad[phase_result]) begin
-							best_sad[phase_result] <= sad_value[phase_result];
-							best_disp[phase_result] <= disp_result;
+						// update best SAD and disparity for each unit
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							if (sad_value[g] < best_sad[g]) begin
+								best_sad[g] <= sad_value[g];
+								best_disp[g] <= disp_result;
+							end
 						end
 					end
 				end
@@ -300,8 +313,12 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new column to the appropriate place in the left block buffer
-						left_col_buf[phase_result][col_x_result] <= mem_rdata[phase_result];
+						// write the new column to each compute unit's left block buffer
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+								left_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+							end
+						end
 						slide_reference <= 1'b1; 
 
 						// update disparity map with best disparity at (x, y) for the previous reference block position
@@ -310,8 +327,12 @@ module mem_block_intf #(
 						end
 
 					end else if (valid_rd_result && !to_ref_block_result) begin
-						// write the new column to the appropriate place in the right block buffer
-						right_col_buf[phase_result][col_x_result - curr_disp] <= mem_rdata[phase_result];
+						// write the new column to each compute unit's right block buffer
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+							end
+						end
 						slide_matching <= 1'b1; 
 
 
@@ -326,7 +347,7 @@ module mem_block_intf #(
 
 					phase_cnt <= phase_cnt_next;
 
-					if (INCR_PHASE_reading_ref) begin
+					if (PHASE_ref_read) begin
 						// Issue memory reads for new reference block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b0; // left block
@@ -338,7 +359,7 @@ module mem_block_intf #(
 						valid_rd_pipeline[0] <= 1'b1;
 						to_ref_block_pipeline[0] <= 1'b1; 
 					end
-					else if (INCR_PHASE_reading_match) begin
+					else if (PHASE_match_read) begin
 						// Issue memory reads for new matching block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
@@ -353,12 +374,20 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new row to the appropriate place in the left block buffer
-						left_col_buf[phase_result][col_x_result] <= mem_rdata[phase_result];
+						// write the new column to each compute unit's left block buffer
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+								left_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+							end
+						end
 						slide_reference <= 1'b1; 
 					end else if (valid_rd_result && !to_ref_block_result) begin
-						// write the new row to the appropriate place in the right block buffer
-						right_col_buf[phase_result][col_x_result - curr_disp] <= mem_rdata[phase_result];
+						// write the new column to each compute unit's right block buffer
+						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
+							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+							end
+						end
 						slide_matching <= 1'b1; 
 					end
 
@@ -374,23 +403,34 @@ module mem_block_intf #(
 	end 
 
 	always_comb begin 
+		// Default assignments to prevent latch inference
+		next_state     = curr_state;
+		curr_disp      = disp_pipeline[0];
+		curr_col_x     = col_x_pipeline[0];
+		curr_phase     = phase_pipeline[0];
+		x_cnt_next     = x_cnt;
+		phase_cnt_next = phase_cnt;
+
 		case (curr_state) 
 			INCR_DISP: begin
-				//TOTDO: Add all combinational values for things that stay the same in the state
 				if (in_disp_bounds) begin
 					next_state = INCR_DISP;
 					curr_disp = disp_pipeline[0] + 1;
 				end else begin
-					curr_disp = '0;
-					next_state = (disp_out_bounds_cnt == 2) ? INCR_X : INCR_DISP; // wait for 2 more cycles to flush out all results for the current reference block position before shifting it
+					if (disp_out_bounds_cnt == 2) begin
+						next_state = INCR_X;
+						curr_disp = -BLOCK_SIZE;
+					end else begin
+						next_state = INCR_DISP;
+						curr_disp = disp_pipeline[0]; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
+					end
 					x_cnt_next = 0;
 					phase_cnt_next = 0;
 				end
 			end 
 			INCR_X: begin
-
 				x_cnt_next = x_cnt + 1;
-
+				phase_cnt_next = 0;
 				if (col_x_pipeline[0] < X_MAX_L) begin
 					if (match_full_x) begin
 						next_state = INCR_DISP;
@@ -410,7 +450,7 @@ module mem_block_intf #(
 				end else begin
 					next_state = INCR_PHASE;
 					curr_col_x = '0;
-					curr_disp = '0; // reset disparity to 0 for new reference block position
+					curr_disp = -BLOCK_SIZE; // reset disparity to -starting value for new reference block position
 					curr_phase = phase_pipeline[0] + 1;
 				end
 			end
@@ -419,7 +459,7 @@ module mem_block_intf #(
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
-						curr_disp = '0; // reset disparity to 0 for new reference block position
+						curr_disp = disp_pipeline[0]; // reset disparity to 0 for new reference block position
 						curr_phase = phase_pipeline[0];
 					end else begin
 						next_state = INCR_PHASE;
@@ -428,7 +468,7 @@ module mem_block_intf #(
 							curr_disp = disp_pipeline[0] + 1;
 							curr_col_x = col_x_pipeline[0];
 						end else if (PHASE_ref_read) begin
-							curr_disp = '0;
+							curr_disp = disp_pipeline[0];
 							curr_col_x = col_x_pipeline[0] + 1;
 						end
 					end

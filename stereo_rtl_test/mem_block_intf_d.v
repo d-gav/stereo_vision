@@ -12,26 +12,27 @@ module mem_block_intf #(
 ) (
 	input logic clk,
 	input logic rst,
+	input logic go,
 
 	output logic mem_req,
 	output logic mem_bank, // 0 = left, 1 = right
 	output logic [COL_W-1:0] mem_col,
 	input  logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
-	input  logic mem_rvalid,
 
 	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1]
 );
 
-	localparam int HALF_BLOCK = BLOCK_SIZE / 2;
-	localparam int X_W        = COL_W;
-	localparam int PHASE_W    = (BLOCK_SIZE <= 1) ? 1 : $clog2(BLOCK_SIZE);
-	localparam int X_MIN      = 0;
-	localparam int X_MAX      = HALF_FRAME_WIDTH - 1;
+	localparam int HALF_BLOCK    = BLOCK_SIZE / 2;
+	localparam int STRIPE_HEIGHT = FRAME_HEIGHT / NUM_SAD_UNITS;
+	localparam int X_W           = COL_W;
+	localparam int PHASE_W       = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT);
+	localparam int X_MIN         = 0;
+	localparam int X_MAX         = HALF_FRAME_WIDTH - 1;
 
 	localparam logic [X_W-1:0]      X_MIN_L     = X_MIN;
 	localparam logic [X_W-1:0]      X_MAX_L     = X_MAX;
 	localparam logic [DISP_W-1:0]   MAX_DISP_L  = MAX_DISP;
-	localparam logic [PHASE_W-1:0]  MAX_PHASE_L = FRAME_HEIGHT/NUM_SAD_UNITS - 1;
+	localparam logic [PHASE_W-1:0]  MAX_PHASE_L = STRIPE_HEIGHT - 1;
 
 	typedef enum logic [2:0] {
 		IDLE,                  //
@@ -46,8 +47,6 @@ module mem_block_intf #(
 	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
 	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
 
-	logic left_pulse;
-	logic right_pulse;
 
 	logic [SAD_W-1:0] sad_value [0:NUM_SAD_UNITS-1];
 	logic [SAD_W-1:0] best_sad  [0:NUM_SAD_UNITS-1];
@@ -134,7 +133,7 @@ module mem_block_intf #(
 
 	logic [PHASE_W-1:0] phase_pipeline [2:0];
 	logic [X_W-1:0]   col_x_pipeline [2:0];
-	logic [DISP_W-1:0] disp_pipeline [2:0];
+	logic signed [DISP_W:0] disp_pipeline [2:0];
 	logic to_ref_block_pipeline[2:0]; // True if going to ref block, false if going to match block
 	logic valid_rd_pipeline [2:0];
 
@@ -143,7 +142,7 @@ module mem_block_intf #(
 	// result is back of pipeline
 	logic [PHASE_W-1:0] phase_result;
 	logic [X_W-1:0] col_x_result;
-	logic [DISP_W-1:0] disp_result;
+	logic signed [DISP_W:0] disp_result;
 	logic to_ref_block_result;
 	logic valid_rd_result;
 	assign phase_result = phase_pipeline[2];
@@ -156,17 +155,18 @@ module mem_block_intf #(
 	logic [PHASE_W-1:0] curr_phase;
 	logic [X_W-1:0] curr_col_x;
 	logic signed [DISP_W:0] curr_disp;
+	logic sad_compare_en; // delayed one cycle after slide_matching so SAD reflects the new window
 
 
 	//counters to figure out state transitions
-	logic [$clog2(BLOCK_SIZE*2-1)-1:0] phase_cnt;
-	logic [$clog2(BLOCK_SIZE*2-1)-1:0] phase_cnt_next;
+	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt;
+	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt_next;
 	logic phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 1) ; // the reference and matching blocks have shifted in enough rows to fill the block 
 	logic PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt < BLOCK_SIZE); // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
 	logic PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt >= BLOCK_SIZE && phase_cnt < (BLOCK_SIZE)*2	) && !PHASE_match_read; // the cycles where we're loading rows for the reference block
 
-	logic [$clog2(BLOCK_SIZE+1)-1:0] x_cnt;
-	logic [$clog2(BLOCK_SIZE+1)-1:0] x_cnt_next;
+	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt;
+	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt_next;
 	logic match_full_x = (x_cnt == BLOCK_SIZE + 2); // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
 
 	logic INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1); // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
@@ -174,11 +174,16 @@ module mem_block_intf #(
 	
 	
 
-	logic in_disp_bounds = (disp_pipeline[0] < MAX_DISP_L) && ((disp_pipeline[0] + col_x_pipeline[0]) < X_MAX_L);
+	logic in_disp_bounds = (disp_pipeline[0] >= 0) && (disp_pipeline[0] <= $signed({1'b0, MAX_DISP_L})) && ((disp_pipeline[0] + $signed({1'b0, col_x_pipeline[0]})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
 	always_ff @(posedge clk) begin
 		if (rst) begin
+			curr_state <= IDLE;
+			disp_out_bounds_cnt <= 2'b0;
+			x_cnt <= '0;
+			phase_cnt <= '0;
+			sad_compare_en <= 1'b0;
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
 			disp_pipeline[0] <= '0;
@@ -217,12 +222,30 @@ module mem_block_intf #(
 
 			// pre assign default values
 			mem_req <= 1'b0;
+			slide_reference <= 1'b0;
+			slide_matching  <= 1'b0;
+			sad_compare_en  <= slide_matching; // one-cycle delay: compare SAD after the window has shifted
 
 
 			phase_pipeline[0] <= phase_pipeline[0]; // default to holding the current value in the pipeline
 			col_x_pipeline[0] <= col_x_pipeline[0];
 			disp_pipeline[0] <= disp_pipeline[0];
 			valid_rd_pipeline[0] <= 1'b0;
+
+			// Reset best SAD/disparity when starting a new disparity sweep (new x or y)
+			if (next_state == INCR_DISP && curr_state != INCR_DISP) begin
+				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
+					best_sad[i] <= {SAD_W{1'b1}};
+					best_disp[i] <= '0;
+				end
+			end
+
+			// Write last column's disparity when transitioning from INCR_X to INCR_PHASE
+			if (curr_state == INCR_X && next_state == INCR_PHASE) begin
+				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
+					disp_map[i * STRIPE_HEIGHT + phase_pipeline[0]][col_x_pipeline[0]] <= disp_to_u8(best_disp[i]);
+				end
+			end
 
 			// issue new request
 			case(curr_state) 
@@ -240,8 +263,8 @@ module mem_block_intf #(
 
 
 				INCR_DISP: begin
-					x_cnt <= 0; // reset x counter for new disparity
-					phase_cnt <= 0; // reset phase counter for new disparity
+					x_cnt <= x_cnt_next;
+					phase_cnt <= phase_cnt_next;
 					// Issue memory reads and add to pipeline if we're still within bounds for the current reference block position
 					if (in_disp_bounds) begin
 						mem_req <= 1'b1;
@@ -265,12 +288,14 @@ module mem_block_intf #(
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
 						slide_matching <= 1'b1; 
+					end
 
-						// update best SAD and disparity for each unit
+					// update best SAD and disparity one cycle after slide so window is current
+					if (sad_compare_en) begin
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							if (sad_value[g] < best_sad[g]) begin
 								best_sad[g] <= sad_value[g];
@@ -316,21 +341,21 @@ module mem_block_intf #(
 						// write the new column to each compute unit's left block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								left_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+								left_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
 						slide_reference <= 1'b1; 
 
 						// update disparity map with best disparity at (x, y) for the previous reference block position
 						for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-							disp_map[phase_result + i * MAX_PHASE_L][col_x_result] <= disp_to_u8(best_disp[i]);
+							disp_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= disp_to_u8(best_disp[i]);
 						end
 
 					end else if (valid_rd_result && !to_ref_block_result) begin
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
 						slide_matching <= 1'b1; 
@@ -377,7 +402,7 @@ module mem_block_intf #(
 						// write the new column to each compute unit's left block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								left_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+								left_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
 						slide_reference <= 1'b1; 
@@ -385,7 +410,7 @@ module mem_block_intf #(
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * BLOCK_SIZE + rr];
+								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
 						slide_matching <= 1'b1; 
@@ -412,7 +437,19 @@ module mem_block_intf #(
 		phase_cnt_next = phase_cnt;
 
 		case (curr_state) 
+			IDLE: begin
+				if (go) begin
+					next_state     = INCR_PHASE;
+					curr_phase     = '0;
+					curr_col_x     = '0;
+					curr_disp      = '0;
+					phase_cnt_next = 0;
+					x_cnt_next     = 0;
+				end
+			end
 			INCR_DISP: begin
+				x_cnt_next = 0;
+				phase_cnt_next = 0;
 				if (in_disp_bounds) begin
 					next_state = INCR_DISP;
 					curr_disp = disp_pipeline[0] + 1;
@@ -424,8 +461,6 @@ module mem_block_intf #(
 						next_state = INCR_DISP;
 						curr_disp = disp_pipeline[0]; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
 					end
-					x_cnt_next = 0;
-					phase_cnt_next = 0;
 				end
 			end 
 			INCR_X: begin
@@ -438,11 +473,13 @@ module mem_block_intf #(
 						curr_phase = phase_pipeline[0];
 						curr_disp = '0; // reset disparity to 0 for new reference block position
 					end else if (INCR_X_reading_match) begin
+						next_state = INCR_X;
 						curr_disp = disp_pipeline[0] + 1;
 						curr_col_x = col_x_pipeline[0];
 					end else if (INCR_X_reading_ref) begin
+						next_state = INCR_X;
 						curr_col_x = col_x_pipeline[0] + 1;
-						curr_disp = disp_pipeline[0]; //I think here I need to also reset disparity to 0
+						curr_disp = disp_pipeline[0];
 					end else begin
 						next_state = INCR_X;
 						curr_phase = phase_pipeline[0];
@@ -455,11 +492,12 @@ module mem_block_intf #(
 				end
 			end
 			INCR_PHASE: begin
+				phase_cnt_next = phase_cnt + 1;
 				if (phase_pipeline[0] < MAX_PHASE_L) begin
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
-						curr_disp = disp_pipeline[0]; // reset disparity to 0 for new reference block position
+						curr_disp = disp_pipeline[0]; // hold current disparity
 						curr_phase = phase_pipeline[0];
 					end else begin
 						next_state = INCR_PHASE;
@@ -470,6 +508,8 @@ module mem_block_intf #(
 						end else if (PHASE_ref_read) begin
 							curr_disp = disp_pipeline[0];
 							curr_col_x = col_x_pipeline[0] + 1;
+						end else begin
+							next_state = INCR_PHASE;
 						end
 					end
 				end else begin

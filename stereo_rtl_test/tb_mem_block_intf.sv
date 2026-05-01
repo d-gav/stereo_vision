@@ -9,27 +9,27 @@ module tb_mem_block_intf #(
 );
 	localparam int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE);
 	localparam int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1);
-	localparam int PHASE_W          = (BLOCK_SIZE <= 1) ? 1 : $clog2(BLOCK_SIZE);
 	localparam int NUM_SAD_UNITS    = (FRAME_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE;
+	localparam int STRIPE_HEIGHT    = FRAME_HEIGHT / NUM_SAD_UNITS;
+	localparam int PHASE_W          = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT);
 	localparam int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT);
 	localparam int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH);
 
 	localparam int HALF_BLOCK = BLOCK_SIZE / 2;
-	localparam int X_MIN      = HALF_BLOCK;
-	localparam int X_MAX      = HALF_FRAME_WIDTH - HALF_BLOCK - 1;
+	localparam int X_MIN      = 0;
+	localparam int X_MAX      = HALF_FRAME_WIDTH - 1;
 	localparam int X_COUNT    = X_MAX - X_MIN + 1;
-	localparam int TOTAL_EVALS = BLOCK_SIZE * X_COUNT * (MAX_DISP + 1);
 	localparam int PROBE_U = (NUM_SAD_UNITS > 1) ? (NUM_SAD_UNITS / 2) : 0;
 	localparam logic [DISP_W-1:0] MAX_DISP_L = MAX_DISP;
 
 	logic clk;
 	logic rst;
+	logic go;
 
 	logic mem_req;
 	logic mem_bank;
 	logic [COL_W-1:0] mem_col;
 	logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1];
-	logic mem_rvalid;
 
 	logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
 
@@ -48,37 +48,31 @@ module tb_mem_block_intf #(
 	int progress_stride;
 
 	int cycles;
-	int eval_count;
 	int rst_wait_cycles;
 	int rst_cycles = 1;
 	int rst_cycles_runtime;
+
+	// Probe signals into DUT internals
 	logic [DISP_W-1:0] best_disp0_probe;
 	logic best_disp0_has_x;
 	logic [DISP_W-1:0] best_disp_mid_probe;
 	logic best_disp_mid_has_x;
 	logic [PHASE_W-1:0] cur_phase_probe;
 	logic [COL_W-1:0] cur_x_probe;
-	logic eval_active_probe;
-	logic [ROW_W-1:0] cur_y_mid_probe;
-	logic [DISP_W-1:0] cur_eval_disp_probe;
-	logic [DISP_W-1:0] cur_disp_mid_probe;
-	logic cur_disp_mid_has_x;
 	logic [SAD_W-1:0] best_sad_mid_probe;
 	logic [SAD_W-1:0] sad_mid_probe;
+	logic started; // tracks whether go has been asserted
+	logic done;    // DUT returned to IDLE after processing
 
 	assign best_disp0_probe = dut.best_disp[0];
 	assign best_disp0_has_x = (^best_disp0_probe === 1'bx);
 	assign best_disp_mid_probe = dut.best_disp[PROBE_U];
 	assign best_disp_mid_has_x = (^best_disp_mid_probe === 1'bx);
-	assign cur_phase_probe = dut.cur_phase;
-	assign cur_x_probe = dut.cur_x;
-	assign eval_active_probe = (dut.state_q == 3'd4);
-	assign cur_y_mid_probe = eval_active_probe ? ((PROBE_U * BLOCK_SIZE) + cur_phase_probe) : {ROW_W{1'bx}};
-	assign cur_eval_disp_probe = eval_active_probe ? (MAX_DISP_L - dut.cur_d) : {DISP_W{1'bx}};
-	assign cur_disp_mid_probe = eval_active_probe ? dut.cur_d : {DISP_W{1'bx}};
-	assign cur_disp_mid_has_x = (^cur_disp_mid_probe === 1'bx);
+	assign cur_phase_probe = dut.curr_phase;
+	assign cur_x_probe = dut.curr_col_x;
 	assign best_sad_mid_probe = dut.best_sad[PROBE_U];
 	assign sad_mid_probe = dut.sad_value[PROBE_U];
+	assign done = started && (dut.curr_state == 3'd0); // IDLE = 0
 
 	function automatic int flat_idx(
 		input int row,
@@ -99,11 +93,6 @@ module tb_mem_block_intf #(
 		$dumpvars(0, best_disp_mid_has_x);
 		$dumpvars(0, cur_phase_probe);
 		$dumpvars(0, cur_x_probe);
-		$dumpvars(0, eval_active_probe);
-		$dumpvars(0, cur_y_mid_probe);
-		$dumpvars(0, cur_eval_disp_probe);
-		$dumpvars(0, cur_disp_mid_probe);
-		$dumpvars(0, cur_disp_mid_has_x);
 		$dumpvars(0, best_sad_mid_probe);
 		$dumpvars(0, sad_mid_probe);
 		$display("[TB] VCD=%s", vcd_path);
@@ -144,7 +133,6 @@ module tb_mem_block_intf #(
 		$display("[TB] LEFT_HEX=%s", left_hex_path);
 		$display("[TB] RIGHT_HEX=%s", right_hex_path);
 		$display("[TB] OUT_HEX=%s", out_hex_path);
-		$display("[TB] TOTAL_EVALS=%0d", TOTAL_EVALS);
 		$display("[TB] MAX_CYCLES=%0d", max_cycles);
 		$display("[TB] PROGRESS_STRIDE=%0d", progress_stride);
 		$display("[TB] RST_CYCLES=%0d", rst_cycles);
@@ -157,8 +145,11 @@ module tb_mem_block_intf #(
 		forever #5 clk = ~clk;
 	end
 
+	// Reset and go sequence
 	initial begin
 		rst = 1'b1;
+		go = 1'b0;
+		started = 1'b0;
 		rst_cycles_runtime = 1;
 		if ($value$plusargs("RST_CYCLES=%d", rst_cycles_runtime)) begin
 			if (rst_cycles_runtime <= 0) begin
@@ -169,19 +160,26 @@ module tb_mem_block_intf #(
 		@(negedge clk);
 		rst = 1'b0;
 		$display("[TB] Reset deasserted by TB at t=%0t", $time);
+
+		// Assert go for one cycle to start processing
+		@(posedge clk);
+		go = 1'b1;
+		started = 1'b1;
+		@(posedge clk);
+		go = 1'b0;
+		$display("[TB] Go asserted at t=%0t", $time);
 	end
 
+	// Memory model: 1-cycle latency from mem_req to mem_rdata
 	always_ff @(posedge clk) begin
 		if (rst) begin
 			req_q0 <= 1'b0;
 			bank_q0 <= 1'b0;
 			col_q0 <= '0;
-			mem_rvalid <= 1'b0;
 			for (rr = 0; rr < FRAME_HEIGHT; rr++) begin
 				mem_rdata[rr] <= '0;
 			end
 		end else begin
-			mem_rvalid <= req_q0;
 			if (req_q0) begin
 				for (rr = 0; rr < FRAME_HEIGHT; rr++) begin
 					if (bank_q0) begin
@@ -202,14 +200,6 @@ module tb_mem_block_intf #(
 		end
 	end
 
-	always_ff @(posedge clk) begin
-		if (rst) begin
-			eval_count <= 0;
-		end else if (dut.state_q == 3'd4) begin
-			eval_count <= eval_count + 1;
-		end
-	end
-
 	mem_block_intf #(
 		.FRAME_HEIGHT(FRAME_HEIGHT),
 		.HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
@@ -224,11 +214,11 @@ module tb_mem_block_intf #(
 	) dut (
 		.clk(clk),
 		.rst(rst),
+		.go(go),
 		.mem_req(mem_req),
 		.mem_bank(mem_bank),
 		.mem_col(mem_col),
 		.mem_rdata(mem_rdata),
-		.mem_rvalid(mem_rvalid),
 		.disp_map(disp_map)
 	);
 
@@ -252,44 +242,40 @@ module tb_mem_block_intf #(
 			end
 		end
 		$display("[TB] Reset released at t=%0t", $time);
+
+		// Wait for go to be asserted
+		while (!started) begin
+			@(posedge clk);
+		end
 		$display("[TB] Entering run loop...");
 
-		while ((eval_count < TOTAL_EVALS) && (cycles < max_cycles)) begin
+		// Wait for DUT to return to IDLE (done processing) or timeout
+		while (!done && (cycles < max_cycles)) begin
 			@(posedge clk);
 			cycles = cycles + 1;
-			if ((cycles == 1) || ((cycles % progress_stride) == 0) || ((cycles % 1000) == 0)) begin
+			if ((cycles == 1) || ((cycles % progress_stride) == 0)) begin
 				$display(
-					"[TB] cycles=%0d evals=%0d/%0d req=%0b rvalid=%0b bank=%0b col=%0d state=%0d col_idx=%0d phase=%0d d=%0d x=%0d eval_active=%0b eval_y_mid=%0d eval_disp=%0d best_disp0=%0h best_disp0_has_x=%0b best_disp_mid=%0h best_disp_mid_has_x=%0b cur_disp_mid=%0h cur_disp_mid_has_x=%0b best_sad_mid=%0h sad_mid=%0h",
+					"[TB] cycles=%0d req=%0b bank=%0b col=%0d state=%0d phase=%0d x=%0d best_disp0=%0h best_disp_mid=%0h best_sad_mid=%0h sad_mid=%0h",
 					cycles,
-					eval_count,
-					TOTAL_EVALS,
 					mem_req,
-					mem_rvalid,
 					mem_bank,
 					mem_col,
-					dut.state_q,
-					dut.col_idx,
+					dut.curr_state,
 					cur_phase_probe,
-					dut.cur_d,
 					cur_x_probe,
-					eval_active_probe,
-					cur_y_mid_probe,
-					cur_eval_disp_probe,
 					best_disp0_probe,
-					best_disp0_has_x,
 					best_disp_mid_probe,
-					best_disp_mid_has_x,
-					cur_disp_mid_probe,
-					cur_disp_mid_has_x,
 					best_sad_mid_probe,
 					sad_mid_probe
 				);
 			end
 		end
 
-		if (eval_count < TOTAL_EVALS) begin
+		if (!done) begin
 			timed_out = 1'b1;
 			$display("[TB] WARNING: Timeout reached, writing partial disparity output.");
+		end else begin
+			$display("[TB] DUT returned to IDLE after %0d cycles", cycles);
 		end
 
 		repeat (4) @(posedge clk);
@@ -307,7 +293,7 @@ module tb_mem_block_intf #(
 		$fclose(fd);
 
 		if (timed_out) begin
-			$fatal(1, "Timeout: cycles=%0d evals=%0d/%0d (partial disparity written to %s)", cycles, eval_count, TOTAL_EVALS, out_hex_path);
+			$fatal(1, "Timeout: cycles=%0d (partial disparity written to %s)", cycles, out_hex_path);
 		end
 
 		$display("[TB] Done: wrote disparity hex to %s", out_hex_path);

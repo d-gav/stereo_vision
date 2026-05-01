@@ -159,20 +159,27 @@ module mem_block_intf #(
 	//counters to figure out state transitions
 	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt;
 	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt_next;
-	logic phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 1) ; // the reference and matching blocks have shifted in enough rows to fill the block 
-	logic PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt < BLOCK_SIZE); // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
-	logic PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt >= BLOCK_SIZE && phase_cnt < (BLOCK_SIZE)*2	) && !PHASE_match_read; // the cycles where we're loading rows for the reference block
+	logic phase_complete; // the reference and matching blocks have shifted in enough rows to fill the block 
+	assign phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 1);
+	logic PHASE_match_read; // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
+	assign PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt < BLOCK_SIZE);
+	logic PHASE_ref_read; // the cycles where we're loading rows for the reference block
+	assign PHASE_ref_read = (curr_state == INCR_PHASE) && (phase_cnt >= BLOCK_SIZE && phase_cnt < (BLOCK_SIZE)*2) && !PHASE_match_read;
 
 	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt;
 	logic [$clog2(BLOCK_SIZE+3)-1:0] x_cnt_next;
-	logic match_full_x = (x_cnt == BLOCK_SIZE + 2); // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
+	logic match_full_x; // the matching block has shifted in enough rows to fill it as well as 1 extra cycle to shift in the new reference block column
+	assign match_full_x = (x_cnt == BLOCK_SIZE + 2);
 
-	logic INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1); // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
-	logic INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE-1); // the cycles where we're still loading columns for the matching block
+	logic INCR_X_reading_ref; // the cycle where we're loading the last column of the reference block and shifting and already done loading matching block columns
+	assign INCR_X_reading_ref = (curr_state == INCR_X) && (x_cnt == BLOCK_SIZE-1);
+	logic INCR_X_reading_match; // the cycles where we're still loading columns for the matching block
+	assign INCR_X_reading_match = (curr_state == INCR_X) && (x_cnt < BLOCK_SIZE-1);
 	
 	
 
-	logic in_disp_bounds = (disp_pipeline[0] >= 0) && (disp_pipeline[0] <= $signed({1'b0, MAX_DISP_L})) && ((disp_pipeline[0] + $signed({1'b0, col_x_pipeline[0]})) < $signed({1'b0, X_MAX_L}));
+	logic in_disp_bounds;
+	assign in_disp_bounds = (disp_pipeline[0] >= 0) && (disp_pipeline[0] <= $signed({1'b0, MAX_DISP_L})) && ((disp_pipeline[0] + $signed({1'b0, col_x_pipeline[0]})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
 	always_ff @(posedge clk) begin

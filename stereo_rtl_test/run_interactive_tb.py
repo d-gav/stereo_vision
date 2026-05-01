@@ -109,6 +109,7 @@ def _compile_and_run(
     right_hex: Path,
     out_hex: Path,
     max_disp: int,
+    num_sad_units: int,
     rst_cycles: int,
     max_cycles: int,
     progress_stride: int,
@@ -132,6 +133,8 @@ def _compile_and_run(
         "-g2012",
         "-P",
         f"tb_mem_block_intf.MAX_DISP={max_disp}",
+        "-P",
+        f"tb_mem_block_intf.NUM_SAD_UNITS={num_sad_units}",
         "-o",
         str(vvp_out),
         *rtl_files,
@@ -187,6 +190,7 @@ def main() -> int:
     parser.add_argument("--output-png", type=Path, help="Output disparity PNG path")
     parser.add_argument("--work-dir", type=Path, default=Path("build"), help="Directory for generated hex/temp files")
     parser.add_argument("--max-disp", type=int, default=MAX_DISP, help="Maximum disparity used by DUT")
+    parser.add_argument("--num-sad-units", type=int, default=58, help="Number of parallel SAD compute units (STRIPE_HEIGHT = 288/N)")
     parser.add_argument("--rst-cycles", type=int, default=1, help="Reset cycles held high in testbench")
     parser.add_argument("--max-cycles", type=int, default=150_000_000, help="Simulation timeout in cycles")
     parser.add_argument("--progress-stride", type=int, default=50_000, help="TB progress print interval")
@@ -238,12 +242,22 @@ def main() -> int:
         _write_hex(left_img.getdata(), left_hex)
         _write_hex(right_img.getdata(), right_hex)
 
+        num_sad_units = args.num_sad_units
+        stripe_height = FRAME_HEIGHT // num_sad_units
+        if stripe_height < 5:
+            print(
+                f"[WARN] STRIPE_HEIGHT={stripe_height} < BLOCK_SIZE=5. "
+                f"SAD windows will span stripe boundaries. Consider fewer units."
+            )
+        print(f"[RUN] NUM_SAD_UNITS={num_sad_units}, STRIPE_HEIGHT={stripe_height}")
+
         _compile_and_run(
             script_dir=script_dir,
             left_hex=left_hex,
             right_hex=right_hex,
             out_hex=out_hex,
             max_disp=args.max_disp,
+            num_sad_units=num_sad_units,
             rst_cycles=args.rst_cycles,
             max_cycles=args.max_cycles,
             progress_stride=args.progress_stride,

@@ -338,17 +338,15 @@ module mem_block_intf #(
 
 
 				INCR_X: begin
-
 					x_cnt <= x_cnt_next;
-
 					if (INCR_X_reading_ref) begin
 						// Issue memory reads for new reference block column
 						mem_req <= 1'b1;
 						mem_bank <= 1'b0; // left block
 						mem_col <= reg_col_x;
 
-						col_x_pipeline[0] <= curr_col_x;
-						disp_pipeline[0] <= curr_disp;
+						col_x_pipeline[0] <= curr_col_x - 1;
+						disp_pipeline[0] <= curr_disp - 1;
 						phase_pipeline[0] <= curr_phase;
 						valid_rd_pipeline[0] <= 1'b1;
 						to_ref_block_pipeline[0] <= 1'b1; 
@@ -360,8 +358,8 @@ module mem_block_intf #(
 						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
-						col_x_pipeline[0] <= curr_col_x;
-						disp_pipeline[0] <= curr_disp;
+						col_x_pipeline[0] <= curr_col_x - 1;
+						disp_pipeline[0] <= curr_disp - 1;
 						phase_pipeline[0] <= curr_phase;
 						to_ref_block_pipeline[0] <= 1'b0;
 					end
@@ -408,8 +406,8 @@ module mem_block_intf #(
 						mem_bank <= 1'b0; // left block
 						mem_col <= curr_col_x;
 
-						col_x_pipeline[0] <= curr_col_x;
-						disp_pipeline[0] <= curr_disp;
+						col_x_pipeline[0] <= curr_col_x - 1;
+						disp_pipeline[0] <= curr_disp - 1;
 						phase_pipeline[0] <= curr_phase;
 						valid_rd_pipeline[0] <= 1'b1;
 						to_ref_block_pipeline[0] <= 1'b1; 
@@ -421,8 +419,8 @@ module mem_block_intf #(
 						mem_col <= $signed({1'b0, curr_col_x}) + curr_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
-						col_x_pipeline[0] <= curr_col_x;
-						disp_pipeline[0] <= curr_disp;
+						col_x_pipeline[0] <= curr_col_x - 1;
+						disp_pipeline[0] <= curr_disp - 1;
 						phase_pipeline[0] <= curr_phase;
 						to_ref_block_pipeline[0] <= 1'b0;
 					end else begin

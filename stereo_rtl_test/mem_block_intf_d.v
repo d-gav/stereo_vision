@@ -401,6 +401,7 @@ module mem_block_intf #(
 						phase_pipeline[0] <= curr_phase;
 						to_ref_block_pipeline[0] <= 1'b0;
 					end
+					
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
@@ -511,7 +512,7 @@ module mem_block_intf #(
 							curr_disp = disp_pipeline[0] + 1;
 							curr_col_x = col_x_pipeline[0];
 						end else if (PHASE_ref_read) begin
-							curr_disp = disp_pipeline[0];
+							curr_disp = '0;
 							curr_col_x = col_x_pipeline[0] + 1;
 						end else begin
 							next_state = INCR_PHASE;

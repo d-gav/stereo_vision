@@ -398,13 +398,13 @@ module mem_block_intf #(
 						curr_phase = phase_pipeline[0];
 						curr_disp = '0; // reset disparity to 0 for new reference block position
 					end else if (INCR_X_reading_match) begin
-						next_state = INCR_X;
 						curr_disp = disp_pipeline[0] + 1;
 						curr_col_x = col_x_pipeline[0];
-						curr_phase = phase_pipeline[0];
 					end else if (INCR_X_reading_ref) begin
 						curr_col_x = col_x_pipeline[0] + 1;
-						curr_disp = disp_pipeline[0];
+						curr_disp = disp_pipeline[0]; //I think here I need to also reset disparity to 0
+					end else begin
+						next_state = INCR_X;
 						curr_phase = phase_pipeline[0];
 					end
 				end else begin

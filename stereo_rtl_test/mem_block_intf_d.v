@@ -420,20 +420,18 @@ module mem_block_intf #(
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
 						curr_disp = '0; // reset disparity to 0 for new reference block position
+						curr_phase = phase_pipeline[0];
 					end else begin
 						next_state = INCR_PHASE;
 						curr_phase = phase_pipeline[0];
 						if (PHASE_match_read) begin
 							curr_disp = disp_pipeline[0] + 1;
-							curr_x = col_x_pipeline[0];
+							curr_col_x = col_x_pipeline[0];
 						end else if (PHASE_ref_read) begin
-							curr_disp = disp_pipeline[0];
-							curr_x = col_x_pipeline[0] + 1;
+							curr_disp = '0;
+							curr_col_x = col_x_pipeline[0] + 1;
 						end
 					end
-					
-					curr_col_x = X_MIN_L;
-					curr_disp = '0;
 				end else begin
 					next_state = IDLE;
 				end

@@ -168,7 +168,7 @@ module mem_block_intf #(
 	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt;
 	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt_next;
 	logic phase_complete; // the reference and matching blocks have shifted in enough rows to fill the block 
-	assign phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 1);
+	assign phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 2);
 	logic PHASE_match_read; // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
 	assign PHASE_match_read = (curr_state == INCR_PHASE) && (phase_cnt < BLOCK_SIZE);
 	logic PHASE_ref_read; // the cycles where we're loading rows for the reference block
@@ -187,7 +187,7 @@ module mem_block_intf #(
 	
 
 	logic in_disp_bounds;
-	assign in_disp_bounds = (reg_disp >= 0) && (reg_disp <= $signed({1'b0, MAX_DISP_L})) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
+	assign in_disp_bounds = (reg_disp < $signed({1'b0, MAX_DISP_L})) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
 	always_ff @(posedge clk) begin
@@ -471,9 +471,9 @@ module mem_block_intf #(
 					next_state = INCR_DISP;
 					curr_disp = reg_disp + 1;
 				end else begin
-					if (disp_out_bounds_cnt == 2) begin
+					if (disp_out_bounds_cnt == 3) begin
 						next_state = INCR_X;
-						curr_disp = -signed'(BLOCK_SIZE - 1);
+						curr_disp = -$signed(BLOCK_SIZE - 1);
 					end else begin
 						next_state = INCR_DISP;
 						curr_disp = reg_disp; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
@@ -514,7 +514,7 @@ module mem_block_intf #(
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
-						curr_disp = '0; 
+						curr_disp = -$signed(1); 
 						curr_phase = reg_phase;
 					end else begin
 						next_state = INCR_PHASE;
@@ -523,7 +523,7 @@ module mem_block_intf #(
 							curr_disp = reg_disp + 1;
 							curr_col_x = reg_col_x;
 						end else if (PHASE_ref_read) begin
-							curr_disp = '0;
+							curr_disp = -$signed(1);
 							curr_col_x = col_x_pipeline[0] + 1;
 						end else begin
 							next_state = INCR_PHASE;

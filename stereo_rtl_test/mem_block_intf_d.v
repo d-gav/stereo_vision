@@ -6,7 +6,7 @@ module mem_block_intf #(
 	parameter int MAX_DISP         = 63,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
-	parameter int NUM_SAD_UNITS    = (FRAME_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE,
+	parameter int NUM_SAD_UNITS    = FRAME_HEIGHT / BLOCK_SIZE,
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -25,7 +25,7 @@ module mem_block_intf #(
 	localparam int HALF_BLOCK    = BLOCK_SIZE / 2;
 	localparam int STRIPE_HEIGHT = FRAME_HEIGHT / NUM_SAD_UNITS;
 	localparam int X_W           = COL_W;
-	localparam int PHASE_W       = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT);
+	localparam int PHASE_W       = (STRIPE_HEIGHT <= 1) ? 1 : ($clog2(STRIPE_HEIGHT) + 1);
 	localparam int X_MIN         = 0;
 	localparam int X_MAX         = HALF_FRAME_WIDTH - 1;
 
@@ -498,7 +498,7 @@ module mem_block_intf #(
 			end
 			INCR_PHASE: begin
 				phase_cnt_next = phase_cnt + 1;
-				if (phase_pipeline[0] < MAX_PHASE_L) begin
+				if (phase_pipeline[0] <= MAX_PHASE_L) begin
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame

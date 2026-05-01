@@ -6,12 +6,12 @@ module tb_mem_block_intf #(
 	parameter int BLOCK_SIZE       = 5,
 	parameter int PIXEL_W          = 8,
 	parameter int MAX_DISP         = 63,
-	parameter int NUM_SAD_UNITS    = (FRAME_HEIGHT + BLOCK_SIZE - 1) / BLOCK_SIZE
+	parameter int NUM_SAD_UNITS    = FRAME_HEIGHT / BLOCK_SIZE
 );
 	localparam int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE);
 	localparam int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1);
 	localparam int STRIPE_HEIGHT    = FRAME_HEIGHT / NUM_SAD_UNITS;
-	localparam int PHASE_W          = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT);
+	localparam int PHASE_W          = (STRIPE_HEIGHT <= 1) ? 1 : ($clog2(STRIPE_HEIGHT) + 1);
 	localparam int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT);
 	localparam int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH);
 

@@ -153,6 +153,14 @@ module mem_block_intf #(
 	logic [PHASE_W-1:0] curr_phase;
 	logic [X_W-1:0] curr_col_x;
 	logic signed [DISP_W:0] curr_disp;
+
+	// Dedicated registers to track the current loop variables outside the pipeline.
+	// These hold the "committed" values of phase/col_x/disp and are the source
+	// for the combinational curr_* next-value logic.
+	logic [PHASE_W-1:0]     reg_phase;
+	logic [X_W-1:0]         reg_col_x;
+	logic signed [DISP_W:0] reg_disp;
+
 	logic sad_compare_en; // delayed one cycle after slide_matching so SAD reflects the new window
 
 
@@ -179,7 +187,7 @@ module mem_block_intf #(
 	
 
 	logic in_disp_bounds;
-	assign in_disp_bounds = (disp_pipeline[0] >= 0) && (disp_pipeline[0] <= $signed({1'b0, MAX_DISP_L})) && ((disp_pipeline[0] + $signed({1'b0, col_x_pipeline[0]})) < $signed({1'b0, X_MAX_L}));
+	assign in_disp_bounds = (reg_disp >= 0) && (reg_disp <= $signed({1'b0, MAX_DISP_L})) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
 	always_ff @(posedge clk) begin
@@ -189,6 +197,9 @@ module mem_block_intf #(
 			x_cnt <= '0;
 			phase_cnt <= '0;
 			sad_compare_en <= 1'b0;
+			reg_phase <= '0;
+			reg_col_x <= '0;
+			reg_disp  <= '0;
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
 			disp_pipeline[0] <= '0;
@@ -224,6 +235,10 @@ module mem_block_intf #(
 			// update FSM state
 			curr_state <= next_state;
 
+			// update dedicated loop-variable registers
+			reg_phase <= curr_phase;
+			reg_col_x <= curr_col_x;
+			reg_disp  <= curr_disp;
 
 			// pre assign default values
 			mem_req <= 1'b0;
@@ -231,10 +246,6 @@ module mem_block_intf #(
 			slide_matching  <= 1'b0;
 			sad_compare_en  <= slide_matching; // one-cycle delay: compare SAD after the window has shifted
 
-
-			phase_pipeline[0] <= phase_pipeline[0]; // default to holding the current value in the pipeline
-			col_x_pipeline[0] <= col_x_pipeline[0];
-			disp_pipeline[0] <= disp_pipeline[0];
 			valid_rd_pipeline[0] <= 1'b0;
 
 			// Reset best SAD/disparity when starting a new disparity sweep (new x or y)
@@ -248,7 +259,7 @@ module mem_block_intf #(
 			// Write last column's disparity when transitioning from INCR_X to INCR_PHASE
 			if (curr_state == INCR_X && next_state == INCR_PHASE) begin
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-					disp_map[i * STRIPE_HEIGHT + phase_pipeline[0]][col_x_pipeline[0]] <= disp_to_u8(best_disp[i]);
+					disp_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= disp_to_u8(best_disp[i]);
 				end
 			end
 
@@ -274,7 +285,7 @@ module mem_block_intf #(
 					if (in_disp_bounds) begin
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
+						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -320,7 +331,7 @@ module mem_block_intf #(
 						// Issue memory reads for new reference block column
 						mem_req <= 1'b1;
 						mem_bank <= 1'b0; // left block
-						mem_col <= col_x_pipeline[0];
+						mem_col <= reg_col_x;
 
 						col_x_pipeline[0] <= curr_col_x;
 						disp_pipeline[0] <= curr_disp;
@@ -332,7 +343,7 @@ module mem_block_intf #(
 						// Issue memory reads for new matching block column
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
+						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -381,7 +392,7 @@ module mem_block_intf #(
 						// Issue memory reads for new reference block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b0; // left block
-						mem_col <= col_x_pipeline[0];
+						mem_col <= reg_col_x;
 
 						col_x_pipeline[0] <= curr_col_x;
 						disp_pipeline[0] <= curr_disp;
@@ -393,7 +404,7 @@ module mem_block_intf #(
 						// Issue memory reads for new matching block row
 						mem_req <= 1'b1;
 						mem_bank <= 1'b1; // right block
-						mem_col <= $signed({1'b0, col_x_pipeline[0]}) + disp_pipeline[0];
+						mem_col <= $signed({1'b0, reg_col_x}) + reg_disp;
 
 						valid_rd_pipeline[0] <= 1'b1;
 						col_x_pipeline[0] <= curr_col_x;
@@ -436,9 +447,9 @@ module mem_block_intf #(
 	always_comb begin 
 		// Default assignments to prevent latch inference
 		next_state     = curr_state;
-		curr_disp      = disp_pipeline[0];
-		curr_col_x     = col_x_pipeline[0];
-		curr_phase     = phase_pipeline[0];
+		curr_disp      = reg_disp;
+		curr_col_x     = reg_col_x;
+		curr_phase     = reg_phase;
 		x_cnt_next     = x_cnt;
 		phase_cnt_next = phase_cnt;
 
@@ -458,59 +469,59 @@ module mem_block_intf #(
 				phase_cnt_next = 0;
 				if (in_disp_bounds) begin
 					next_state = INCR_DISP;
-					curr_disp = disp_pipeline[0] + 1;
+					curr_disp = reg_disp + 1;
 				end else begin
 					if (disp_out_bounds_cnt == 2) begin
 						next_state = INCR_X;
-						curr_disp = -(BLOCK_SIZE - 1);
+						curr_disp = -signed'(BLOCK_SIZE - 1);
 					end else begin
 						next_state = INCR_DISP;
-						curr_disp = disp_pipeline[0]; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
+						curr_disp = reg_disp; // hold the current disparity for one more cycle while we flush out the results for the last valid disparity
 					end
 				end
 			end 
 			INCR_X: begin
 				x_cnt_next = x_cnt + 1;
 				phase_cnt_next = 0;
-				if (col_x_pipeline[0] < X_MAX_L) begin
+				if (reg_col_x < X_MAX_L) begin
 					if (match_full_x) begin
 						next_state = INCR_DISP;
-						curr_col_x = col_x_pipeline[0] + 1;
-						curr_phase = phase_pipeline[0];
+						curr_col_x = reg_col_x + 1;
+						curr_phase = reg_phase;
 						curr_disp = '0; // reset disparity to 0 for new reference block position
 					end else if (INCR_X_reading_match) begin
 						next_state = INCR_X;
-						curr_disp = disp_pipeline[0] + 1;
-						curr_col_x = col_x_pipeline[0];
+						curr_disp = reg_disp + 1;
+						curr_col_x = reg_col_x;
 					end else if (INCR_X_reading_ref) begin
 						next_state = INCR_X;
-						curr_col_x = col_x_pipeline[0] + 1;
-						curr_disp = disp_pipeline[0];
+						curr_col_x = reg_col_x + 1;
+						curr_disp = reg_disp;
 					end else begin
 						next_state = INCR_X;
-						curr_phase = phase_pipeline[0];
+						curr_phase = reg_phase;
 					end
 				end else begin
 					next_state = INCR_PHASE;
 					curr_col_x = '0;
 					curr_disp = '0; // reset disparity to -starting value for new reference block position
-					curr_phase = phase_pipeline[0] + 1;
+					curr_phase = reg_phase + 1;
 				end
 			end
 			INCR_PHASE: begin
 				phase_cnt_next = phase_cnt + 1;
-				if (phase_pipeline[0] <= MAX_PHASE_L) begin
+				if (reg_phase <= MAX_PHASE_L) begin
 					if (phase_complete) begin
 						next_state = INCR_DISP;
 						curr_col_x = BLOCK_SIZE - 1; // reset the current X to be right side of the frame
 						curr_disp = '0; 
-						curr_phase = phase_pipeline[0];
+						curr_phase = reg_phase;
 					end else begin
 						next_state = INCR_PHASE;
-						curr_phase = phase_pipeline[0];
+						curr_phase = reg_phase;
 						if (PHASE_match_read) begin
-							curr_disp = disp_pipeline[0] + 1;
-							curr_col_x = col_x_pipeline[0];
+							curr_disp = reg_disp + 1;
+							curr_col_x = reg_col_x;
 						end else if (PHASE_ref_read) begin
 							curr_disp = '0;
 							curr_col_x = col_x_pipeline[0] + 1;

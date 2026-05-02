@@ -201,9 +201,12 @@ module mem_block_intf #(
 	
 
 	logic in_disp_bounds;
-	assign in_disp_bounds = (reg_disp < ($signed({1'b0, MAX_DISP_L}))) && ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
+	assign in_disp_bounds = (reg_disp >= 0)
+		&& (reg_disp <= $signed({1'b0, MAX_DISP_L}))
+		&& ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
+	integer init_r, init_c;
 	always_ff @(posedge clk) begin
 		if (rst) begin
 			curr_state <= IDLE;
@@ -214,6 +217,13 @@ module mem_block_intf #(
 			reg_phase <= '0;
 			reg_col_x <= '0;
 			reg_disp  <= '0;
+
+			for (init_r = 0; init_r < FRAME_HEIGHT; init_r++) begin
+				for (init_c = 0; init_c < HALF_FRAME_WIDTH; init_c++) begin
+					disp_map[init_r][init_c] <= 8'h00;
+				end
+			end
+
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
 			disp_pipeline[0] <= '0;

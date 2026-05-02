@@ -20,6 +20,14 @@ module tb_mem_block_intf #(
 	localparam int X_MAX      = HALF_FRAME_WIDTH - 1;
 	localparam int X_COUNT    = X_MAX - X_MIN + 1;
 	localparam int PROBE_U = (NUM_SAD_UNITS > 1) ? (NUM_SAD_UNITS / 2) : 0;
+	localparam int PROBE_ROW0 = 0;
+	localparam int PROBE_COL0 = 0;
+	localparam int PROBE_ROW_MID = FRAME_HEIGHT / 2;
+	localparam int PROBE_COL_MID = HALF_FRAME_WIDTH / 2;
+	localparam int PROBE_ROW_STRIPE = PROBE_U * STRIPE_HEIGHT;
+	localparam int PROBE_COL_STRIPE = HALF_FRAME_WIDTH / 4;
+	localparam int PROBE_ROW_LAST = FRAME_HEIGHT - 1;
+	localparam int PROBE_COL_LAST = HALF_FRAME_WIDTH - 1;
 	localparam logic [DISP_W-1:0] MAX_DISP_L = MAX_DISP;
 
 	logic clk;
@@ -31,7 +39,8 @@ module tb_mem_block_intf #(
 	logic [COL_W-1:0] mem_col;
 	logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1];
 
-	logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+	// NOTE: disp_map is read via hierarchical reference (dut.disp_map) because
+	// iverilog does not propagate writes through unpacked-array output ports.
 
 	logic [PIXEL_W-1:0] left_mem  [0:FRAME_HEIGHT*HALF_FRAME_WIDTH-1];
 	logic [PIXEL_W-1:0] right_mem [0:FRAME_HEIGHT*HALF_FRAME_WIDTH-1];
@@ -61,6 +70,14 @@ module tb_mem_block_intf #(
 	logic [COL_W-1:0] cur_x_probe;
 	logic [SAD_W-1:0] best_sad_mid_probe;
 	logic [SAD_W-1:0] sad_mid_probe;
+	logic [7:0] disp00_probe;
+	logic disp00_has_x;
+	logic [7:0] disp_mid_probe;
+	logic disp_mid_has_x;
+	logic [7:0] disp_stripe_probe;
+	logic disp_stripe_has_x;
+	logic [7:0] disp_last_probe;
+	logic disp_last_has_x;
 	logic started; // tracks whether go has been asserted
 	logic done;    // DUT returned to IDLE after processing
 
@@ -79,6 +96,14 @@ module tb_mem_block_intf #(
 	assign cur_x_probe = dut.curr_col_x;
 	assign best_sad_mid_probe = dut.best_sad[PROBE_U];
 	assign sad_mid_probe = dut.sad_value[PROBE_U];
+	assign disp00_probe = dut.disp_map[PROBE_ROW0][PROBE_COL0];
+	assign disp00_has_x = (^disp00_probe === 1'bx);
+	assign disp_mid_probe = dut.disp_map[PROBE_ROW_MID][PROBE_COL_MID];
+	assign disp_mid_has_x = (^disp_mid_probe === 1'bx);
+	assign disp_stripe_probe = dut.disp_map[PROBE_ROW_STRIPE][PROBE_COL_STRIPE];
+	assign disp_stripe_has_x = (^disp_stripe_probe === 1'bx);
+	assign disp_last_probe = dut.disp_map[PROBE_ROW_LAST][PROBE_COL_LAST];
+	assign disp_last_has_x = (^disp_last_probe === 1'bx);
 	assign done = started && (dut.curr_state == 3'd0); // IDLE = 0
 
 	function automatic int flat_idx(
@@ -102,6 +127,14 @@ module tb_mem_block_intf #(
 		$dumpvars(0, cur_x_probe);
 		$dumpvars(0, best_sad_mid_probe);
 		$dumpvars(0, sad_mid_probe);
+		$dumpvars(0, disp00_probe);
+		$dumpvars(0, disp00_has_x);
+		$dumpvars(0, disp_mid_probe);
+		$dumpvars(0, disp_mid_has_x);
+		$dumpvars(0, disp_stripe_probe);
+		$dumpvars(0, disp_stripe_has_x);
+		$dumpvars(0, disp_last_probe);
+		$dumpvars(0, disp_last_has_x);
 		$dumpvars(0, pipe0_phase);
 		$dumpvars(0, pipe0_col_x);
 		$dumpvars(0, pipe0_disp);
@@ -231,7 +264,7 @@ module tb_mem_block_intf #(
 		.mem_bank(mem_bank),
 		.mem_col(mem_col),
 		.mem_rdata(mem_rdata),
-		.disp_map(disp_map),
+		.disp_map(),
 		.pipe0_phase(pipe0_phase),
 		.pipe0_col_x(pipe0_col_x),
 		.pipe0_disp(pipe0_disp),
@@ -309,7 +342,7 @@ module tb_mem_block_intf #(
 
 		for (r = 0; r < FRAME_HEIGHT; r++) begin
 			for (c = 0; c < HALF_FRAME_WIDTH; c++) begin
-				$fdisplay(fd, "%02x", disp_map[r][c]);
+				$fdisplay(fd, "%02x", dut.disp_map[r][c]);
 			end
 		end
 		$fclose(fd);

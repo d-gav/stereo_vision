@@ -50,6 +50,8 @@ Useful options:
   - Number of reset cycles in testbench (default: 1).
 - --raw-disp
   - Save raw disparity values (0..63) directly into PNG intensity.
+- --no-vcd
+  - Disable VCD dumping for faster runs.
 - --max-cycles N
   - Simulation timeout guard (default: 150000000).
 - --progress-stride N

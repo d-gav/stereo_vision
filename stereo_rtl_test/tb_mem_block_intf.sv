@@ -53,6 +53,7 @@ module tb_mem_block_intf #(
 	string right_hex_path;
 	string out_hex_path;
 	string vcd_path;
+	logic vcd_enable;
 	int max_cycles;
 	int progress_stride;
 
@@ -114,33 +115,41 @@ module tb_mem_block_intf #(
 	endfunction
 
 	initial begin
-		if (!$value$plusargs("VCD=%s", vcd_path)) begin
-			vcd_path = "tb_mem_block_intf.vcd";
+		vcd_enable = 1'b1;
+		if ($test$plusargs("NOVCD")) begin
+			vcd_enable = 1'b0;
 		end
-		$dumpfile(vcd_path);
-		$dumpvars(0, tb_mem_block_intf);
-		$dumpvars(0, best_disp0_probe);
-		$dumpvars(0, best_disp0_has_x);
-		$dumpvars(0, best_disp_mid_probe);
-		$dumpvars(0, best_disp_mid_has_x);
-		$dumpvars(0, cur_phase_probe);
-		$dumpvars(0, cur_x_probe);
-		$dumpvars(0, best_sad_mid_probe);
-		$dumpvars(0, sad_mid_probe);
-		$dumpvars(0, disp00_probe);
-		$dumpvars(0, disp00_has_x);
-		$dumpvars(0, disp_mid_probe);
-		$dumpvars(0, disp_mid_has_x);
-		$dumpvars(0, disp_stripe_probe);
-		$dumpvars(0, disp_stripe_has_x);
-		$dumpvars(0, disp_last_probe);
-		$dumpvars(0, disp_last_has_x);
-		$dumpvars(0, pipe0_phase);
-		$dumpvars(0, pipe0_col_x);
-		$dumpvars(0, pipe0_disp);
-		$dumpvars(0, pipe0_valid);
-		$dumpvars(0, pipe0_to_ref);
-		$display("[TB] VCD=%s", vcd_path);
+		if (vcd_enable) begin
+			if (!$value$plusargs("VCD=%s", vcd_path)) begin
+				vcd_path = "tb_mem_block_intf.vcd";
+			end
+			$dumpfile(vcd_path);
+			$dumpvars(0, tb_mem_block_intf);
+			$dumpvars(0, best_disp0_probe);
+			$dumpvars(0, best_disp0_has_x);
+			$dumpvars(0, best_disp_mid_probe);
+			$dumpvars(0, best_disp_mid_has_x);
+			$dumpvars(0, cur_phase_probe);
+			$dumpvars(0, cur_x_probe);
+			$dumpvars(0, best_sad_mid_probe);
+			$dumpvars(0, sad_mid_probe);
+			$dumpvars(0, disp00_probe);
+			$dumpvars(0, disp00_has_x);
+			$dumpvars(0, disp_mid_probe);
+			$dumpvars(0, disp_mid_has_x);
+			$dumpvars(0, disp_stripe_probe);
+			$dumpvars(0, disp_stripe_has_x);
+			$dumpvars(0, disp_last_probe);
+			$dumpvars(0, disp_last_has_x);
+			$dumpvars(0, pipe0_phase);
+			$dumpvars(0, pipe0_col_x);
+			$dumpvars(0, pipe0_disp);
+			$dumpvars(0, pipe0_valid);
+			$dumpvars(0, pipe0_to_ref);
+			$display("[TB] VCD=%s", vcd_path);
+		end else begin
+			$display("[TB] VCD disabled");
+		end
 		$display("[TB] PROBE_U=%0d", PROBE_U);
 	end
 

@@ -115,6 +115,7 @@ def _compile_and_run(
     progress_stride: int,
     iverilog_bin: str,
     vvp_bin: str,
+    no_vcd: bool,
 ) -> None:
     build_dir = script_dir / "build"
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -152,6 +153,8 @@ def _compile_and_run(
         f"+MAX_CYCLES={max_cycles}",
         f"+PROGRESS_STRIDE={progress_stride}",
     ]
+    if no_vcd:
+        run_cmd.append("+NOVCD")
     print(
         f"[RUN] Running simulation (this can take a while for full 320x288, max_disp={max_disp})..."
     )
@@ -195,6 +198,7 @@ def main() -> int:
     parser.add_argument("--max-cycles", type=int, default=150_000_000, help="Simulation timeout in cycles")
     parser.add_argument("--progress-stride", type=int, default=50_000, help="TB progress print interval")
     parser.add_argument("--raw-disp", action="store_true", help="Do not scale disparity for display")
+    parser.add_argument("--no-vcd", action="store_true", help="Disable VCD dumping for faster runs")
     parser.add_argument("--iverilog", default=os.environ.get("IVERILOG", "iverilog"), help="iverilog executable")
     parser.add_argument("--vvp", default=os.environ.get("VVP", "vvp"), help="vvp executable")
     parser.add_argument("--keep-intermediate", action="store_true", help="Keep generated hex files")
@@ -263,6 +267,7 @@ def main() -> int:
             progress_stride=args.progress_stride,
             iverilog_bin=args.iverilog,
             vvp_bin=args.vvp,
+            no_vcd=args.no_vcd,
         )
 
         _save_disparity_png(

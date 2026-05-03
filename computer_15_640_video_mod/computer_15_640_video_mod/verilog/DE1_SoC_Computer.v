@@ -359,221 +359,334 @@ output					HPS_USB_STP;
 
 // Stereo layout assumptions:
 //  - Input is a 640x288 side-by-side frame.
-//  - Left camera output occupies x=[0..314].
-//  - Gap occupies x=[315..318] and is treated as invalid by mapping.
-//  - Right camera output occupies x=[319..633].
-localparam FULL_FRAME_WIDTH  = 640;
-localparam HALF_FRAME_WIDTH  = 320;
-localparam FRAME_HEIGHT      = 288;
+//  - Left camera occupies x=[0..314], Right x=[319..633].
+localparam FULL_FRAME_WIDTH     = 640;
+localparam HALF_FRAME_WIDTH     = 320;
+localparam FRAME_HEIGHT         = 288;
 localparam LEFT_OUTPUT_X_START  = 0;
 localparam LEFT_LUT_WIDTH       = 315;
 localparam INTER_CAMERA_GAP     = 4;
 localparam RIGHT_OUTPUT_X_START = LEFT_OUTPUT_X_START + LEFT_LUT_WIDTH + INTER_CAMERA_GAP;
 localparam RIGHT_LUT_WIDTH      = 315;
 
-wire			[15: 0]	hex3_hex0;
-//wire			[15: 0]	hex5_hex4;
+// Stereo engine parameters
+localparam BLOCK_SIZE      = 5;
+localparam PIXEL_W         = 8;
+localparam MAX_DISP        = 85;
+localparam BRAM_DEPTH      = FRAME_HEIGHT * HALF_FRAME_WIDTH;
+localparam BRAM_ADDR_W     = 17;
+localparam DISP_OUT_ROWS   = 192;
+localparam DISP_Y_OFFSET   = (FRAME_HEIGHT - DISP_OUT_ROWS) / 2; // 48
 
-// Row-per-bank BRAM-style storage for left/right views.
-reg [7:0] left_row_bank  [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
-reg [7:0] right_row_bank [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+// Top-level phase
+localparam [1:0] PHASE_FILL      = 2'd0;
+localparam [1:0] PHASE_COMPUTE   = 2'd1;
+localparam [1:0] PHASE_WRITEBACK = 2'd2;
+reg [1:0] top_phase;
 
-//assign HEX0 = ~hex3_hex0[ 6: 0]; // hex3_hex0[ 6: 0]; 
-//assign HEX1 = ~hex3_hex0[14: 8];
-//assign HEX2 = ~hex3_hex0[22:16];
-//assign HEX3 = ~hex3_hex0[30:24];
+wire [15:0] hex3_hex0;
 assign HEX4 = 7'b1111111;
 assign HEX5 = 7'b1111111;
-
 HexDigit Digit0(HEX0, hex3_hex0[3:0]);
 HexDigit Digit1(HEX1, hex3_hex0[7:4]);
 HexDigit Digit2(HEX2, hex3_hex0[11:8]);
 HexDigit Digit3(HEX3, hex3_hex0[15:12]);
 
-// MAY need to cycle this switch on power-up to get video
 assign TD_RESET_N = SW[1];
+assign GPIO_0[0] = TD_HS;
+assign GPIO_0[1] = TD_VS;
+assign GPIO_0[2] = TD_DATA[6];
+assign GPIO_0[3] = TD_CLK27;
+assign GPIO_0[4] = TD_RESET_N;
 
-// get some signals exposed
-// connect bus master signals to i/o for probes
-assign GPIO_0[0] = TD_HS ;
-assign GPIO_0[1] = TD_VS ;
-assign GPIO_0[2] = TD_DATA[6] ;
-assign GPIO_0[3] = TD_CLK27 ;
-assign GPIO_0[4] = TD_RESET_N ;
+//=======================================================
+// BRAM banks for left/right camera images
+//=======================================================
+reg                    bram_wr_en;
+reg [BRAM_ADDR_W-1:0] bram_wr_addr;
+reg [7:0]              bram_wr_data;
+reg                    bram_wr_bank; // 0=left, 1=right
+
+wire [BRAM_ADDR_W-1:0] left_rd_addr, right_rd_addr;
+wire [7:0]              left_rd_data, right_rd_data;
+
+wire left_wr_en  = bram_wr_en & ~bram_wr_bank;
+wire right_wr_en = bram_wr_en &  bram_wr_bank;
+
+stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) left_bram (
+	.clk(CLOCK2_50),
+	.wr_en(left_wr_en),
+	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
+	.rd_addr(left_rd_addr), .rd_data(left_rd_data)
+);
+stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) right_bram (
+	.clk(CLOCK2_50),
+	.wr_en(right_wr_en),
+	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
+	.rd_addr(right_rd_addr), .rd_data(right_rd_data)
+);
 
 //=======================================================
 // Bus controller for AVALON bus-master
 //=======================================================
-wire [31:0] vga_bus_addr, video_in_bus_addr ; // Avalon addresses
-reg  [31:0] bus_addr ;
-wire [31:0] vga_out_base_address = 32'h0000_0000 ;  // Avalon address
-wire [31:0] video_in_base_address = 32'h0800_0000 ;  // Avalon address
-reg [3:0] bus_byte_enable ; // four bit byte read/write mask
-reg bus_read  ;       // high when requesting data
-reg bus_write ;      //  high when writing data
-reg [31:0] bus_write_data ; //  data to send to Avalog bus
-wire bus_ack  ;       //  Avalon bus raises this when done
-wire [31:0] bus_read_data ; // data from Avalon bus
-reg [31:0] timer ;
-reg [3:0] state ;
-reg last_vs, wait_one;
-reg [19:0] vs_count ;
-reg last_hs, wait_one_hs ;
-reg [19:0] hs_count ;
+wire [31:0] vga_bus_addr, video_in_bus_addr;
+reg  [31:0] bus_addr;
+wire [31:0] vga_out_base_address = 32'h0000_0000;
+wire [31:0] video_in_base_address = 32'h0800_0000;
+reg [3:0] bus_byte_enable;
+reg bus_read, bus_write;
+reg [31:0] bus_write_data;
+wire bus_ack;
+wire [31:0] bus_read_data;
+reg [31:0] timer;
+reg [3:0] state;
 
-// pixel address is
-reg [9:0] vga_x_cood, vga_y_cood, video_in_x_cood, video_in_y_cood, old_video_in_x_cood, old_video_in_y_cood ;
-reg [7:0] current_pixel_color1, current_pixel_color2 ;
+reg [9:0] vga_x_cood, vga_y_cood;
+reg [9:0] video_in_x_cood, video_in_y_cood;
+reg [9:0] old_video_in_x_cood, old_video_in_y_cood;
+reg [7:0] current_pixel_color1;
 reg old_poly_valid;
 reg map_enable_latched;
 reg read_video_start;
-wire [9:0] read_video_map_x;
-wire [9:0] read_video_map_y;
-wire read_video_map_valid;
-wire read_video_map_done;
+wire [9:0] read_video_map_x, read_video_map_y;
+wire read_video_map_valid, read_video_map_done;
+
 wire raw_read_valid =
 	(old_video_in_y_cood < FRAME_HEIGHT) &&
 	((old_video_in_x_cood < LEFT_LUT_WIDTH) ||
 	 ((old_video_in_x_cood >= RIGHT_OUTPUT_X_START) &&
 	  (old_video_in_x_cood < (RIGHT_OUTPUT_X_START + RIGHT_LUT_WIDTH))));
+
 wire [9:0] read_video_x = map_enable_latched ? read_video_map_x : old_video_in_x_cood;
 wire [9:0] read_video_y = map_enable_latched ? read_video_map_y : old_video_in_y_cood;
-wire read_video_valid = map_enable_latched ? read_video_map_valid : raw_read_valid;
-wire read_video_done = map_enable_latched ? read_video_map_done : 1'b1;
+wire read_video_valid   = map_enable_latched ? read_video_map_valid : raw_read_valid;
+wire read_video_done    = map_enable_latched ? read_video_map_done : 1'b1;
 
 wire [9:0] write_vga_x = old_video_in_x_cood - vga_x_cood;
 wire [9:0] write_vga_y = old_video_in_y_cood + vga_y_cood;
 
-// compute address
-assign vga_bus_addr = vga_out_base_address + {22'b0,write_vga_x} + ({22'b0,write_vga_y}<<10) ;
-assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b0,read_video_y}<<10) ;	 
-
-
+assign vga_bus_addr      = vga_out_base_address + {22'b0,write_vga_x} + ({22'b0,write_vga_y}<<10);
+assign video_in_bus_addr = video_in_base_address + {22'b0,read_video_x} + ({22'b0,read_video_y}<<10);
 
 reg display_right_sel;
-wire right_read_side = old_video_in_x_cood >= RIGHT_OUTPUT_X_START ? 1'b1 : 1'b0;
+wire right_read_side = (old_video_in_x_cood >= RIGHT_OUTPUT_X_START) ? 1'b1 : 1'b0;
+wire [9:0] right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START;
 
-//The address for the pixel in the right bank we are writing to
-wire [9:0] right_cam_mem_x_cood ;
+// Track whether the full frame has been read
+reg frame_filled;
 
-assign right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START ;
+//=======================================================
+// Stereo engine: mem_block_intf + column prefetch
+//=======================================================
+wire        mbi_mem_req, mbi_mem_bank, mbi_done, mbi_stall;
+wire [8:0]  mbi_mem_col;
+wire [7:0]  mbi_mem_rdata [0:FRAME_HEIGHT-1];
+reg         mbi_go, mbi_rst;
 
+wire [7:0]  disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+
+column_prefetch #(
+	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
+	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W), .ROW_W(9), .COL_W(9)
+) u_col_prefetch (
+	.clk(CLOCK2_50), .rst(~KEY[0]),
+	.mbi_mem_req(mbi_mem_req), .mbi_mem_bank(mbi_mem_bank),
+	.mbi_mem_col(mbi_mem_col), .stall(mbi_stall),
+	.mem_rdata(mbi_mem_rdata),
+	.left_rd_addr(left_rd_addr),   .left_rd_data(left_rd_data),
+	.right_rd_addr(right_rd_addr), .right_rd_data(right_rd_data)
+);
+
+mem_block_intf #(
+	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
+	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP)
+) u_mem_block_intf (
+	.clk(CLOCK2_50), .rst(mbi_rst),
+	.go(mbi_go), .stall(mbi_stall),
+	.mem_req(mbi_mem_req), .mem_bank(mbi_mem_bank), .mem_col(mbi_mem_col),
+	.mem_rdata(mbi_mem_rdata),
+	.disp_map(disp_map), .done(mbi_done)
+);
+
+// Disparity writeback registers
+reg [9:0] disp_wb_x;
+reg [8:0] disp_wb_y;
+
+// Read disparity and scale: disp=0→0xFF(white), disp>=85→0x00(black)
+wire [7:0] raw_disp = disp_map[disp_wb_y + DISP_Y_OFFSET][disp_wb_x];
+wire [7:0] disp_pixel = (raw_disp >= 8'd85) ? 8'h00 : (8'd255 - raw_disp * 8'd3);
+wire [31:0] disp_vga_addr = vga_out_base_address +
+	{22'b0, disp_wb_x} + ({22'b0, (disp_wb_y + 10'd288)} << 10);
+
+// Debug: show top_phase on HEX
+assign hex3_hex0 = {6'b0, top_phase, 8'b0};
+
+//=======================================================
+// Radial mapper
+//=======================================================
 stereo_radial_mapper_q15 stereo_radial_mapper_inst (
-	.clk(CLOCK2_50),
-	.reset_n(KEY[0]),
+	.clk(CLOCK2_50), .reset_n(KEY[0]),
 	.start(read_video_start),
-	.dst_x(video_in_x_cood),
-	.dst_y(video_in_y_cood),
-	.src_x(read_video_map_x),
-	.src_y(read_video_map_y),
-	.valid(read_video_map_valid),
-	.done(read_video_map_done),
+	.dst_x(video_in_x_cood), .dst_y(video_in_y_cood),
+	.src_x(read_video_map_x), .src_y(read_video_map_y),
+	.valid(read_video_map_valid), .done(read_video_map_done),
 	.busy()
 );
 
-always @(posedge CLOCK2_50) begin //CLOCK_50
-
-	// reset state machine and read/write controls
+//=======================================================
+// Main FSM: FILL → COMPUTE → WRITEBACK → FILL ...
+//=======================================================
+always @(posedge CLOCK2_50) begin
 	if (~KEY[0]) begin
-		state <= 0 ;
-		bus_read <= 0 ; // set to one if a read opeation from bus
-		bus_write <= 0 ; // set to on if a write operation to bus
-		// base address of upper-left corner of the screen
-		vga_x_cood <= 10'd0 ;
-		vga_y_cood <= 10'd0 ;
-		video_in_x_cood <= 0 ;
-		old_video_in_x_cood <= 0 ;
-		video_in_y_cood <= 0 ;
-		old_video_in_y_cood <= 0 ;
-	    bus_byte_enable <= 4'b0001;
-		old_poly_valid <= 1'b0;
+		state <= 0;
+		bus_read <= 0; bus_write <= 0;
+		vga_x_cood <= 0; vga_y_cood <= 0;
+		video_in_x_cood <= 0; old_video_in_x_cood <= 0;
+		video_in_y_cood <= 0; old_video_in_y_cood <= 0;
+		bus_byte_enable <= 4'b0001;
+		old_poly_valid <= 0;
 		map_enable_latched <= 1'b1;
-		read_video_start <= 1'b0;
+		read_video_start <= 0;
 		display_right_sel <= SW[2];
 		timer <= 0;
+		top_phase <= PHASE_FILL;
+		bram_wr_en <= 0;
+		bram_wr_bank <= 0;
+		bram_wr_addr <= 0;
+		bram_wr_data <= 0;
+		mbi_go <= 0; mbi_rst <= 1;
+		disp_wb_x <= 0; disp_wb_y <= 0;
+		frame_filled <= 0;
+		current_pixel_color1 <= 0;
 	end
 	else begin
-		 timer <= timer + 1;
-		 read_video_start <= 1'b0;
-	end
-	
-	// write to the bus-master
-	// and put in a small delay to aviod bus hogging
-	// timer delay can be set to 2**n-1, so 3, 7, 15, 31
-	// bigger numbers mean slower frame update to VGA
-	if (state==0 && SW[0] && (timer & 5) == 0) begin //
-		state <= 11;
-		// SW[3]=1: radial remap, SW[3]=0: identity/bypass read.
-		map_enable_latched <= SW[3];
-		read_video_start <= 1'b1;
-		// read all the pixels in the video input
-		old_video_in_x_cood <= video_in_x_cood ;
-		old_video_in_y_cood <= video_in_y_cood ;
+		timer <= timer + 1;
+		read_video_start <= 1'b0;
+		bram_wr_en <= 1'b0;
+		mbi_go <= 1'b0;
 
-		video_in_x_cood <= video_in_x_cood + 10'd1 ;
-		if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
-			video_in_x_cood <= 0 ;
-			video_in_y_cood <= video_in_y_cood + 10'd1 ;
-			if (video_in_y_cood >= FRAME_HEIGHT - 1) begin
-				video_in_y_cood <= 10'd0 ;
+		case (top_phase)
+
+		// ============ PHASE_FILL ============
+		PHASE_FILL: begin
+			mbi_rst <= 1'b1;
+
+			if (state==0 && SW[0] && (timer & 5) == 0) begin
+				state <= 4'd11;
+				map_enable_latched <= SW[3];
+				read_video_start <= 1'b1;
+				old_video_in_x_cood <= video_in_x_cood;
+				old_video_in_y_cood <= video_in_y_cood;
+				video_in_x_cood <= video_in_x_cood + 10'd1;
+				if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
+					video_in_x_cood <= 0;
+					video_in_y_cood <= video_in_y_cood + 10'd1;
+					if (video_in_y_cood >= FRAME_HEIGHT - 1) begin
+						video_in_y_cood <= 10'd0;
+					end
+				end
+				bus_byte_enable <= 4'b0001;
+			end
+
+			if (state==4'd11 && read_video_done) begin
+				state <= 4'd10;
+				old_poly_valid <= read_video_valid;
+			end
+
+			if (state==4'd10) begin
+				state <= 4'd1;
+				bus_byte_enable <= 4'b0001;
+				bus_addr <= video_in_bus_addr;
+				bus_read <= 1'b1;
+			end
+
+			if (state==4'd1 && bus_ack) begin
+				state <= 4'd8;
+				bus_read <= 1'b0;
+				current_pixel_color1 <= old_poly_valid ? bus_read_data[7:0] : 8'h00;
+			end
+
+			if (state==4'd8) begin
+				// Write to BRAM
+				bram_wr_en   <= 1'b1;
+				bram_wr_data <= current_pixel_color1;
+				if (right_read_side) begin
+					bram_wr_bank <= 1'b1;
+					bram_wr_addr <= old_video_in_y_cood * HALF_FRAME_WIDTH + right_cam_mem_x_cood;
+				end else begin
+					bram_wr_bank <= 1'b0;
+					bram_wr_addr <= old_video_in_y_cood * HALF_FRAME_WIDTH + old_video_in_x_cood;
+				end
+				// Write to VGA
+				state <= 4'd9;
+				bus_write <= 1'b1;
+				bus_addr <= vga_bus_addr;
+				bus_write_data <= current_pixel_color1;
+				bus_byte_enable <= 4'b0001;
+			end
+
+			if (state==4'd9 && bus_ack) begin
+				bus_write <= 1'b0;
+				// Check if frame complete
+				if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1) &&
+				    old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
+					top_phase <= PHASE_COMPUTE;
+					state <= 4'd0;
+					frame_filled <= 1'b1;
+				end else begin
+					state <= 4'd0;
+				end
 			end
 		end
-		// one byte data
-		bus_byte_enable <= 4'b0001;
-	end
 
-	// Wait for mapper completion (or bypass immediately when mapping is disabled).
-	if (state==11 && read_video_done) begin
-		state <= 10;
-		old_poly_valid <= read_video_valid;
-	end
-
-	// Mapper finished, issue read request now.
-	if (state==10) begin
-		state <= 1;
-		bus_byte_enable <= 4'b0001;
-		bus_addr <= video_in_bus_addr ;
-		bus_read <= 1'b1 ;
-	end
-	
-	// finish the  read
-	// You MUST do this check
-	if (state==1 && bus_ack==1) begin
-		state <= 8 ; //state <= 2 ;
-		bus_read <= 1'b0 ;
-		current_pixel_color1 <= old_poly_valid ? bus_read_data[7:0] : 8'h00 ;
-	end
-	
-	// write a pixel to VGA memory
-	if (state==8) begin
-		if (right_read_side) begin
-			right_row_bank[old_video_in_y_cood][right_cam_mem_x_cood] = current_pixel_color1;
-		end else begin
-			left_row_bank[old_video_in_y_cood][old_video_in_x_cood] = current_pixel_color1;
+		// ============ PHASE_COMPUTE ============
+		PHASE_COMPUTE: begin
+			mbi_rst <= 1'b0;
+			if (!mbi_done && !mbi_go && state == 0) begin
+				mbi_go <= 1'b1;
+				state <= 4'd1;
+			end
+			if (mbi_done) begin
+				top_phase <= PHASE_WRITEBACK;
+				disp_wb_x <= 0;
+				disp_wb_y <= 0;
+				state <= 4'd0;
+			end
 		end
 
-		state <= 9 ;
-		bus_write <= 1'b1;
-		bus_addr <= vga_bus_addr ;
-		// Always write sampled pixel color (or black if mapping was invalid).
-		bus_write_data <= current_pixel_color1;
-		bus_byte_enable <= 4'b0001;
+		// ============ PHASE_WRITEBACK ============
+		PHASE_WRITEBACK: begin
+			mbi_rst <= 1'b1;
+			if (state == 4'd0) begin
+				state <= 4'd12;
+				bus_write <= 1'b1;
+				bus_addr <= disp_vga_addr;
+				bus_write_data <= {24'b0, disp_pixel};
+				bus_byte_enable <= 4'b0001;
+			end
+			if (state == 4'd12 && bus_ack) begin
+				bus_write <= 1'b0;
+				state <= 4'd0;
+				if (disp_wb_x == HALF_FRAME_WIDTH - 1) begin
+					disp_wb_x <= 0;
+					if (disp_wb_y == DISP_OUT_ROWS - 1) begin
+						top_phase <= PHASE_FILL;
+						disp_wb_y <= 0;
+						frame_filled <= 0;
+					end else begin
+						disp_wb_y <= disp_wb_y + 9'd1;
+					end
+				end else begin
+					disp_wb_x <= disp_wb_x + 10'd1;
+				end
+			end
+		end
 
-		
+		default: top_phase <= PHASE_FILL;
+		endcase
 	end
-	
-	// and finish write
-	if (state==9 && bus_ack==1) begin
-		state <= 0 ;
-		bus_write <= 1'b0;
-	end
-	
-end // always @(posedge state_clock)
+end
 
-
-//
-// Block Matching Memory Interface
-//
 
 
 

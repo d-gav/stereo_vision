@@ -13,6 +13,7 @@ module mem_block_intf #(
 	input logic clk,
 	input logic rst,
 	input logic go,
+	input logic stall,
 
 	output logic mem_req,
 	output logic mem_bank, // 0 = left, 1 = right
@@ -20,13 +21,7 @@ module mem_block_intf #(
 	input  logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
 
 	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1],
-
-	// Pipeline head (stage 0) exposed for testbench observability
-	output logic [PHASE_W-1:0]       pipe0_phase,
-	output logic [COL_W-1:0]         pipe0_col_x,
-	output logic signed [DISP_W:0]   pipe0_disp,
-	output logic                     pipe0_valid,
-	output logic                     pipe0_to_ref
+	output logic done
 );
 
 	localparam int HALF_BLOCK    = BLOCK_SIZE / 2;
@@ -142,12 +137,9 @@ module mem_block_intf #(
 	logic to_ref_block_pipeline[2:0]; // True if going to ref block, false if going to match block
 	logic valid_rd_pipeline [2:0];
 
-	// Expose pipeline head
-	assign pipe0_phase  = phase_pipeline[0];
-	assign pipe0_col_x  = col_x_pipeline[0];
-	assign pipe0_disp   = disp_pipeline[0];
-	assign pipe0_valid  = valid_rd_pipeline[0];
-	assign pipe0_to_ref = to_ref_block_pipeline[0];
+	// Done when FSM returns to IDLE after having been started
+	logic was_started;
+	assign done = was_started && (curr_state == IDLE);
 
 
 
@@ -217,6 +209,7 @@ module mem_block_intf #(
 			reg_phase <= '0;
 			reg_col_x <= '0;
 			reg_disp  <= '0;
+			was_started <= 1'b0;
 
 			for (init_r = 0; init_r < FRAME_HEIGHT; init_r++) begin
 				for (init_c = 0; init_c < HALF_FRAME_WIDTH; init_c++) begin
@@ -241,7 +234,7 @@ module mem_block_intf #(
 			disp_pipeline[2] <= '0;
 			valid_rd_pipeline[2] <= 1'b0;
 			to_ref_block_pipeline[2] <= 1'b0;
-		end else begin
+		end else if (!stall) begin
 			// shift pipeline
 			phase_pipeline[1] <= phase_pipeline[0];
 			col_x_pipeline[1] <= col_x_pipeline[0];
@@ -298,6 +291,9 @@ module mem_block_intf #(
 					// no read during idle
 					valid_rd_pipeline[0] <= 1'b0;
 
+					if (go) begin
+						was_started <= 1'b1;
+					end
 				end
 
 
@@ -459,8 +455,9 @@ module mem_block_intf #(
 
 				end
 
-				default:
-					assert(0);
+				default: begin
+					// no-op
+				end
 				
 
 			
@@ -557,8 +554,9 @@ module mem_block_intf #(
 					next_state = IDLE;
 				end
 			end
-			default:
-				assert(0);
+			default: begin
+				// no-op
+			end
 		endcase
 	end 
 endmodule

@@ -369,6 +369,11 @@ localparam INTER_CAMERA_GAP     = 4;
 localparam RIGHT_OUTPUT_X_START = LEFT_OUTPUT_X_START + LEFT_LUT_WIDTH + INTER_CAMERA_GAP;
 localparam RIGHT_LUT_WIDTH      = 315;
 
+// The video-in clipper removes 44 rows from top and bottom of the original 288-row image.
+// The radial mapper LUT was calibrated for the original 288-row frame,
+// so we must offset coordinates when calling the mapper.
+localparam Y_CROP_OFFSET = 44;
+
 // Stereo engine parameters
 localparam BLOCK_SIZE      = 5;
 localparam PIXEL_W         = 8;
@@ -447,9 +452,17 @@ wire raw_read_valid =
 	 ((old_video_in_x_cood >= RIGHT_OUTPUT_X_START) &&
 	  (old_video_in_x_cood < (RIGHT_OUTPUT_X_START + RIGHT_LUT_WIDTH))));
 
+// Adjusted mapper outputs: subtract Y_CROP_OFFSET from src_y since
+// the video-in buffer now starts at original row 44
+wire [9:0] adjusted_map_y = (read_video_map_y >= Y_CROP_OFFSET) ?
+	(read_video_map_y - Y_CROP_OFFSET) : 10'd0;
+wire adjusted_map_valid = read_video_map_valid &&
+	(read_video_map_y >= Y_CROP_OFFSET) &&
+	(read_video_map_y < (Y_CROP_OFFSET + FRAME_HEIGHT));
+
 wire [9:0] read_video_x = map_enable_latched ? read_video_map_x : old_video_in_x_cood;
-wire [9:0] read_video_y = map_enable_latched ? read_video_map_y : old_video_in_y_cood;
-wire read_video_valid   = map_enable_latched ? read_video_map_valid : raw_read_valid;
+wire [9:0] read_video_y = map_enable_latched ? adjusted_map_y    : old_video_in_y_cood;
+wire read_video_valid   = map_enable_latched ? adjusted_map_valid : raw_read_valid;
 wire read_video_done    = map_enable_latched ? read_video_map_done : 1'b1;
 
 wire [9:0] write_vga_x = old_video_in_x_cood - vga_x_cood;
@@ -521,17 +534,19 @@ wire [31:0] disp_stream_vga_addr = vga_out_base_address +
 // Debug: show top_phase on HEX
 assign hex3_hex0 = {6'b0, top_phase, 8'b0};
 
-//=======================================================
-// Radial mapper
-//=======================================================
+// Radial mapper — feed original-frame coordinates (add Y_CROP_OFFSET to dst_y)
+wire [9:0] mapper_dst_y = video_in_y_cood + Y_CROP_OFFSET;
 stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 	.clk(CLOCK2_50), .reset_n(KEY[0]),
 	.start(read_video_start),
-	.dst_x(video_in_x_cood), .dst_y(video_in_y_cood),
+	.dst_x(video_in_x_cood), .dst_y(mapper_dst_y),
 	.src_x(read_video_map_x), .src_y(read_video_map_y),
 	.valid(read_video_map_valid), .done(read_video_map_done),
 	.busy()
 );
+
+// SW[4] = stereo enable
+wire stereo_enabled = SW[4];
 
 //=======================================================
 // Main FSM: FILL → COMPUTE → WRITEBACK → FILL ...
@@ -629,7 +644,10 @@ always @(posedge CLOCK2_50) begin
 				// Check if frame complete
 				if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1) &&
 				    old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
-					top_phase <= PHASE_COMPUTE;
+					if (stereo_enabled) begin
+						top_phase <= PHASE_COMPUTE;
+					end
+					// else stay in PHASE_FILL, keep looping
 					state <= 4'd0;
 					frame_filled <= 1'b1;
 				end else begin

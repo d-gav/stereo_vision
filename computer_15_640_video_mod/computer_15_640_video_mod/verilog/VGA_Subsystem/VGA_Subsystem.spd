@@ -20,10 +20,6 @@
    type="SYSTEM_VERILOG"
    library="error_adapter_0" />
  <file
-   path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001_error_adapter_0.sv"
-   type="SYSTEM_VERILOG"
-   library="error_adapter_0" />
- <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_error_adapter_0.sv"
    type="SYSTEM_VERILOG"
    library="error_adapter_0" />
@@ -144,10 +140,6 @@
    type="SYSTEM_VERILOG"
    library="router" />
  <file
-   path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001.v"
-   type="VERILOG"
-   library="avalon_st_adapter_001" />
- <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter.v"
    type="VERILOG"
    library="avalon_st_adapter" />
@@ -174,15 +166,15 @@
  <file
    path="simulation/submodules/altera_merlin_width_adapter.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
  <file
    path="simulation/submodules/altera_merlin_address_alignment.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
  <file
    path="simulation/submodules/altera_merlin_burst_uncompressor.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
  <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_mux_003.sv"
    type="SYSTEM_VERILOG"
@@ -211,10 +203,6 @@
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux_002.sv"
    type="SYSTEM_VERILOG"
    library="rsp_demux_002" />
- <file
-   path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux_001.sv"
-   type="SYSTEM_VERILOG"
-   library="rsp_demux_001" />
  <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux.sv"
    type="SYSTEM_VERILOG"
@@ -367,22 +355,6 @@
    path="simulation/submodules/altera_merlin_master_translator.sv"
    type="SYSTEM_VERILOG"
    library="EBAB_video_in_avalon_master_translator" />
- <file
-   path="simulation/submodules/altera_up_video_scaler_shrink.v"
-   type="VERILOG"
-   library="Video_In_Scaler" />
- <file
-   path="simulation/submodules/altera_up_video_scaler_multiply_width.v"
-   type="VERILOG"
-   library="Video_In_Scaler" />
- <file
-   path="simulation/submodules/altera_up_video_scaler_multiply_height.v"
-   type="VERILOG"
-   library="Video_In_Scaler" />
- <file
-   path="simulation/submodules/Computer_System_Video_In_Subsystem_Video_In_Scaler.v"
-   type="VERILOG"
-   library="Video_In_Scaler" />
  <file
    path="simulation/submodules/Computer_System_Video_In_Subsystem_Video_In_RGB_Resampler.v"
    type="VERILOG"

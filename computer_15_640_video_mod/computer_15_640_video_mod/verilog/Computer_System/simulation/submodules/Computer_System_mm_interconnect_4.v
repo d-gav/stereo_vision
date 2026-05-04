@@ -14,7 +14,7 @@ module Computer_System_mm_interconnect_4 (
 		output wire        Video_In_Subsystem_video_in_dma_master_waitrequest,       //                                                   .waitrequest
 		input  wire        Video_In_Subsystem_video_in_dma_master_write,             //                                                   .write
 		input  wire [7:0]  Video_In_Subsystem_video_in_dma_master_writedata,         //                                                   .writedata
-		output wire [18:0] Onchip_SRAM_s1_address,                                   //                                     Onchip_SRAM_s1.address
+		output wire [17:0] Onchip_SRAM_s1_address,                                   //                                     Onchip_SRAM_s1.address
 		output wire        Onchip_SRAM_s1_write,                                     //                                                   .write
 		input  wire [7:0]  Onchip_SRAM_s1_readdata,                                  //                                                   .readdata
 		output wire [7:0]  Onchip_SRAM_s1_writedata,                                 //                                                   .writedata
@@ -95,7 +95,7 @@ module Computer_System_mm_interconnect_4 (
 	);
 
 	altera_merlin_slave_translator #(
-		.AV_ADDRESS_W                   (19),
+		.AV_ADDRESS_W                   (18),
 		.AV_DATA_W                      (8),
 		.UAV_DATA_W                     (8),
 		.AV_BURSTCOUNT_W                (1),

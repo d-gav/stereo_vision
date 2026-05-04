@@ -33,8 +33,8 @@ refer to the applicable agreement for further details.
 	(port
 		(pt 0 168)
 		(input)
-		(text "ebab_video_in_external_interface_address[29..0]" (rect 0 0 197 12)(font "Arial" (font_size 8)))
-		(text "ebab_video_in_external_interface_address[29..0]" (rect 4 157 286 168)(font "Arial" (font_size 8)))
+		(text "ebab_video_in_external_interface_address[27..0]" (rect 0 0 197 12)(font "Arial" (font_size 8)))
+		(text "ebab_video_in_external_interface_address[27..0]" (rect 4 157 286 168)(font "Arial" (font_size 8)))
 		(line (pt 0 168)(pt 272 168)(line_width 3))
 	)
 	(port
@@ -467,9 +467,9 @@ refer to the applicable agreement for further details.
 	(port
 		(pt 0 1360)
 		(output)
-		(text "sdram_dqm[1..0]" (rect 0 0 68 12)(font "Arial" (font_size 8)))
-		(text "sdram_dqm[1..0]" (rect 4 1349 94 1360)(font "Arial" (font_size 8)))
-		(line (pt 0 1360)(pt 272 1360)(line_width 3))
+		(text "sdram_dqm" (rect 0 0 49 12)(font "Arial" (font_size 8)))
+		(text "sdram_dqm" (rect 4 1349 58 1360)(font "Arial" (font_size 8)))
+		(line (pt 0 1360)(pt 272 1360)(line_width 1))
 	)
 	(port
 		(pt 0 1376)
@@ -803,8 +803,8 @@ refer to the applicable agreement for further details.
 	(port
 		(pt 0 1344)
 		(bidir)
-		(text "sdram_dq[15..0]" (rect 0 0 64 12)(font "Arial" (font_size 8)))
-		(text "sdram_dq[15..0]" (rect 4 1333 94 1344)(font "Arial" (font_size 8)))
+		(text "sdram_dq[7..0]" (rect 0 0 61 12)(font "Arial" (font_size 8)))
+		(text "sdram_dq[7..0]" (rect 4 1333 88 1344)(font "Arial" (font_size 8)))
 		(line (pt 0 1344)(pt 272 1344)(line_width 3))
 	)
 	(drawing

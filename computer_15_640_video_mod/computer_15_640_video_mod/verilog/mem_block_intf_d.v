@@ -6,7 +6,7 @@ module mem_block_intf #(
 	parameter int MAX_DISP         = 63,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
-	parameter int NUM_SAD_UNITS    = FRAME_HEIGHT / BLOCK_SIZE,
+	parameter int NUM_SAD_UNITS    = 8,
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -20,7 +20,13 @@ module mem_block_intf #(
 	output logic [COL_W-1:0] mem_col,
 	input  logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
 
-	output logic [7:0] disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1],
+	// Streaming disparity output (one pixel at a time)
+	output logic                disp_valid,
+	output logic [ROW_W-1:0]    disp_out_y,
+	output logic [COL_W-1:0]    disp_out_x,
+	output logic [DISP_W-1:0]   disp_out_value,
+	input  logic                disp_ack,
+
 	output logic done
 );
 
@@ -108,17 +114,20 @@ module mem_block_intf #(
 		end
 	endgenerate
 
-	function automatic logic [7:0] disp_to_u8(input logic [DISP_W-1:0] d);
-		int k;
-		begin
-			disp_to_u8 = 8'h00;
-			for (k = 0; k < 8; k++) begin
-				if (k < DISP_W) begin
-					disp_to_u8[k] = d[k];
-				end
-			end
-		end
-	endfunction
+	// Emit mechanism: serialize best_disp results to streaming output
+	localparam int UNIT_W = (NUM_SAD_UNITS <= 1) ? 1 : $clog2(NUM_SAD_UNITS);
+	logic emit_active;
+	logic [UNIT_W-1:0] emit_unit;
+	logic [PHASE_W-1:0] emit_phase_lat;
+	logic [X_W-1:0] emit_col_x_lat;
+	logic [DISP_W-1:0] emit_disp_lat [0:NUM_SAD_UNITS-1];
+
+	wire internal_stall = stall | emit_active;
+
+	assign disp_valid = emit_active;
+	assign disp_out_x = emit_col_x_lat;
+	assign disp_out_y = (emit_unit * STRIPE_HEIGHT) + emit_phase_lat;
+	assign disp_out_value = emit_disp_lat[emit_unit];
 
 
 
@@ -198,7 +207,6 @@ module mem_block_intf #(
 		&& ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
-	integer init_r, init_c;
 	always_ff @(posedge clk) begin
 		if (rst) begin
 			curr_state <= IDLE;
@@ -210,12 +218,8 @@ module mem_block_intf #(
 			reg_col_x <= '0;
 			reg_disp  <= '0;
 			was_started <= 1'b0;
-
-			for (init_r = 0; init_r < FRAME_HEIGHT; init_r++) begin
-				for (init_c = 0; init_c < HALF_FRAME_WIDTH; init_c++) begin
-					disp_map[init_r][init_c] <= 8'h00;
-				end
-			end
+			emit_active <= 1'b0;
+			emit_unit <= '0;
 
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
@@ -234,7 +238,17 @@ module mem_block_intf #(
 			disp_pipeline[2] <= '0;
 			valid_rd_pipeline[2] <= 1'b0;
 			to_ref_block_pipeline[2] <= 1'b0;
-		end else if (!stall) begin
+		end else if (emit_active) begin
+			// Emit mode: stream results one unit at a time
+			if (disp_ack) begin
+				if (emit_unit == NUM_SAD_UNITS - 1) begin
+					emit_active <= 1'b0;
+					emit_unit <= '0;
+				end else begin
+					emit_unit <= emit_unit + 1;
+				end
+			end
+		end else if (!internal_stall) begin
 			// shift pipeline
 			phase_pipeline[1] <= phase_pipeline[0];
 			col_x_pipeline[1] <= col_x_pipeline[0];
@@ -273,10 +287,14 @@ module mem_block_intf #(
 				end
 			end
 
-			// Write last column's disparity when transitioning from INCR_X to INCR_PHASE
+			// Emit last column's disparity when transitioning from INCR_X to INCR_PHASE
 			if (curr_state == INCR_X && next_state == INCR_PHASE) begin
+				emit_active <= 1'b1;
+				emit_unit <= '0;
+				emit_phase_lat <= reg_phase;
+				emit_col_x_lat <= reg_col_x;
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-					disp_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= disp_to_u8(best_disp[i]);
+					emit_disp_lat[i] <= best_disp[i];
 				end
 			end
 
@@ -380,9 +398,13 @@ module mem_block_intf #(
 						end
 						slide_reference <= 1'b1; 
 
-						// update disparity map with best disparity at (x, y) for the previous reference block position
+						// Emit best disparity for the previous reference block position
+						emit_active <= 1'b1;
+						emit_unit <= '0;
+						emit_phase_lat <= phase_result;
+						emit_col_x_lat <= col_x_result;
 						for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-							disp_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= disp_to_u8(best_disp[i]);
+							emit_disp_lat[i] <= best_disp[i];
 						end
 
 					end else if (valid_rd_result && !to_ref_block_result) begin

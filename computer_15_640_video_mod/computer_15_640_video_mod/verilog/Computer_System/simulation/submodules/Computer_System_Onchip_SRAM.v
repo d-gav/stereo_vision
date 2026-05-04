@@ -43,8 +43,8 @@ module Computer_System_Onchip_SRAM (
 
   output  [  7: 0] readdata;
   output  [  7: 0] readdata2;
-  input   [ 18: 0] address;
-  input   [ 18: 0] address2;
+  input   [ 17: 0] address;
+  input   [ 17: 0] address2;
   input            chipselect;
   input            chipselect2;
   input            clk;
@@ -93,9 +93,9 @@ wire             wren2;
            the_altsyncram.indata_reg_b = "CLOCK0",
            the_altsyncram.init_file = "UNUSED",
            the_altsyncram.lpm_type = "altsyncram",
-           the_altsyncram.maximum_depth = 294912,
-           the_altsyncram.numwords_a = 294912,
-           the_altsyncram.numwords_b = 294912,
+           the_altsyncram.maximum_depth = 147456,
+           the_altsyncram.numwords_a = 147456,
+           the_altsyncram.numwords_b = 147456,
            the_altsyncram.operation_mode = "BIDIR_DUAL_PORT",
            the_altsyncram.outdata_reg_a = "UNREGISTERED",
            the_altsyncram.outdata_reg_b = "UNREGISTERED",
@@ -103,8 +103,8 @@ wire             wren2;
            the_altsyncram.read_during_write_mode_mixed_ports = "DONT_CARE",
            the_altsyncram.width_a = 8,
            the_altsyncram.width_b = 8,
-           the_altsyncram.widthad_a = 19,
-           the_altsyncram.widthad_b = 19,
+           the_altsyncram.widthad_a = 18,
+           the_altsyncram.widthad_b = 18,
            the_altsyncram.wrcontrol_wraddress_reg_b = "CLOCK0";
 
   //s1, which is an e_avalon_slave

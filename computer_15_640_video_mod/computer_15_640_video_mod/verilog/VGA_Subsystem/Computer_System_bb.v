@@ -116,7 +116,7 @@ module Computer_System (
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
 	input		clock_bridge_0_in_clk_clk;
-	input	[29:0]	ebab_video_in_external_interface_address;
+	input	[27:0]	ebab_video_in_external_interface_address;
 	input		ebab_video_in_external_interface_byte_enable;
 	input		ebab_video_in_external_interface_read;
 	input		ebab_video_in_external_interface_write;
@@ -201,8 +201,8 @@ module Computer_System (
 	output		sdram_cas_n;
 	output		sdram_cke;
 	output		sdram_cs_n;
-	inout	[15:0]	sdram_dq;
-	output	[1:0]	sdram_dqm;
+	inout	[7:0]	sdram_dq;
+	output		sdram_dqm;
 	output		sdram_ras_n;
 	output		sdram_we_n;
 	output		sdram_clk_clk;

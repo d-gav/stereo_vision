@@ -362,7 +362,7 @@ output					HPS_USB_STP;
 //  - Left camera occupies x=[0..314], Right x=[319..633].
 localparam FULL_FRAME_WIDTH     = 640;
 localparam HALF_FRAME_WIDTH     = 320;
-localparam FRAME_HEIGHT         = 288;
+localparam FRAME_HEIGHT         = 200;
 localparam LEFT_OUTPUT_X_START  = 0;
 localparam LEFT_LUT_WIDTH       = 315;
 localparam INTER_CAMERA_GAP     = 4;
@@ -373,15 +373,13 @@ localparam RIGHT_LUT_WIDTH      = 315;
 localparam BLOCK_SIZE      = 5;
 localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
-localparam BRAM_DEPTH      = FRAME_HEIGHT * HALF_FRAME_WIDTH;
-localparam BRAM_ADDR_W     = 17;
-localparam DISP_OUT_ROWS   = 192;
-localparam DISP_Y_OFFSET   = (FRAME_HEIGHT - DISP_OUT_ROWS) / 2; // 48
+localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320..639)
+localparam BRAM_DEPTH      = FRAME_HEIGHT * FULL_ROW_WIDTH; // 200*640 = 128000
+localparam BRAM_ADDR_W     = 17;  // ceil(log2(128000))
 
 // Top-level phase
 localparam [1:0] PHASE_FILL      = 2'd0;
 localparam [1:0] PHASE_COMPUTE   = 2'd1;
-localparam [1:0] PHASE_WRITEBACK = 2'd2;
 reg [1:0] top_phase;
 
 wire [15:0] hex3_hex0;
@@ -400,30 +398,22 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 //=======================================================
-// BRAM banks for left/right camera images
+// Combined BRAM for left+right camera images
+// Row layout: [left col 0..319][right col 0..319] = 640 bytes per row
+// Address = row * 640 + col (left) or row * 640 + 320 + col (right)
 //=======================================================
 reg                    bram_wr_en;
 reg [BRAM_ADDR_W-1:0] bram_wr_addr;
 reg [7:0]              bram_wr_data;
-reg                    bram_wr_bank; // 0=left, 1=right
 
-wire [BRAM_ADDR_W-1:0] left_rd_addr, right_rd_addr;
-wire [7:0]              left_rd_data, right_rd_data;
+wire [BRAM_ADDR_W-1:0] bram_rd_addr;
+wire [7:0]              bram_rd_data;
 
-wire left_wr_en  = bram_wr_en & ~bram_wr_bank;
-wire right_wr_en = bram_wr_en &  bram_wr_bank;
-
-stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) left_bram (
+stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) stereo_bram (
 	.clk(CLOCK2_50),
-	.wr_en(left_wr_en),
+	.wr_en(bram_wr_en),
 	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
-	.rd_addr(left_rd_addr), .rd_data(left_rd_data)
-);
-stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) right_bram (
-	.clk(CLOCK2_50),
-	.wr_en(right_wr_en),
-	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
-	.rd_addr(right_rd_addr), .rd_data(right_rd_data)
+	.rd_addr(bram_rd_addr), .rd_data(bram_rd_data)
 );
 
 //=======================================================
@@ -483,40 +473,50 @@ wire [8:0]  mbi_mem_col;
 wire [7:0]  mbi_mem_rdata [0:FRAME_HEIGHT-1];
 reg         mbi_go, mbi_rst;
 
-wire [7:0]  disp_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
+// Streaming disparity output from mem_block_intf
+localparam DISP_W = 7; // clog2(85+1)=7
+localparam ROW_W  = 8; // clog2(200)=8
+wire             mbi_disp_valid;
+wire [ROW_W-1:0] mbi_disp_y;
+wire [8:0]       mbi_disp_x;
+wire [DISP_W-1:0] mbi_disp_value;
+reg              mbi_disp_ack;
 
 column_prefetch #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
-	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W), .ROW_W(9), .COL_W(9)
+	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W),
+	.FULL_ROW_WIDTH(FULL_ROW_WIDTH), .ROW_W(8), .COL_W(9)
 ) u_col_prefetch (
 	.clk(CLOCK2_50), .rst(~KEY[0]),
 	.mbi_mem_req(mbi_mem_req), .mbi_mem_bank(mbi_mem_bank),
 	.mbi_mem_col(mbi_mem_col), .stall(mbi_stall),
 	.mem_rdata(mbi_mem_rdata),
-	.left_rd_addr(left_rd_addr),   .left_rd_data(left_rd_data),
-	.right_rd_addr(right_rd_addr), .right_rd_data(right_rd_data)
+	.bram_rd_addr(bram_rd_addr), .bram_rd_data(bram_rd_data)
 );
 
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
-	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP)
+	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
+	.NUM_SAD_UNITS(8)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
 	.mem_req(mbi_mem_req), .mem_bank(mbi_mem_bank), .mem_col(mbi_mem_col),
 	.mem_rdata(mbi_mem_rdata),
-	.disp_map(disp_map), .done(mbi_done)
+	.disp_valid(mbi_disp_valid), .disp_out_y(mbi_disp_y),
+	.disp_out_x(mbi_disp_x), .disp_out_value(mbi_disp_value),
+	.disp_ack(mbi_disp_ack),
+	.done(mbi_done)
 );
 
-// Disparity writeback registers
-reg [9:0] disp_wb_x;
-reg [8:0] disp_wb_y;
+// Scale disparity to pixel: disp=0->white(0xFF), disp>=85->black(0x00)
+wire [7:0] disp_pixel_color = (mbi_disp_value >= 85) ? 8'h00 :
+	(8'd255 - mbi_disp_value[6:0] * 8'd3);
 
-// Read disparity and scale: disp=0→0xFF(white), disp>=85→0x00(black)
-wire [7:0] raw_disp = disp_map[disp_wb_y + DISP_Y_OFFSET][disp_wb_x];
-wire [7:0] disp_pixel = (raw_disp >= 8'd85) ? 8'h00 : (8'd255 - raw_disp * 8'd3);
-wire [31:0] disp_vga_addr = vga_out_base_address +
-	{22'b0, disp_wb_x} + ({22'b0, (disp_wb_y + 10'd288)} << 10);
+// VGA address for streaming disparity: place right below raw video (row 200+)
+wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;
+wire [31:0] disp_stream_vga_addr = vga_out_base_address +
+	{22'b0, mbi_disp_x} + ({22'b0, disp_vga_y} << 10);
 
 // Debug: show top_phase on HEX
 assign hex3_hex0 = {6'b0, top_phase, 8'b0};
@@ -551,19 +551,19 @@ always @(posedge CLOCK2_50) begin
 		timer <= 0;
 		top_phase <= PHASE_FILL;
 		bram_wr_en <= 0;
-		bram_wr_bank <= 0;
 		bram_wr_addr <= 0;
 		bram_wr_data <= 0;
 		mbi_go <= 0; mbi_rst <= 1;
-		disp_wb_x <= 0; disp_wb_y <= 0;
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
+		mbi_disp_ack <= 0;
 	end
 	else begin
 		timer <= timer + 1;
 		read_video_start <= 1'b0;
 		bram_wr_en <= 1'b0;
 		mbi_go <= 1'b0;
+		mbi_disp_ack <= 1'b0;
 
 		case (top_phase)
 
@@ -607,15 +607,14 @@ always @(posedge CLOCK2_50) begin
 			end
 
 			if (state==4'd8) begin
-				// Write to BRAM
+				// Write to combined BRAM
+				// Left: row*640 + col, Right: row*640 + 320 + col
 				bram_wr_en   <= 1'b1;
 				bram_wr_data <= current_pixel_color1;
 				if (right_read_side) begin
-					bram_wr_bank <= 1'b1;
-					bram_wr_addr <= old_video_in_y_cood * HALF_FRAME_WIDTH + right_cam_mem_x_cood;
+					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + HALF_FRAME_WIDTH + right_cam_mem_x_cood;
 				end else begin
-					bram_wr_bank <= 1'b0;
-					bram_wr_addr <= old_video_in_y_cood * HALF_FRAME_WIDTH + old_video_in_x_cood;
+					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + old_video_in_x_cood;
 				end
 				// Write to VGA
 				state <= 4'd9;
@@ -642,43 +641,39 @@ always @(posedge CLOCK2_50) begin
 		// ============ PHASE_COMPUTE ============
 		PHASE_COMPUTE: begin
 			mbi_rst <= 1'b0;
+			// Start computation
 			if (!mbi_done && !mbi_go && state == 0) begin
 				mbi_go <= 1'b1;
 				state <= 4'd1;
 			end
-			if (mbi_done) begin
-				top_phase <= PHASE_WRITEBACK;
-				disp_wb_x <= 0;
-				disp_wb_y <= 0;
-				state <= 4'd0;
-			end
-		end
 
-		// ============ PHASE_WRITEBACK ============
-		PHASE_WRITEBACK: begin
-			mbi_rst <= 1'b1;
-			if (state == 4'd0) begin
-				state <= 4'd12;
+			// Handle streaming disparity output
+			if (mbi_disp_valid && state != 4'd13 && state != 4'd14) begin
+				// New disparity pixel ready — write to VGA
+				state <= 4'd13;
 				bus_write <= 1'b1;
-				bus_addr <= disp_vga_addr;
-				bus_write_data <= {24'b0, disp_pixel};
+				bus_addr <= disp_stream_vga_addr;
+				bus_write_data <= {24'b0, disp_pixel_color};
 				bus_byte_enable <= 4'b0001;
 			end
-			if (state == 4'd12 && bus_ack) begin
+
+			if (state == 4'd13 && bus_ack) begin
 				bus_write <= 1'b0;
+				mbi_disp_ack <= 1'b1; // acknowledge to mem_block_intf
+				state <= 4'd14;
+			end
+
+			// Hold ack for one cycle then release
+			if (state == 4'd14) begin
+				mbi_disp_ack <= 1'b0;
+				state <= 4'd1; // back to waiting
+			end
+
+			// Done with entire computation
+			if (mbi_done) begin
+				top_phase <= PHASE_FILL;
 				state <= 4'd0;
-				if (disp_wb_x == HALF_FRAME_WIDTH - 1) begin
-					disp_wb_x <= 0;
-					if (disp_wb_y == DISP_OUT_ROWS - 1) begin
-						top_phase <= PHASE_FILL;
-						disp_wb_y <= 0;
-						frame_filled <= 0;
-					end else begin
-						disp_wb_y <= disp_wb_y + 9'd1;
-					end
-				end else begin
-					disp_wb_x <= disp_wb_x + 10'd1;
-				end
+				frame_filled <= 0;
 			end
 		end
 

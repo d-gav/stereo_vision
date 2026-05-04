@@ -1,23 +1,20 @@
-// Column Prefetch Controller
+// Column Prefetch Controller (Single Combined BRAM version)
 //
 // Bridges the mem_block_intf (which expects all FRAME_HEIGHT rows of a column
 // in one shot via mem_rdata[0:FRAME_HEIGHT-1]) to a single-ported BRAM that
 // can only read one address per cycle.
 //
-// Operation:
-//   1. mem_block_intf asserts mem_req with mem_col and mem_bank
-//   2. This module asserts `stall` to freeze the mem_block_intf pipeline
-//   3. Iterates through rows 0..FRAME_HEIGHT-1, reading from the appropriate
-//      BRAM bank one row per cycle
-//   4. After all rows read, populates mem_rdata and de-asserts stall
-//   5. mem_block_intf pipeline resumes
+// BRAM layout: 640 bytes per row (left cols 0..319, right cols 320..639)
+// Left column C, row R  → address = R * FULL_ROW_WIDTH + C
+// Right column C, row R → address = R * FULL_ROW_WIDTH + HALF_FRAME_WIDTH + C
 
 module column_prefetch #(
-	parameter FRAME_HEIGHT     = 288,
+	parameter FRAME_HEIGHT     = 200,
 	parameter HALF_FRAME_WIDTH = 320,
+	parameter FULL_ROW_WIDTH   = 640,
 	parameter PIXEL_W          = 8,
 	parameter ADDR_W           = 17,
-	parameter ROW_W            = 9,   // clog2(288)
+	parameter ROW_W            = 8,   // clog2(200)
 	parameter COL_W            = 9    // clog2(320)
 )(
 	input wire clk,
@@ -32,11 +29,9 @@ module column_prefetch #(
 	// Data output to mem_block_intf
 	output reg [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
 
-	// BRAM read ports
-	output reg [ADDR_W-1:0] left_rd_addr,
-	input  wire [PIXEL_W-1:0] left_rd_data,
-	output reg [ADDR_W-1:0] right_rd_addr,
-	input  wire [PIXEL_W-1:0] right_rd_data
+	// Single combined BRAM read port
+	output reg  [ADDR_W-1:0] bram_rd_addr,
+	input  wire [PIXEL_W-1:0] bram_rd_data
 );
 
 	localparam [1:0] PF_IDLE  = 2'd0;
@@ -48,13 +43,11 @@ module column_prefetch #(
 	reg [COL_W-1:0] latched_col;
 	reg             latched_bank;
 
-	// BRAM read address computation
-	// Address = row * HALF_FRAME_WIDTH + col
-	wire [ADDR_W-1:0] fetch_addr;
-	assign fetch_addr = row_cnt[ROW_W-1:0] * HALF_FRAME_WIDTH + latched_col;
+	// Base column offset: left=col, right=HALF_FRAME_WIDTH+col
+	wire [ADDR_W-1:0] col_base = latched_bank ?
+		(latched_col + HALF_FRAME_WIDTH) : {1'b0, latched_col};
 
-	// Stall is asserted during FETCH and the first cycle of DONE
-	// (DONE lets the BRAM output register settle for the last row)
+	// Stall is asserted during FETCH and DONE
 	always @(*) begin
 		stall = (pf_state == PF_FETCH) || (pf_state == PF_DONE);
 	end
@@ -65,8 +58,7 @@ module column_prefetch #(
 			row_cnt     <= 0;
 			latched_col <= 0;
 			latched_bank <= 0;
-			left_rd_addr  <= 0;
-			right_rd_addr <= 0;
+			bram_rd_addr <= 0;
 		end else begin
 			case (pf_state)
 				PF_IDLE: begin
@@ -75,42 +67,31 @@ module column_prefetch #(
 						latched_col  <= mbi_mem_col;
 						latched_bank <= mbi_mem_bank;
 						row_cnt      <= 0;
-						// Issue first read address
-						if (mbi_mem_bank == 1'b0) begin
-							left_rd_addr <= mbi_mem_col; // row 0 * 320 + col = col
-						end else begin
-							right_rd_addr <= mbi_mem_col;
-						end
+						// Issue first read: row 0
+						if (mbi_mem_bank == 1'b0)
+							bram_rd_addr <= mbi_mem_col; // 0 * 640 + col
+						else
+							bram_rd_addr <= HALF_FRAME_WIDTH + mbi_mem_col; // 0 * 640 + 320 + col
 					end
 				end
 
 				PF_FETCH: begin
 					// Capture data from previous read (BRAM has 1-cycle latency)
 					if (row_cnt >= 1) begin
-						if (latched_bank == 1'b0) begin
-							mem_rdata[row_cnt - 1] <= left_rd_data;
-						end else begin
-							mem_rdata[row_cnt - 1] <= right_rd_data;
-						end
+						mem_rdata[row_cnt - 1] <= bram_rd_data;
 					end
 
 					if (row_cnt == FRAME_HEIGHT) begin
-						// All rows have been read (last one captured above)
+						// All rows captured
 						pf_state <= PF_DONE;
 					end else begin
-						// Issue next read
-						if (latched_bank == 1'b0) begin
-							left_rd_addr <= (row_cnt * HALF_FRAME_WIDTH) + latched_col;
-						end else begin
-							right_rd_addr <= (row_cnt * HALF_FRAME_WIDTH) + latched_col;
-						end
+						// Issue next read: row_cnt * FULL_ROW_WIDTH + col_base
+						bram_rd_addr <= (row_cnt * FULL_ROW_WIDTH) + col_base;
 						row_cnt <= row_cnt + 1;
 					end
 				end
 
 				PF_DONE: begin
-					// One extra cycle to let BRAM output register settle
-					// for the last row read
 					pf_state <= PF_IDLE;
 				end
 

@@ -179,7 +179,7 @@ module Computer_System (
 	wire    [7:0] mm_interconnect_0_sdram_s1_writedata;                                         // mm_interconnect_0:SDRAM_s1_writedata -> SDRAM:az_data
 	wire          mm_interconnect_0_onchip_sram_s2_chipselect;                                  // mm_interconnect_0:Onchip_SRAM_s2_chipselect -> Onchip_SRAM:chipselect2
 	wire    [7:0] mm_interconnect_0_onchip_sram_s2_readdata;                                    // Onchip_SRAM:readdata2 -> mm_interconnect_0:Onchip_SRAM_s2_readdata
-	wire   [18:0] mm_interconnect_0_onchip_sram_s2_address;                                     // mm_interconnect_0:Onchip_SRAM_s2_address -> Onchip_SRAM:address2
+	wire   [17:0] mm_interconnect_0_onchip_sram_s2_address;                                     // mm_interconnect_0:Onchip_SRAM_s2_address -> Onchip_SRAM:address2
 	wire          mm_interconnect_0_onchip_sram_s2_write;                                       // mm_interconnect_0:Onchip_SRAM_s2_write -> Onchip_SRAM:write2
 	wire    [7:0] mm_interconnect_0_onchip_sram_s2_writedata;                                   // mm_interconnect_0:Onchip_SRAM_s2_writedata -> Onchip_SRAM:writedata2
 	wire          mm_interconnect_0_onchip_sram_s2_clken;                                       // mm_interconnect_0:Onchip_SRAM_s2_clken -> Onchip_SRAM:clken2
@@ -294,7 +294,7 @@ module Computer_System (
 	wire    [7:0] video_in_subsystem_video_in_dma_master_writedata;                             // Video_In_Subsystem:video_in_dma_master_writedata -> mm_interconnect_4:Video_In_Subsystem_video_in_dma_master_writedata
 	wire          mm_interconnect_4_onchip_sram_s1_chipselect;                                  // mm_interconnect_4:Onchip_SRAM_s1_chipselect -> Onchip_SRAM:chipselect
 	wire    [7:0] mm_interconnect_4_onchip_sram_s1_readdata;                                    // Onchip_SRAM:readdata -> mm_interconnect_4:Onchip_SRAM_s1_readdata
-	wire   [18:0] mm_interconnect_4_onchip_sram_s1_address;                                     // mm_interconnect_4:Onchip_SRAM_s1_address -> Onchip_SRAM:address
+	wire   [17:0] mm_interconnect_4_onchip_sram_s1_address;                                     // mm_interconnect_4:Onchip_SRAM_s1_address -> Onchip_SRAM:address
 	wire          mm_interconnect_4_onchip_sram_s1_write;                                       // mm_interconnect_4:Onchip_SRAM_s1_write -> Onchip_SRAM:write
 	wire    [7:0] mm_interconnect_4_onchip_sram_s1_writedata;                                   // mm_interconnect_4:Onchip_SRAM_s1_writedata -> Onchip_SRAM:writedata
 	wire          mm_interconnect_4_onchip_sram_s1_clken;                                       // mm_interconnect_4:Onchip_SRAM_s1_clken -> Onchip_SRAM:clken

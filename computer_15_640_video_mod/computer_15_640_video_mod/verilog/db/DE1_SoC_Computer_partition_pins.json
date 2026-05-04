@@ -4,10 +4,6 @@
 			"name" : "Top",
 			"pins" : [
 				{
-					"name" : "FPGA_I2C_SCLK",
-					"strict" : false
-				},
-				{
 					"name" : "VGA_B[0]",
 					"strict" : false
 				},
@@ -116,6 +112,10 @@
 					"strict" : false
 				},
 				{
+					"name" : "FPGA_I2C_SCLK",
+					"strict" : false
+				},
+				{
 					"name" : "DRAM_ADDR[0]",
 					"strict" : false
 				},
@@ -196,7 +196,31 @@
 					"strict" : false
 				},
 				{
+					"name" : "HEX2[0]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[3]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[4]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[5]",
+					"strict" : false
+				},
+				{
 					"name" : "FPGA_I2C_SDAT",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_0[2]",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_0[3]",
 					"strict" : false
 				},
 				{
@@ -232,19 +256,7 @@
 					"strict" : false
 				},
 				{
-					"name" : "GPIO_0[2]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[3]",
-					"strict" : false
-				},
-				{
 					"name" : "GPIO_0[0]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[1]",
 					"strict" : false
 				},
 				{
@@ -252,7 +264,15 @@
 					"strict" : false
 				},
 				{
+					"name" : "GPIO_0[1]",
+					"strict" : false
+				},
+				{
 					"name" : "SW[1]",
+					"strict" : false
+				},
+				{
+					"name" : "CLOCK2_50",
 					"strict" : false
 				},
 				{
@@ -260,7 +280,7 @@
 					"strict" : false
 				},
 				{
-					"name" : "CLOCK2_50",
+					"name" : "KEY[0]",
 					"strict" : false
 				},
 				{
@@ -277,10 +297,6 @@
 				},
 				{
 					"name" : "TD_VS",
-					"strict" : false
-				},
-				{
-					"name" : "KEY[0]",
 					"strict" : false
 				},
 				{

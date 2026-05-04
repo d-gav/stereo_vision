@@ -3,7 +3,7 @@
 			av_config_SDAT                               : inout std_logic                     := 'X';             -- SDAT
 			av_config_SCLK                               : out   std_logic;                                        -- SCLK
 			clock_bridge_0_in_clk_clk                    : in    std_logic                     := 'X';             -- clk
-			ebab_video_in_external_interface_address     : in    std_logic_vector(29 downto 0) := (others => 'X'); -- address
+			ebab_video_in_external_interface_address     : in    std_logic_vector(27 downto 0) := (others => 'X'); -- address
 			ebab_video_in_external_interface_byte_enable : in    std_logic                     := 'X';             -- byte_enable
 			ebab_video_in_external_interface_read        : in    std_logic                     := 'X';             -- read
 			ebab_video_in_external_interface_write       : in    std_logic                     := 'X';             -- write
@@ -88,8 +88,8 @@
 			sdram_cas_n                                  : out   std_logic;                                        -- cas_n
 			sdram_cke                                    : out   std_logic;                                        -- cke
 			sdram_cs_n                                   : out   std_logic;                                        -- cs_n
-			sdram_dq                                     : inout std_logic_vector(15 downto 0) := (others => 'X'); -- dq
-			sdram_dqm                                    : out   std_logic_vector(1 downto 0);                     -- dqm
+			sdram_dq                                     : inout std_logic_vector(7 downto 0)  := (others => 'X'); -- dq
+			sdram_dqm                                    : out   std_logic;                                        -- dqm
 			sdram_ras_n                                  : out   std_logic;                                        -- ras_n
 			sdram_we_n                                   : out   std_logic;                                        -- we_n
 			sdram_clk_clk                                : out   std_logic;                                        -- clk

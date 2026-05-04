@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <EnsembleReport name="Computer_System" kind="system" version="18.1" fabric="QSYS">
  <!-- Format version 18.1 625 (Future versions may contain additional information.) -->
- <!-- 2026.05.03.21:14:36 -->
+ <!-- 2026.05.04.11:49:39 -->
  <!-- A collection of modules and connections -->
  <parameter name="clockCrossingAdapter">
   <type>com.altera.sopcmodel.ensemble.EClockAdapter</type>
@@ -53,7 +53,7 @@
  </parameter>
  <parameter name="generationId">
   <type>int</type>
-  <value>1777857197</value>
+  <value>1777909749</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>true</visible>
@@ -43280,7 +43280,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.SIZE_VALUE</name>
-   <value>147456</value>
+   <value>204800</value>
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.WRITABLE</name>
@@ -43412,7 +43412,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="memorySize">
    <type>long</type>
-   <value>147456</value>
+   <value>204800</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -43651,7 +43651,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="addressSpan">
     <type>java.math.BigInteger</type>
-    <value>147456</value>
+    <value>204800</value>
     <derived>true</derived>
     <enabled>true</enabled>
     <visible>false</visible>
@@ -43739,7 +43739,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="explicitAddressSpan">
     <type>java.math.BigInteger</type>
-    <value>147456</value>
+    <value>204800</value>
     <derived>false</derived>
     <enabled>true</enabled>
     <visible>true</visible>
@@ -44022,7 +44022,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="addressSpan">
     <type>java.math.BigInteger</type>
-    <value>147456</value>
+    <value>204800</value>
     <derived>true</derived>
     <enabled>true</enabled>
     <visible>false</visible>
@@ -44110,7 +44110,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="explicitAddressSpan">
     <type>java.math.BigInteger</type>
-    <value>147456</value>
+    <value>204800</value>
     <derived>false</derived>
     <enabled>true</enabled>
     <visible>true</visible>
@@ -46914,7 +46914,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1777857197</value>
+   <value>1777909749</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -55500,7 +55500,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1777857197</value>
+   <value>1777909749</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -55575,7 +55575,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP">
    <type>com.altera.entityinterfaces.moduleext.AddressMap</type>
-   <value><![CDATA[<address-map><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8024000' /></address-map>]]></value>
+   <value><![CDATA[<address-map><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8032000' /></address-map>]]></value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -56849,7 +56849,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1777857197</value>
+   <value>1777909749</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -63707,7 +63707,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_left">
    <type>int</type>
-   <value>104</value>
+   <value>40</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -63715,7 +63715,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_right">
    <type>int</type>
-   <value>104</value>
+   <value>40</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -63723,7 +63723,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_top">
    <type>int</type>
-   <value>0</value>
+   <value>44</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -63731,7 +63731,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_bottom">
    <type>int</type>
-   <value>0</value>
+   <value>44</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -64305,7 +64305,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="width">
    <type>int</type>
-   <value>512</value>
+   <value>640</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -64313,7 +64313,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="height">
    <type>int</type>
-   <value>288</value>
+   <value>200</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -68934,7 +68934,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>0</baseAddress>
-    <span>147456</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
   <interface name="SDRAM_s1" kind="avalon_master" version="18.1">
@@ -74788,7 +74788,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>Onchip_SRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>147456</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
  </module>
@@ -82562,5 +82562,5 @@ parameters are a RESULT of the module parameters. -->
   <version>18.1</version>
  </plugin>
  <reportVersion>18.1 625</reportVersion>
- <uniqueIdentifier>EC91616E394B0000019DF08C2A58</uniqueIdentifier>
+ <uniqueIdentifier>B4E9B83A8C920000019DF3ADEA77</uniqueIdentifier>
 </EnsembleReport>

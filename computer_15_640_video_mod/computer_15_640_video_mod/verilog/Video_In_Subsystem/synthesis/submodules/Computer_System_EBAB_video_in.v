@@ -63,7 +63,7 @@ module Computer_System_EBAB_video_in (
  *                           Parameter Declarations                          *
  *****************************************************************************/
 
-parameter	AW	= 29;	// Address width
+parameter	AW	= 27;	// Address width
 parameter	DW	= 7;	// Data width
 
 parameter	BW	= 0;	// Byte enable width

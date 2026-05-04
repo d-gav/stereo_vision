@@ -156,7 +156,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="1" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="0" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="1" />
-  <parameter name="AUTO_UNIQUE_ID">Video_In_Subsystem_Edge_Detection_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Edge_Detection_Subsystem</parameter>
  </module>
  <module name="Sys_Clk" kind="clock_source" version="18.1" enabled="1">
   <parameter name="clockFrequency" value="50000000" />
@@ -210,8 +210,8 @@
   <parameter name="color_bits" value="8" />
   <parameter name="color_planes" value="1" />
   <parameter name="drop_bottom" value="44" />
-  <parameter name="drop_left" value="0" />
-  <parameter name="drop_right" value="0" />
+  <parameter name="drop_left" value="40" />
+  <parameter name="drop_right" value="40" />
   <parameter name="drop_top" value="44" />
   <parameter name="height_in" value="288" />
   <parameter name="width_in" value="720" />

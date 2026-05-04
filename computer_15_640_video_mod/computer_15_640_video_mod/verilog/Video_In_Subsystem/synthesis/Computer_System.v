@@ -7,7 +7,7 @@ module Computer_System (
 		inout  wire        av_config_SDAT,                               //                        av_config.SDAT
 		output wire        av_config_SCLK,                               //                                 .SCLK
 		input  wire        clock_bridge_0_in_clk_clk,                    //            clock_bridge_0_in_clk.clk
-		input  wire [29:0] ebab_video_in_external_interface_address,     // ebab_video_in_external_interface.address
+		input  wire [27:0] ebab_video_in_external_interface_address,     // ebab_video_in_external_interface.address
 		input  wire        ebab_video_in_external_interface_byte_enable, //                                 .byte_enable
 		input  wire        ebab_video_in_external_interface_read,        //                                 .read
 		input  wire        ebab_video_in_external_interface_write,       //                                 .write
@@ -92,8 +92,8 @@ module Computer_System (
 		output wire        sdram_cas_n,                                  //                                 .cas_n
 		output wire        sdram_cke,                                    //                                 .cke
 		output wire        sdram_cs_n,                                   //                                 .cs_n
-		inout  wire [15:0] sdram_dq,                                     //                                 .dq
-		output wire [1:0]  sdram_dqm,                                    //                                 .dqm
+		inout  wire [7:0]  sdram_dq,                                     //                                 .dq
+		output wire        sdram_dqm,                                    //                                 .dqm
 		output wire        sdram_ras_n,                                  //                                 .ras_n
 		output wire        sdram_we_n,                                   //                                 .we_n
 		output wire        sdram_clk_clk,                                //                        sdram_clk.clk
@@ -123,7 +123,7 @@ module Computer_System (
 	wire          ebab_video_in_avalon_master_waitrequest;                                      // mm_interconnect_0:EBAB_video_in_avalon_master_waitrequest -> EBAB_video_in:avalon_waitrequest
 	wire          ebab_video_in_avalon_master_byteenable;                                       // EBAB_video_in:avalon_byteenable -> mm_interconnect_0:EBAB_video_in_avalon_master_byteenable
 	wire          ebab_video_in_avalon_master_read;                                             // EBAB_video_in:avalon_read -> mm_interconnect_0:EBAB_video_in_avalon_master_read
-	wire   [29:0] ebab_video_in_avalon_master_address;                                          // EBAB_video_in:avalon_address -> mm_interconnect_0:EBAB_video_in_avalon_master_address
+	wire   [27:0] ebab_video_in_avalon_master_address;                                          // EBAB_video_in:avalon_address -> mm_interconnect_0:EBAB_video_in_avalon_master_address
 	wire          ebab_video_in_avalon_master_write;                                            // EBAB_video_in:avalon_write -> mm_interconnect_0:EBAB_video_in_avalon_master_write
 	wire    [7:0] ebab_video_in_avalon_master_writedata;                                        // EBAB_video_in:avalon_writedata -> mm_interconnect_0:EBAB_video_in_avalon_master_writedata
 	wire    [1:0] arm_a9_hps_h2f_axi_master_awburst;                                            // ARM_A9_HPS:h2f_AWBURST -> mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_awburst
@@ -169,14 +169,14 @@ module Computer_System (
 	wire          vga_subsystem_pixel_dma_master_readdatavalid;                                 // mm_interconnect_0:VGA_Subsystem_pixel_dma_master_readdatavalid -> VGA_Subsystem:pixel_dma_master_readdatavalid
 	wire          vga_subsystem_pixel_dma_master_lock;                                          // VGA_Subsystem:pixel_dma_master_lock -> mm_interconnect_0:VGA_Subsystem_pixel_dma_master_lock
 	wire          mm_interconnect_0_sdram_s1_chipselect;                                        // mm_interconnect_0:SDRAM_s1_chipselect -> SDRAM:az_cs
-	wire   [15:0] mm_interconnect_0_sdram_s1_readdata;                                          // SDRAM:za_data -> mm_interconnect_0:SDRAM_s1_readdata
+	wire    [7:0] mm_interconnect_0_sdram_s1_readdata;                                          // SDRAM:za_data -> mm_interconnect_0:SDRAM_s1_readdata
 	wire          mm_interconnect_0_sdram_s1_waitrequest;                                       // SDRAM:za_waitrequest -> mm_interconnect_0:SDRAM_s1_waitrequest
 	wire   [24:0] mm_interconnect_0_sdram_s1_address;                                           // mm_interconnect_0:SDRAM_s1_address -> SDRAM:az_addr
 	wire          mm_interconnect_0_sdram_s1_read;                                              // mm_interconnect_0:SDRAM_s1_read -> SDRAM:az_rd_n
-	wire    [1:0] mm_interconnect_0_sdram_s1_byteenable;                                        // mm_interconnect_0:SDRAM_s1_byteenable -> SDRAM:az_be_n
+	wire    [0:0] mm_interconnect_0_sdram_s1_byteenable;                                        // mm_interconnect_0:SDRAM_s1_byteenable -> SDRAM:az_be_n
 	wire          mm_interconnect_0_sdram_s1_readdatavalid;                                     // SDRAM:za_valid -> mm_interconnect_0:SDRAM_s1_readdatavalid
 	wire          mm_interconnect_0_sdram_s1_write;                                             // mm_interconnect_0:SDRAM_s1_write -> SDRAM:az_wr_n
-	wire   [15:0] mm_interconnect_0_sdram_s1_writedata;                                         // mm_interconnect_0:SDRAM_s1_writedata -> SDRAM:az_data
+	wire    [7:0] mm_interconnect_0_sdram_s1_writedata;                                         // mm_interconnect_0:SDRAM_s1_writedata -> SDRAM:az_data
 	wire          mm_interconnect_0_onchip_sram_s2_chipselect;                                  // mm_interconnect_0:Onchip_SRAM_s2_chipselect -> Onchip_SRAM:chipselect2
 	wire    [7:0] mm_interconnect_0_onchip_sram_s2_readdata;                                    // Onchip_SRAM:readdata2 -> mm_interconnect_0:Onchip_SRAM_s2_readdata
 	wire   [17:0] mm_interconnect_0_onchip_sram_s2_address;                                     // mm_interconnect_0:Onchip_SRAM_s2_address -> Onchip_SRAM:address2

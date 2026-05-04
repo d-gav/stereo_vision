@@ -5,11 +5,11 @@
  version="1.0"
  fabric="QSYS">
  <!-- Format version 18.1 625 (Future versions may contain additional information.) -->
- <!-- 2026.04.15.18:43:50 -->
+ <!-- 2026.05.04.11:46:35 -->
  <!-- A collection of modules and connections -->
  <parameter name="AUTO_GENERATION_ID">
   <type>java.lang.Integer</type>
-  <value>1776293030</value>
+  <value>1777909595</value>
   <derived>false</derived>
   <enabled>true</enabled>
   <visible>false</visible>
@@ -15805,7 +15805,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>false</isBridge>
@@ -15813,7 +15813,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>134217728</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
   <interface name="f2h_axi_clock" kind="clock_sink" version="18.1">
@@ -43005,7 +43005,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>false</isBridge>
@@ -43013,7 +43013,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>134217728</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
   <interface name="h2f_lw_axi_clock" kind="clock_sink" version="18.1">
@@ -44944,7 +44944,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>3221225472</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>false</isBridge>
@@ -44952,7 +44952,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>3355443200</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>true</isBridge>
@@ -45839,7 +45839,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>3221225472</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>false</isBridge>
@@ -45847,7 +45847,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>3355443200</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>true</isBridge>
@@ -74271,7 +74271,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="addr_size">
    <type>int</type>
-   <value>512</value>
+   <value>256</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -74736,7 +74736,7 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>avalon_address</name>
     <direction>Output</direction>
-    <width>30</width>
+    <width>28</width>
     <role>address</role>
    </port>
    <memoryBlock>
@@ -74745,7 +74745,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
    <memoryBlock>
     <isBridge>false</isBridge>
@@ -74753,7 +74753,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s2</slaveName>
     <name>Onchip_SRAM.s2</name>
     <baseAddress>134217728</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
   <interface name="external_interface" kind="conduit_end" version="18.1">
@@ -74797,7 +74797,7 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>address</name>
     <direction>Input</direction>
-    <width>30</width>
+    <width>28</width>
     <role>export</role>
    </port>
    <port>
@@ -74899,7 +74899,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.SIZE_VALUE</name>
-   <value>181760</value>
+   <value>204800</value>
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.WRITABLE</name>
@@ -75031,7 +75031,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="memorySize">
    <type>long</type>
-   <value>181760</value>
+   <value>204800</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -75270,7 +75270,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="addressSpan">
     <type>java.math.BigInteger</type>
-    <value>181760</value>
+    <value>204800</value>
     <derived>true</derived>
     <enabled>true</enabled>
     <visible>false</visible>
@@ -75358,7 +75358,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="explicitAddressSpan">
     <type>java.math.BigInteger</type>
-    <value>181760</value>
+    <value>204800</value>
     <derived>false</derived>
     <enabled>true</enabled>
     <visible>true</visible>
@@ -75641,7 +75641,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="addressSpan">
     <type>java.math.BigInteger</type>
-    <value>181760</value>
+    <value>204800</value>
     <derived>true</derived>
     <enabled>true</enabled>
     <visible>false</visible>
@@ -75729,7 +75729,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="explicitAddressSpan">
     <type>java.math.BigInteger</type>
-    <value>181760</value>
+    <value>204800</value>
     <derived>false</derived>
     <enabled>true</enabled>
     <visible>true</visible>
@@ -76936,7 +76936,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.SDRAM_DATA_WIDTH</name>
-   <value>16</value>
+   <value>8</value>
   </assignment>
   <assignment>
    <name>embeddedsw.CMacro.SDRAM_NUM_BANKS</name>
@@ -77000,7 +77000,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>embeddedsw.memoryInfo.MEM_INIT_DATA_WIDTH</name>
-   <value>16</value>
+   <value>8</value>
   </assignment>
   <assignment>
    <name>postgeneration.simulation.init_file.param_name</name>
@@ -77044,7 +77044,7 @@ the requested settings for a module instance. -->
   </assignment>
   <assignment>
    <name>testbench.partner.my_partner.parameter.SDRAM_DATA_WIDTH</name>
-   <value>16</value>
+   <value>8</value>
   </assignment>
   <assignment>
    <name>testbench.partner.my_partner.parameter.SDRAM_NUM_CHIPSELECTS</name>
@@ -77112,7 +77112,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="dataWidth">
    <type>int</type>
-   <value>16</value>
+   <value>8</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -77243,7 +77243,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="size">
    <type>long</type>
-   <value>67108864</value>
+   <value>33554432</value>
    <derived>true</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -77425,7 +77425,7 @@ parameters are a RESULT of the module parameters. -->
    </parameter>
    <parameter name="addressSpan">
     <type>java.math.BigInteger</type>
-    <value>67108864</value>
+    <value>33554432</value>
     <derived>true</derived>
     <enabled>true</enabled>
     <visible>false</visible>
@@ -77730,7 +77730,7 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>az_be_n</name>
     <direction>Input</direction>
-    <width>2</width>
+    <width>1</width>
     <role>byteenable_n</role>
    </port>
    <port>
@@ -77742,7 +77742,7 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>az_data</name>
     <direction>Input</direction>
-    <width>16</width>
+    <width>8</width>
     <role>writedata</role>
    </port>
    <port>
@@ -77760,7 +77760,7 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>za_data</name>
     <direction>Output</direction>
-    <width>16</width>
+    <width>8</width>
     <role>readdata</role>
    </port>
    <port>
@@ -77847,13 +77847,13 @@ parameters are a RESULT of the module parameters. -->
    <port>
     <name>zs_dq</name>
     <direction>Bidir</direction>
-    <width>16</width>
+    <width>8</width>
     <role>export</role>
    </port>
    <port>
     <name>zs_dqm</name>
     <direction>Output</direction>
-    <width>2</width>
+    <width>1</width>
     <role>export</role>
    </port>
    <port>
@@ -78166,15 +78166,15 @@ parameters are a RESULT of the module parameters. -->
    </clockDomainMember>
    <clockDomainMember>
     <isBridge>false</isBridge>
-    <moduleName>AV_Config</moduleName>
-    <slaveName>clk</slaveName>
-    <name>AV_Config.clk</name>
-   </clockDomainMember>
-   <clockDomainMember>
-    <isBridge>false</isBridge>
     <moduleName>pio_0</moduleName>
     <slaveName>clk</slaveName>
     <name>pio_0.clk</name>
+   </clockDomainMember>
+   <clockDomainMember>
+    <isBridge>false</isBridge>
+    <moduleName>AV_Config</moduleName>
+    <slaveName>clk</slaveName>
+    <name>AV_Config.clk</name>
    </clockDomainMember>
    <clockDomainMember>
     <isBridge>false</isBridge>
@@ -78485,7 +78485,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1776293030</value>
+   <value>1777909595</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -78530,7 +78530,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_MAP">
    <type>com.altera.entityinterfaces.moduleext.AddressMap</type>
-   <value><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x4000000' /></address-map>]]></value>
+   <value><![CDATA[<address-map><slave name='SDRAM.s1' start='0x0' end='0x2000000' /></address-map>]]></value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -78540,7 +78540,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="AUTO_PIXEL_DMA_MASTER_ADDRESS_WIDTH">
    <type>com.altera.entityinterfaces.moduleext.AddressWidthType</type>
-   <value>AddressWidth = 26</value>
+   <value>AddressWidth = 25</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -80060,7 +80060,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
   </interface>
   <interface name="sys_clk" kind="clock_sink" version="18.1">
@@ -84283,7 +84283,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>SDRAM.s1</name>
     <baseAddress>0</baseAddress>
-    <span>67108864</span>
+    <span>33554432</span>
    </memoryBlock>
   </interface>
   <interface name="avalon_control_slave" kind="avalon_slave" version="18.1">
@@ -87071,7 +87071,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1776293030</value>
+   <value>1777909595</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -87146,7 +87146,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP">
    <type>com.altera.entityinterfaces.moduleext.AddressMap</type>
-   <value><![CDATA[<address-map><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x802C600' /></address-map>]]></value>
+   <value><![CDATA[<address-map><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8032000' /></address-map>]]></value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -88407,7 +88407,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>Onchip_SRAM.s1</name>
     <baseAddress>134217728</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
  </module>
@@ -88420,7 +88420,7 @@ parameters are a RESULT of the module parameters. -->
 the requested settings for a module instance. -->
   <parameter name="AUTO_GENERATION_ID">
    <type>java.lang.Integer</type>
-   <value>1776293030</value>
+   <value>1777909595</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>false</visible>
@@ -95294,7 +95294,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_top">
    <type>int</type>
-   <value>100</value>
+   <value>44</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -95302,7 +95302,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="drop_bottom">
    <type>int</type>
-   <value>100</value>
+   <value>44</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -95884,7 +95884,7 @@ the requested settings for a module instance. -->
   </parameter>
   <parameter name="height">
    <type>int</type>
-   <value>288</value>
+   <value>200</value>
    <derived>false</derived>
    <enabled>true</enabled>
    <visible>true</visible>
@@ -96868,7 +96868,7 @@ parameters are a RESULT of the module parameters. -->
     <slaveName>s1</slaveName>
     <name>Onchip_SRAM.s1</name>
     <baseAddress>134217728</baseAddress>
-    <span>181760</span>
+    <span>204800</span>
    </memoryBlock>
   </interface>
  </module>
@@ -111355,33 +111355,6 @@ parameters are a RESULT of the module parameters. -->
   <endConnectionPoint>clk</endConnectionPoint>
  </connection>
  <connection
-   name="System_PLL.sys_clk/AV_Config.clk"
-   kind="clock"
-   version="18.1"
-   start="System_PLL.sys_clk"
-   end="AV_Config.clk">
-  <parameter name="deviceFamily">
-   <type>java.lang.String</type>
-   <value>UNKNOWN</value>
-   <derived>false</derived>
-   <enabled>true</enabled>
-   <visible>true</visible>
-   <valid>true</valid>
-  </parameter>
-  <parameter name="generateLegacySim">
-   <type>boolean</type>
-   <value>false</value>
-   <derived>false</derived>
-   <enabled>true</enabled>
-   <visible>true</visible>
-   <valid>true</valid>
-  </parameter>
-  <startModule>System_PLL</startModule>
-  <startConnectionPoint>sys_clk</startConnectionPoint>
-  <endModule>AV_Config</endModule>
-  <endConnectionPoint>clk</endConnectionPoint>
- </connection>
- <connection
    name="System_PLL.sys_clk/pio_0.clk"
    kind="clock"
    version="18.1"
@@ -111406,6 +111379,33 @@ parameters are a RESULT of the module parameters. -->
   <startModule>System_PLL</startModule>
   <startConnectionPoint>sys_clk</startConnectionPoint>
   <endModule>pio_0</endModule>
+  <endConnectionPoint>clk</endConnectionPoint>
+ </connection>
+ <connection
+   name="System_PLL.sys_clk/AV_Config.clk"
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
+   end="AV_Config.clk">
+  <parameter name="deviceFamily">
+   <type>java.lang.String</type>
+   <value>UNKNOWN</value>
+   <derived>false</derived>
+   <enabled>true</enabled>
+   <visible>true</visible>
+   <valid>true</valid>
+  </parameter>
+  <parameter name="generateLegacySim">
+   <type>boolean</type>
+   <value>false</value>
+   <derived>false</derived>
+   <enabled>true</enabled>
+   <visible>true</visible>
+   <valid>true</valid>
+  </parameter>
+  <startModule>System_PLL</startModule>
+  <startConnectionPoint>sys_clk</startConnectionPoint>
+  <endModule>AV_Config</endModule>
   <endConnectionPoint>clk</endConnectionPoint>
  </connection>
  <connection

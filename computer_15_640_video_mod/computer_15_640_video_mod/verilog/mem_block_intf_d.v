@@ -1,5 +1,5 @@
 module mem_block_intf #(
-	parameter int FRAME_HEIGHT     = 288,
+	parameter int FRAME_HEIGHT     = 200,
 	parameter int HALF_FRAME_WIDTH = 320,
 	parameter int BLOCK_SIZE       = 5,
 	parameter int PIXEL_W          = 8,

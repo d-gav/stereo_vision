@@ -122,7 +122,13 @@ module mem_block_intf #(
 	logic [X_W-1:0] emit_col_x_lat;
 	logic [DISP_W-1:0] emit_disp_lat [0:NUM_SAD_UNITS-1];
 
-	wire internal_stall = stall | emit_active;
+	// Stall the FSM not only when column_prefetch reports stall (or emit is
+	// streaming results), but also for the cycle right after we asserted
+	// mem_req. Without that extra gate, the FSM would re-issue the request
+	// during the 1-cycle window before column_prefetch's stall actually
+	// rises, causing reg_disp to advance twice per honored prefetch and
+	// silently desyncing the disparity tag from the column actually fetched.
+	wire internal_stall = stall | emit_active | mem_req;
 
 	assign disp_valid = emit_active;
 	assign disp_out_x = emit_col_x_lat;
@@ -152,17 +158,23 @@ module mem_block_intf #(
 
 
 
-	// result is back of pipeline
+	// Result is the metadata register that was written when the request was
+	// issued. Because column_prefetch is a multi-cycle blocking operation
+	// (the FSM stalls during the entire prefetch), the request that finishes
+	// when stall drops is exactly the request whose metadata is currently
+	// sitting in pipeline[0] -- so we read [0], not [2]. The deeper [1]/[2]
+	// stages were written for an older single-cycle BRAM model and now serve
+	// no purpose; they can be deleted in a follow-up cleanup.
 	logic [PHASE_W-1:0] phase_result;
 	logic [X_W-1:0] col_x_result;
 	logic signed [DISP_W:0] disp_result;
 	logic to_ref_block_result;
 	logic valid_rd_result;
-	assign phase_result = phase_pipeline[2];
-	assign col_x_result = col_x_pipeline[2];
-	assign disp_result = disp_pipeline[2];
-	assign to_ref_block_result = to_ref_block_pipeline[2];
-	assign valid_rd_result = valid_rd_pipeline[2];
+	assign phase_result = phase_pipeline[0];
+	assign col_x_result = col_x_pipeline[0];
+	assign disp_result = disp_pipeline[0];
+	assign to_ref_block_result = to_ref_block_pipeline[0];
+	assign valid_rd_result = valid_rd_pipeline[0];
 
 
 	logic [PHASE_W-1:0] curr_phase;
@@ -238,17 +250,26 @@ module mem_block_intf #(
 			disp_pipeline[2] <= '0;
 			valid_rd_pipeline[2] <= 1'b0;
 			to_ref_block_pipeline[2] <= 1'b0;
-		end else if (emit_active) begin
-			// Emit mode: stream results one unit at a time
-			if (disp_ack) begin
-				if (emit_unit == NUM_SAD_UNITS - 1) begin
-					emit_active <= 1'b0;
-					emit_unit <= '0;
-				end else begin
-					emit_unit <= emit_unit + 1;
+		end else begin
+			// Default each non-reset cycle: deassert mem_req so the
+			// internal_stall (which now includes mem_req) self-releases
+			// after one cycle, instead of pinning the FSM forever the way
+			// it would if mem_req kept its registered value during stall.
+			// The case statement below re-asserts mem_req to 1 only on the
+			// cycle a request should actually be issued.
+			mem_req <= 1'b0;
+
+			if (emit_active) begin
+				// Emit mode: stream results one unit at a time
+				if (disp_ack) begin
+					if (emit_unit == NUM_SAD_UNITS - 1) begin
+						emit_active <= 1'b0;
+						emit_unit <= '0;
+					end else begin
+						emit_unit <= emit_unit + 1;
+					end
 				end
-			end
-		end else if (!internal_stall) begin
+			end else if (!internal_stall) begin
 			// shift pipeline
 			phase_pipeline[1] <= phase_pipeline[0];
 			col_x_pipeline[1] <= col_x_pipeline[0];
@@ -485,9 +506,10 @@ module mem_block_intf #(
 			
 			endcase
 		end
-	end 
+		end
+	end
 
-	always_comb begin 
+	always_comb begin
 		// Default assignments to prevent latch inference
 		next_state     = curr_state;
 		curr_disp      = reg_disp;

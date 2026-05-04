@@ -82,11 +82,17 @@ module column_prefetch #(
 					end
 
 					if (row_cnt == FRAME_HEIGHT) begin
-						// All rows captured
+						// All rows captured (last row written this cycle from row_cnt-1 = FRAME_HEIGHT-1)
 						pf_state <= PF_DONE;
 					end else begin
-						// Issue next read: row_cnt * FULL_ROW_WIDTH + col_base
-						bram_rd_addr <= (row_cnt * FULL_ROW_WIDTH) + col_base;
+						// PF_IDLE already issued row 0; issue (row_cnt + 1) here so
+						// the address pipeline stays in lockstep with the data pipeline.
+						// Skip the issue when (row_cnt + 1) would be out of range so the
+						// last row's read (row_cnt = FRAME_HEIGHT-1) still gets captured
+						// next cycle.
+						if ((row_cnt + 1) < FRAME_HEIGHT) begin
+							bram_rd_addr <= ((row_cnt + 1) * FULL_ROW_WIDTH) + col_base;
+						end
 						row_cnt <= row_cnt + 1;
 					end
 				end

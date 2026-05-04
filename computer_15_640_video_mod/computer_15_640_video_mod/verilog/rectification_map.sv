@@ -7,7 +7,7 @@ module rectification_map (
     input logic [9:0] y_in, // input pixel y coordinate
     output logic [9:0] x_out, // rectified pixel x coordinate
     output logic [9:0] y_out  // rectified pixel y coordinate
-)
+);
 
     always_comb begin : LUT
         //

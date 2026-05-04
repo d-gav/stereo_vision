@@ -3,10 +3,10 @@ module mem_block_intf #(
 	parameter int HALF_FRAME_WIDTH = 320,
 	parameter int BLOCK_SIZE       = 5,
 	parameter int PIXEL_W          = 8,
-	parameter int MAX_DISP         = 63,
+	parameter int MAX_DISP         = 85,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
-	parameter int NUM_SAD_UNITS    = 8,
+	parameter int NUM_SAD_UNITS    = 32,
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (

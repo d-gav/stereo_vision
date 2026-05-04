@@ -1,5 +1,5 @@
 // Auto-generated radial scale LUTs (Q15)
-function signed [17:0] left_scale_q15;
+(* romstyle = "logic" *) function signed [17:0] left_scale_q15;
     input [7:0] idx;
 begin
     case (idx)
@@ -264,7 +264,7 @@ begin
 end
 endfunction
 
-function signed [17:0] right_scale_q15;
+(* romstyle = "logic" *) function signed [17:0] right_scale_q15;
     input [7:0] idx;
 begin
     case (idx)

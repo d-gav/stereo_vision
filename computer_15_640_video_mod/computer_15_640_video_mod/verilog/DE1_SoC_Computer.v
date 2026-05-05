@@ -564,9 +564,11 @@ mem_block_intf #(
 	.done(mbi_done)
 );
 
-// Scale disparity to pixel: disp=0->white(0xFF), disp>=85->black(0x00)
+// Scale disparity to pixel intensity. High disparity = closer object = bright;
+// low disparity = farther away = dark. disp >= 85 means out of search range
+// and is rendered black.
 wire [7:0] disp_pixel_color = (mbi_disp_value >= 85) ? 8'h00 :
-	(8'd255 - mbi_disp_value[6:0] * 8'd3);
+	(mbi_disp_value[6:0] * 8'd3);
 
 // VGA address for streaming disparity: place right below raw video (row 200+)
 wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;

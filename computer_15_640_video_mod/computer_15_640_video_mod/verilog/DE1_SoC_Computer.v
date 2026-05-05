@@ -379,32 +379,23 @@ localparam BLOCK_SIZE      = 5;
 localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320..639)
+localparam NUM_DISP_UNITS  = 24;
+localparam BRAM_COL_W      = 10; // $clog2(FULL_ROW_WIDTH) = $clog2(640) = 10
+localparam SLOT_W          = 3;  // $clog2(BLOCK_SIZE) = $clog2(5) = 3
 
-// Striped BRAM layout. The single monolithic BRAM has been replaced by
-// NUM_STRIPES independent M10K-backed sub-banks so column_prefetch can read
-// one byte from each stripe in parallel each cycle. Choose STRIPE_HEIGHT
-// equal to FRAME_HEIGHT/NUM_SAD_UNITS so the SAD engine's stripes line up
-// with the BRAM stripes.
-// STRIPE_HEIGHT chosen to minimise M10K usage. Each stripe has DEPTH =
-// STRIPE_HEIGHT * 640 entries, and Quartus provisions M10Ks by rounding the
-// address space up to the next power of 2. STRIPE_HEIGHT=3 -> DEPTH=1920 ->
-// 11-bit addr -> 2 M10Ks/stripe * 67 stripes = 134 M10Ks. STRIPE_HEIGHT=8
-// gave 8 M10Ks * 25 = 200 and overflowed the chip's M10K budget.
-//
-// Note: bram_stripe_of() / bram_row_in_stripe_of() in fill_pipe_controller.v
-// (and the equivalent legacy assignment in state==4'd8 below) MUST use real
-// `/` and `%`, NOT bit-slicing, since 3 is not a power of 2.
-localparam NUM_SAD_UNITS    = 24;
-localparam STRIPE_HEIGHT    = 3;
-localparam NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT; // 67
-localparam STRIPE_W         = 7;  // $clog2(NUM_STRIPES) = $clog2(67) = 7
-localparam ROW_IN_STRIPE_W  = 2;  // $clog2(STRIPE_HEIGHT) = $clog2(3) = 2
-localparam BRAM_COL_W       = 10; // $clog2(FULL_ROW_WIDTH) = $clog2(640) = 10
+// Line-buffer replaces the old 67-stripe BRAM bank.
+// Only BLOCK_SIZE rows × 640 cols stored at any time (~5 M10Ks vs 134).
 
-// Top-level phase
-localparam [1:0] PHASE_FILL      = 2'd0;
-localparam [1:0] PHASE_COMPUTE   = 2'd1;
+// Top-level phase for the stereo pipeline:
+//   PHASE_FILL_INIT  : load first BLOCK_SIZE rows into line buffer
+//   PHASE_COMPUTE_ROW: run disparity on current y-row
+//   PHASE_FILL_ROW   : load 1 new row into line buffer, advance y
+localparam [1:0] PHASE_FILL      = 2'd0;  // initial full fill (BLOCK_SIZE rows)
+localparam [1:0] PHASE_COMPUTE   = 2'd1;  // compute one y-row
+localparam [1:0] PHASE_FILL_ROW  = 2'd2;  // incremental single-row fill
 reg [1:0] top_phase;
+reg [7:0] compute_y;              // current y being computed (0..FRAME_HEIGHT-BLOCK_SIZE)
+reg [$clog2(BLOCK_SIZE)-1:0] buf_base_reg;  // circular buffer base for line buffer
 
 wire [15:0] hex3_hex0;
 assign HEX4 = 7'b1111111;
@@ -422,45 +413,40 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 //=======================================================
-// Striped BRAM for left+right camera images.
-//
-// Logical row layout is unchanged: [left col 0..319][right col 0..319]
-// per row. But storage is split into NUM_STRIPES (25) independent M10Ks of
-// STRIPE_HEIGHT (8) rows each, so column_prefetch can fetch one byte per
-// stripe per cycle in parallel.
-//
-// Writers split (dy, col) into (stripe, row_in_stripe, col):
-//   stripe        = dy / STRIPE_HEIGHT  = dy[7:3]
-//   row_in_stripe = dy % STRIPE_HEIGHT  = dy[2:0]
-//   col           = (right_side ? HALF_FRAME_WIDTH + local_x : dx)
+// Line-buffer BRAM for left+right camera images.
+// BLOCK_SIZE rows × 640 cols. Each row in its own M10K.
+// Total: BLOCK_SIZE M10Ks ≈ 5 (vs 134 in old stripe design).
 //=======================================================
-reg                          bram_wr_en;
-reg [STRIPE_W-1:0]           bram_wr_stripe;
-reg [ROW_IN_STRIPE_W-1:0]    bram_wr_row_in_stripe;
-reg [BRAM_COL_W-1:0]         bram_wr_col;
-reg [7:0]                    bram_wr_data;
+reg                    bram_wr_en;
+reg [SLOT_W-1:0]       bram_wr_row_slot;
+reg [BRAM_COL_W-1:0]   bram_wr_col;
+reg [7:0]              bram_wr_data;
 
-wire [BRAM_COL_W-1:0]        bram_rd_col;
-wire [ROW_IN_STRIPE_W-1:0]   bram_rd_row_in_stripe;
-wire [NUM_STRIPES*8-1:0]     bram_rd_data_flat;
+wire [BRAM_COL_W-1:0]  lb_rd_col_wire;
+wire [BLOCK_SIZE*8-1:0] lb_rd_data_flat;
 
-stereo_bram_bank #(
-	.FRAME_HEIGHT  (FRAME_HEIGHT),
-	.FULL_ROW_WIDTH(FULL_ROW_WIDTH),
-	.STRIPE_HEIGHT (STRIPE_HEIGHT),
-	.NUM_STRIPES   (NUM_STRIPES),
-	.DATA_W        (8)
-) stereo_bram (
-	.clk             (CLOCK2_50),
-	.wr_en           (mux_bram_wr_en),
-	.wr_stripe       (mux_bram_wr_stripe),
-	.wr_row_in_stripe(mux_bram_wr_row_in_stripe),
-	.wr_col          (mux_bram_wr_col),
-	.wr_data         (mux_bram_wr_data),
-	.rd_col          (bram_rd_col),
-	.rd_row_in_stripe(bram_rd_row_in_stripe),
-	.rd_data_flat    (bram_rd_data_flat)
+stereo_line_buffer #(
+	.BLOCK_SIZE     (BLOCK_SIZE),
+	.FULL_ROW_WIDTH (FULL_ROW_WIDTH),
+	.PIXEL_W        (8)
+) u_line_buffer (
+	.clk          (CLOCK2_50),
+	.wr_en        (mux_bram_wr_en),
+	.wr_row_slot  (mux_bram_wr_row_slot),
+	.wr_col       (mux_bram_wr_col),
+	.wr_data      (mux_bram_wr_data),
+	.rd_col       (lb_rd_col_wire),
+	.rd_data_flat (lb_rd_data_flat)
 );
+
+// Unpack line-buffer read data into array for mem_block_intf
+wire [7:0] lb_rd_data_arr [0:BLOCK_SIZE-1];
+genvar lb_i;
+generate
+	for (lb_i = 0; lb_i < BLOCK_SIZE; lb_i = lb_i + 1) begin : GEN_LB_UNPACK
+		assign lb_rd_data_arr[lb_i] = lb_rd_data_flat[lb_i*8 +: 8];
+	end
+endgenerate
 
 //=======================================================
 // Bus controller for AVALON bus-master
@@ -520,11 +506,11 @@ wire [9:0] right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START;
 reg frame_filled;
 
 //=======================================================
-// Stereo engine: mem_block_intf + column prefetch
+// Stereo engine: mem_block_intf (disparity-parallel)
+// No column_prefetch needed — line buffer gives 1-cycle reads.
 //=======================================================
-wire        mbi_mem_req, mbi_mem_bank, mbi_done, mbi_stall;
-wire [8:0]  mbi_mem_col;
-wire [7:0]  mbi_mem_rdata [0:FRAME_HEIGHT-1];
+wire        mbi_lb_rd_req, mbi_lb_rd_bank, mbi_done;
+wire [8:0]  mbi_lb_rd_col;
 reg         mbi_go, mbi_rst;
 
 // Streaming disparity output from mem_block_intf
@@ -536,37 +522,23 @@ wire [8:0]       mbi_disp_x;
 wire [DISP_W-1:0] mbi_disp_value;
 reg              mbi_disp_ack;
 
-column_prefetch #(
-	.FRAME_HEIGHT    (FRAME_HEIGHT),
-	.HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
-	.FULL_ROW_WIDTH  (FULL_ROW_WIDTH),
-	.STRIPE_HEIGHT   (STRIPE_HEIGHT),
-	.NUM_STRIPES     (NUM_STRIPES),
-	.PIXEL_W         (PIXEL_W),
-	.ROW_W           (8),
-	.COL_W           (9)
-) u_col_prefetch (
-	.clk                  (CLOCK2_50),
-	.rst                  (~KEY[0]),
-	.mbi_mem_req          (mbi_mem_req),
-	.mbi_mem_bank         (mbi_mem_bank),
-	.mbi_mem_col          (mbi_mem_col),
-	.stall                (mbi_stall),
-	.mem_rdata            (mbi_mem_rdata),
-	.bram_rd_col          (bram_rd_col),
-	.bram_rd_row_in_stripe(bram_rd_row_in_stripe),
-	.bram_rd_data_flat    (bram_rd_data_flat)
-);
+// Line-buffer read address mux: mem_block_intf drives rd_col, selecting
+// left (col 0..319) or right (col 320..639) via lb_rd_bank.
+assign lb_rd_col_wire = mbi_lb_rd_bank ?
+	(HALF_FRAME_WIDTH + mbi_lb_rd_col) : {1'b0, mbi_lb_rd_col};
 
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(NUM_SAD_UNITS)
+	.NUM_DISP_UNITS(NUM_DISP_UNITS)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
-	.go(mbi_go), .stall(mbi_stall),
-	.mem_req(mbi_mem_req), .mem_bank(mbi_mem_bank), .mem_col(mbi_mem_col),
-	.mem_rdata(mbi_mem_rdata),
+	.go(mbi_go),
+	.lb_rd_req(mbi_lb_rd_req), .lb_rd_bank(mbi_lb_rd_bank),
+	.lb_rd_col(mbi_lb_rd_col),
+	.lb_rd_data(lb_rd_data_arr),
+	.buf_base(buf_base_reg),
+	.curr_y(compute_y),
 	.disp_valid(mbi_disp_valid), .disp_out_y(mbi_disp_y),
 	.disp_out_x(mbi_disp_x), .disp_out_value(mbi_disp_value),
 	.disp_ack(mbi_disp_ack),
@@ -630,21 +602,16 @@ wire        fp_bus_read;
 wire        fp_bus_write;
 wire [3:0]  fp_bus_byte_enable;
 wire [31:0] fp_bus_write_data;
-wire                          fp_bram_wr_en;
-wire [STRIPE_W-1:0]           fp_bram_wr_stripe;
-wire [ROW_IN_STRIPE_W-1:0]    fp_bram_wr_row_in_stripe;
-wire [BRAM_COL_W-1:0]         fp_bram_wr_col;
-wire [7:0]                    fp_bram_wr_data;
+wire                    fp_bram_wr_en;
+wire [SLOT_W-1:0]       fp_bram_wr_row_slot;
+wire [BRAM_COL_W-1:0]   fp_bram_wr_col;
+wire [7:0]              fp_bram_wr_data;
 
-// stereo_active is the LATCHED version of stereo_enabled. The bus mux
-// (pipe_active below) keys off this, NOT stereo_enabled directly: SW[4]
-// toggling combinationally tore the EBAB transactions in half (legacy
-// FSM mid-read, mux flips, fp_bus_read = 0 dropped read on the wire,
-// EBAB stranded an outstanding response, design wedged until reflash).
-//
-// Update only when both controllers are fully quiet on the shared bus and
-// BRAM. While the toggling side has an in-flight transaction, stereo_active
-// stays put -- the in-flight FSM drains naturally before ownership flips.
+// Fill mode control registers (driven by top-level FSM)
+reg         fp_fill_mode;   // 0=full frame, 1=single row
+reg [9:0]   fp_fill_row_y;  // row to fill when fill_mode=1
+
+// stereo_active is the LATCHED version of stereo_enabled.
 reg stereo_active;
 wire stereo_safe = (state == 4'd0)
                 && !bus_read    && !bus_write    && !bram_wr_en
@@ -655,27 +622,22 @@ always @(posedge CLOCK2_50 or negedge KEY[0]) begin
     else if (stereo_safe) stereo_active <= stereo_enabled;
 end
 
-// pipe_active gates whose signals reach the EBAB / BRAM. While pipe_active is
-// true (PHASE_FILL with stereo on), the legacy bus_*/bram_wr_* registers are
-// kept off the wires. fp_go is purely combinational from this gate plus SW[0],
-// minus the one cycle that fp_done is asserted -- otherwise the controller
-// would race-restart between done and the phase transition.
-wire pipe_active = (top_phase == PHASE_FILL) && stereo_active;
+// pipe_active: fill_pipe_controller owns bus during PHASE_FILL and PHASE_FILL_ROW
+wire pipe_active = ((top_phase == PHASE_FILL) || (top_phase == PHASE_FILL_ROW)) && stereo_active;
 wire fp_go       = pipe_active && sw0_sync && !fp_done;
 
-// Muxed bus signals -- these are what actually go to the EBAB master.
+// Muxed bus signals (UNCHANGED protocol)
 wire [31:0] mux_bus_addr        = pipe_active ? fp_bus_addr        : bus_addr;
 wire        mux_bus_read        = pipe_active ? fp_bus_read        : bus_read;
 wire [3:0]  mux_bus_byte_enable = pipe_active ? fp_bus_byte_enable : bus_byte_enable;
 wire        mux_bus_write       = pipe_active ? fp_bus_write       : bus_write;
 wire [31:0] mux_bus_write_data  = pipe_active ? fp_bus_write_data  : bus_write_data;
 
-// Muxed BRAM write signals -- what actually goes to stereo_bram.
-wire                          mux_bram_wr_en             = pipe_active ? fp_bram_wr_en             : bram_wr_en;
-wire [STRIPE_W-1:0]           mux_bram_wr_stripe         = pipe_active ? fp_bram_wr_stripe         : bram_wr_stripe;
-wire [ROW_IN_STRIPE_W-1:0]    mux_bram_wr_row_in_stripe  = pipe_active ? fp_bram_wr_row_in_stripe  : bram_wr_row_in_stripe;
-wire [BRAM_COL_W-1:0]         mux_bram_wr_col            = pipe_active ? fp_bram_wr_col            : bram_wr_col;
-wire [7:0]                    mux_bram_wr_data           = pipe_active ? fp_bram_wr_data           : bram_wr_data;
+// Muxed BRAM write signals (now row-slot based)
+wire                    mux_bram_wr_en       = pipe_active ? fp_bram_wr_en       : bram_wr_en;
+wire [SLOT_W-1:0]       mux_bram_wr_row_slot = pipe_active ? fp_bram_wr_row_slot : bram_wr_row_slot;
+wire [BRAM_COL_W-1:0]   mux_bram_wr_col      = pipe_active ? fp_bram_wr_col      : bram_wr_col;
+wire [7:0]              mux_bram_wr_data     = pipe_active ? fp_bram_wr_data     : bram_wr_data;
 
 fill_pipe_controller #(
     .FULL_FRAME_WIDTH    (FULL_FRAME_WIDTH),
@@ -686,17 +648,15 @@ fill_pipe_controller #(
     .LEFT_LUT_WIDTH      (LEFT_LUT_WIDTH),
     .INTER_CAMERA_GAP    (INTER_CAMERA_GAP),
     .RIGHT_OUTPUT_X_START(RIGHT_OUTPUT_X_START),
-    .STRIPE_HEIGHT       (STRIPE_HEIGHT),
-    .NUM_STRIPES         (NUM_STRIPES),
+    .BLOCK_SIZE          (BLOCK_SIZE),
     .MAPPER_LATENCY      (11)
 ) u_fill_pipe (
     .clk                   (CLOCK2_50),
-    // Held in reset whenever stereo_active = 0 so the controller can't be
-    // partway through an FSM transition when the bus mux switches owners.
-    // Combined with stereo_active's safe-update gating this guarantees fp_*
-    // outputs are 0 in any cycle the legacy FSM owns the bus.
     .reset_n               (KEY[0] && stereo_active),
     .go                    (fp_go),
+
+    .fill_mode             (fp_fill_mode),
+    .fill_row_y            (fp_fill_row_y),
 
     .bus_addr              (fp_bus_addr),
     .bus_read              (fp_bus_read),
@@ -707,8 +667,7 @@ fill_pipe_controller #(
     .bus_ack               (bus_ack),
 
     .bram_wr_en            (fp_bram_wr_en),
-    .bram_wr_stripe        (fp_bram_wr_stripe),
-    .bram_wr_row_in_stripe (fp_bram_wr_row_in_stripe),
+    .bram_wr_row_slot      (fp_bram_wr_row_slot),
     .bram_wr_col           (fp_bram_wr_col),
     .bram_wr_data          (fp_bram_wr_data),
 
@@ -732,15 +691,18 @@ always @(posedge CLOCK2_50) begin
 		display_right_sel <= SW[2];
 		timer <= 0;
 		top_phase <= PHASE_FILL;
-		bram_wr_en            <= 0;
-		bram_wr_stripe        <= 0;
-		bram_wr_row_in_stripe <= 0;
-		bram_wr_col           <= 0;
-		bram_wr_data          <= 0;
+		bram_wr_en       <= 0;
+		bram_wr_row_slot <= 0;
+		bram_wr_col      <= 0;
+		bram_wr_data     <= 0;
 		mbi_go <= 0; mbi_rst <= 1;
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
 		mbi_disp_ack <= 0;
+		compute_y <= 0;
+		buf_base_reg <= 0;
+		fp_fill_mode <= 0;
+		fp_fill_row_y <= 0;
 	end
 	else begin
 		timer <= timer + 1;
@@ -751,23 +713,39 @@ always @(posedge CLOCK2_50) begin
 
 		case (top_phase)
 
-		// ============ PHASE_FILL ============
+		// ============ PHASE_FILL (initial: full frame to VGA + reload line buffer) ============
 		PHASE_FILL: begin
 			mbi_rst <= 1'b1;
 
-			// Gate on stereo_active (latched), NOT stereo_enabled (raw).
-			// Otherwise SW[4] toggling mid-frame swings the if/else branch
-			// instantly and the legacy FSM gets frozen mid-transaction with
-			// bus_read still high, stranding the EBAB.
 			if (stereo_active) begin
-				// ---- Streaming pipelined fill via fill_pipe_controller ----
-				// fp_go is combinational from (top_phase, SW[0]); the phase
-				// machine itself sequences FILL -> COMPUTE -> FILL.
-				if (fp_done) begin
-					// Frame is in BRAM and on VGA. Hop to PHASE_COMPUTE.
-					top_phase    <= PHASE_COMPUTE;
-					frame_filled <= 1'b1;
-					state        <= 4'd0;
+				if (state == 4'd0) begin
+					// Step 1: full-frame fill for VGA display
+					fp_fill_mode <= 1'b0;  // full frame
+					if (fp_done) begin
+						// Full frame VGA done. Now reload rows 0..BLOCK_SIZE-1
+						// into line buffer (the circular buffer overwrote them).
+						compute_y    <= 8'd0;
+						buf_base_reg <= 0;
+						state        <= 4'd1;  // move to row-reload sub-state
+						fp_fill_mode <= 1'b1;
+						fp_fill_row_y <= 10'd0;
+					end
+				end else if (state == 4'd1) begin
+					// Step 2: reload individual rows for line buffer
+					fp_fill_mode  <= 1'b1;
+					fp_fill_row_y <= {2'b0, compute_y};
+					if (fp_done) begin
+						if (compute_y < (BLOCK_SIZE - 1)) begin
+							compute_y <= compute_y + 1;
+						end else begin
+							// All BLOCK_SIZE rows loaded. Start computing.
+							top_phase    <= PHASE_COMPUTE;
+							compute_y    <= 8'd0;
+							buf_base_reg <= 0;
+							frame_filled <= 1'b1;
+							state        <= 4'd0;
+						end
+					end
 				end
 			end else begin
 				// ---- Legacy per-pixel debug path (raw video copy to VGA) ----
@@ -807,22 +785,15 @@ always @(posedge CLOCK2_50) begin
 				end
 
 				if (state==4'd8) begin
-					// Write to striped BRAM. Decompose dy into
-					// (stripe, row_in_stripe) and select the col_global
-					// (left at 0..319, right at 320..639). Use real / and %
-					// since STRIPE_HEIGHT is not a power of 2 (=3); Quartus
-					// synthesizes divide-by-constant as a tiny shift/add net.
-					bram_wr_en            <= 1'b1;
-					bram_wr_data          <= current_pixel_color1;
-					bram_wr_stripe        <= old_video_in_y_cood / STRIPE_HEIGHT;
-					bram_wr_row_in_stripe <= old_video_in_y_cood % STRIPE_HEIGHT;
+					// Write to line-buffer BRAM using row-slot addressing
+					bram_wr_en       <= 1'b1;
+					bram_wr_data     <= current_pixel_color1;
+					bram_wr_row_slot <= old_video_in_y_cood % BLOCK_SIZE;
 					if (right_read_side) begin
 						bram_wr_col <= HALF_FRAME_WIDTH + right_cam_mem_x_cood;
 					end else begin
 						bram_wr_col <= old_video_in_x_cood;
 					end
-					// Push the same pixel to the VGA so the user can see what the
-					// cameras see. State 9 waits for the VGA bus_ack.
 					state <= 4'd9;
 					bus_write <= 1'b1;
 					bus_addr <= vga_bus_addr;
@@ -843,10 +814,10 @@ always @(posedge CLOCK2_50) begin
 			end
 		end
 
-		// ============ PHASE_COMPUTE ============
+		// ============ PHASE_COMPUTE (one y-row at a time) ============
 		PHASE_COMPUTE: begin
 			mbi_rst <= 1'b0;
-			// Start computation
+			// Start computation for current compute_y
 			if (!mbi_done && !mbi_go && state == 0) begin
 				mbi_go <= 1'b1;
 				state <= 4'd1;
@@ -854,7 +825,6 @@ always @(posedge CLOCK2_50) begin
 
 			// Handle streaming disparity output
 			if (mbi_disp_valid && state != 4'd13 && state != 4'd14) begin
-				// New disparity pixel ready — write to VGA
 				state <= 4'd13;
 				bus_write <= 1'b1;
 				bus_addr <= disp_stream_vga_addr;
@@ -864,21 +834,42 @@ always @(posedge CLOCK2_50) begin
 
 			if (state == 4'd13 && bus_ack) begin
 				bus_write <= 1'b0;
-				mbi_disp_ack <= 1'b1; // acknowledge to mem_block_intf
+				mbi_disp_ack <= 1'b1;
 				state <= 4'd14;
 			end
 
-			// Hold ack for one cycle then release
 			if (state == 4'd14) begin
 				mbi_disp_ack <= 1'b0;
-				state <= 4'd1; // back to waiting
+				state <= 4'd1;
 			end
 
-			// Done with entire computation
+			// Done with this y-row's computation
 			if (mbi_done) begin
-				top_phase    <= PHASE_FILL;
+				if (compute_y < (FRAME_HEIGHT - BLOCK_SIZE)) begin
+					// More y-rows to process → fill 1 new row, then compute next y
+					top_phase     <= PHASE_FILL_ROW;
+					fp_fill_mode  <= 1'b1;  // single-row fill
+					fp_fill_row_y <= compute_y + BLOCK_SIZE;  // the new row to load
+					state         <= 4'd0;
+				end else begin
+					// All y-rows done → restart from initial fill
+					top_phase    <= PHASE_FILL;
+					state        <= 4'd0;
+					frame_filled <= 0;
+				end
+			end
+		end
+
+		// ============ PHASE_FILL_ROW (incremental: 1 new row) ============
+		PHASE_FILL_ROW: begin
+			mbi_rst <= 1'b1;
+
+			if (fp_done) begin
+				// New row loaded. Advance y and circular buffer base.
+				compute_y    <= compute_y + 1;
+				buf_base_reg <= (buf_base_reg + 1) % BLOCK_SIZE;
+				top_phase    <= PHASE_COMPUTE;
 				state        <= 4'd0;
-				frame_filled <= 0;
 			end
 		end
 

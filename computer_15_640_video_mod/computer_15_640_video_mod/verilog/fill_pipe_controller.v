@@ -1,21 +1,17 @@
 // =============================================================================
 // fill_pipe_controller
 //
-// Streaming PHASE_FILL controller. Replaces the per-pixel sequential FSM that
-// used to live in DE1_SoC_Computer.v with a pipelined dataflow:
-//
+// Streaming PHASE_FILL controller. Pipelined dataflow:
 //   coord-gen -> stereo_radial_mapper_q15_pipe (11 stages, 1 px/cycle)
 //             -> small FIFO  -> bus issuer  -> BRAM write + VGA write
 //
-// The mapper's 11-cycle latency is hidden because successive pixels are in
-// flight simultaneously. Per-pixel cost is bounded below by the bus
-// round-trips: one read of camera SRAM + one write to VGA, at single-trans.
+// MODES:
+//   fill_mode = 0: Fill ALL rows (0..FRAME_HEIGHT-1). Used for initial fill
+//                   and full-frame VGA display.
+//   fill_mode = 1: Fill ONE row (fill_row_y). Used for incremental line-buffer
+//                   refill between compute steps.
 //
-// "go" starts a frame fill. After the entire 640 x FRAME_HEIGHT grid has
-// been written into the destination BRAM and to VGA, "done" pulses HIGH for
-// one cycle. While "go" stays high after done, no new frame starts (the
-// top-level drops "go" between frames as it sequences PHASE_FILL ->
-// PHASE_COMPUTE -> PHASE_FILL).
+// "go" starts a fill. "done" pulses for one cycle when finished.
 // =============================================================================
 
 module fill_pipe_controller #(
@@ -27,19 +23,20 @@ module fill_pipe_controller #(
     parameter integer LEFT_LUT_WIDTH        = 315,
     parameter integer INTER_CAMERA_GAP      = 4,
     parameter integer RIGHT_OUTPUT_X_START  = LEFT_LUT_WIDTH + INTER_CAMERA_GAP,
-    parameter integer STRIPE_HEIGHT         = 8,
-    parameter integer NUM_STRIPES           = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT,
-    parameter integer STRIPE_W              = (NUM_STRIPES   <= 1) ? 1 : $clog2(NUM_STRIPES),
-    parameter integer ROW_IN_STRIPE_W       = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT),
+    parameter integer BLOCK_SIZE            = 5,
+    parameter integer SLOT_W               = (BLOCK_SIZE <= 1) ? 1 : $clog2(BLOCK_SIZE),
     parameter integer COL_W                 = $clog2(FULL_ROW_WIDTH),
     parameter integer MAPPER_LATENCY        = 11
 ) (
     input  wire                       clk,
     input  wire                       reset_n,
-    input  wire                       go,            // hold high to run a frame fill
+    input  wire                       go,
 
-    // Avalon master (shared via top-level mux). The controller drives one of
-    // {camera-SRAM read, VGA write} per transaction.
+    // Fill mode control
+    input  wire                       fill_mode,     // 0=full frame, 1=single row
+    input  wire [9:0]                 fill_row_y,    // row to fill when fill_mode=1
+
+    // Avalon master (UNCHANGED from old design)
     output reg  [31:0]                bus_addr,
     output reg                        bus_read,
     output reg                        bus_write,
@@ -48,13 +45,11 @@ module fill_pipe_controller #(
     input  wire [31:0]                bus_read_data,
     input  wire                       bus_ack,
 
-    // Striped BRAM write port. Writers split the destination's (dy, col)
-    // into (stripe, row_in_stripe, col) so the BRAM doesn't need a divider.
-    output reg                            bram_wr_en,
-    output reg  [STRIPE_W-1:0]            bram_wr_stripe,
-    output reg  [ROW_IN_STRIPE_W-1:0]     bram_wr_row_in_stripe,
-    output reg  [COL_W-1:0]               bram_wr_col,
-    output reg  [7:0]                     bram_wr_data,
+    // Line-buffer BRAM write port (row-slot based instead of stripe-based)
+    output reg                        bram_wr_en,
+    output reg  [SLOT_W-1:0]          bram_wr_row_slot,
+    output reg  [COL_W-1:0]           bram_wr_col,
+    output reg  [7:0]                 bram_wr_data,
 
     output reg                        done
 );
@@ -64,16 +59,18 @@ module fill_pipe_controller #(
     localparam [31:0] VGA_OUT_BASE  = 32'h0000_0000;
 
     // ====================================================================
-    // 1) Coordinate generator -- advances every cycle while feeding mapper.
-    //    "feeding" is gated by FIFO backpressure to avoid losing outputs.
+    // 1) Coordinate generator
     // ====================================================================
     reg [9:0]  dst_x;
     reg [9:0]  dst_y;
-    reg        streaming;        // 1 while we are still feeding the mapper
-    reg        last_submitted;   // we have issued the last pixel into the mapper
+    reg        streaming;
+    reg        last_submitted;
     wire       can_feed;
-    wire       at_last_pixel = (dst_x == FULL_FRAME_WIDTH-1) &&
-                                (dst_y == FRAME_HEIGHT-1);
+
+    // End-of-scan depends on fill mode
+    wire [9:0] y_start = fill_mode ? fill_row_y : 10'd0;
+    wire [9:0] y_end   = fill_mode ? fill_row_y : (FRAME_HEIGHT - 1);
+    wire       at_last_pixel = (dst_x == FULL_FRAME_WIDTH-1) && (dst_y == y_end);
 
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
@@ -83,15 +80,14 @@ module fill_pipe_controller #(
             last_submitted <= 1'b0;
         end else begin
             if (go && !streaming && !last_submitted) begin
-                // Begin a new frame from (0, 0).
                 dst_x          <= 10'd0;
-                dst_y          <= 10'd0;
+                dst_y          <= y_start;
                 streaming      <= 1'b1;
                 last_submitted <= 1'b0;
             end else if (streaming && can_feed) begin
                 if (at_last_pixel) begin
                     last_submitted <= 1'b1;
-                    streaming      <= 1'b0;   // stop feeding; pipeline drains
+                    streaming      <= 1'b0;
                 end else if (dst_x == FULL_FRAME_WIDTH-1) begin
                     dst_x <= 10'd0;
                     dst_y <= dst_y + 10'd1;
@@ -105,7 +101,7 @@ module fill_pipe_controller #(
     end
 
     // ====================================================================
-    // 2) Pipelined radial mapper. 11-stage, 1 px/cycle throughput.
+    // 2) Pipelined radial mapper
     // ====================================================================
     wire [9:0] mapper_dst_y_in = dst_y + Y_CROP_OFFSET[9:0];
     wire       mapper_valid_in = streaming && can_feed;
@@ -125,8 +121,7 @@ module fill_pipe_controller #(
     );
 
     // ====================================================================
-    // 3) Delay (dst_x, dst_y, mapper_valid_in) by MAPPER_LATENCY cycles to
-    //    line up with the mapper's output for the same pixel.
+    // 3) Delay line for dst coords
     // ====================================================================
     reg [9:0] dl_dst_x [0:MAPPER_LATENCY-1];
     reg [9:0] dl_dst_y [0:MAPPER_LATENCY-1];
@@ -157,18 +152,11 @@ module fill_pipe_controller #(
     wire       aligned_was_valid  = dl_valid[MAPPER_LATENCY-1];
 
     // ====================================================================
-    // 4) FIFO between mapper output and bus consumer.
-    //    Each entry holds the full request: dst_x (10) + dst_y (10) +
-    //    src_x (10) + src_y (10) + in_bounds (1) = 41 bits.
-    //
-    //    HIGH_WATER must leave room for MAPPER_LATENCY in-flight pixels
-    //    (already past the can_feed gate) plus a few cycles of margin so
-    //    the FIFO never wraps. Otherwise entries get silently overwritten,
-    //    which manifests as vertical stripes in the disparity output.
+    // 4) FIFO
     // ====================================================================
-    localparam FIFO_DEPTH_LOG2 = 5;                                 // 32 entries
+    localparam FIFO_DEPTH_LOG2 = 5;
     localparam FIFO_DEPTH      = (1 << FIFO_DEPTH_LOG2);
-    localparam FIFO_HIGH_WATER = FIFO_DEPTH - MAPPER_LATENCY - 4;   // 17
+    localparam FIFO_HIGH_WATER = FIFO_DEPTH - MAPPER_LATENCY - 4;
 
     reg [40:0] fifo_mem [0:FIFO_DEPTH-1];
     reg [FIFO_DEPTH_LOG2-1:0] fifo_wr_ptr;
@@ -180,11 +168,6 @@ module fill_pipe_controller #(
     wire fifo_push = aligned_was_valid;
     wire fifo_pop;
 
-    // mapper_valid_out only verifies sy is in [0, 288) (the original frame).
-    // The camera SRAM only holds the cropped FRAME_HEIGHT rows (44..243), so
-    // we must additionally require src_y in [Y_CROP_OFFSET, Y_CROP_OFFSET+
-    // FRAME_HEIGHT). Otherwise cam_byte_addr would underflow or land outside
-    // the mapped slave region, hanging the Avalon interconnect.
     wire src_y_in_cropped = (mapper_src_y >= Y_CROP_OFFSET[9:0]) &&
                             (mapper_src_y < (Y_CROP_OFFSET[9:0] + FRAME_HEIGHT[9:0]));
     wire effective_in_bounds = mapper_valid_out && src_y_in_cropped;
@@ -214,7 +197,6 @@ module fill_pipe_controller #(
 
     assign can_feed = streaming && !fifo_full;
 
-    // Read FIFO head (combinational).
     wire [40:0] head_word    = fifo_mem[fifo_rd_ptr];
     wire [9:0]  head_dst_x   = head_word[40:31];
     wire [9:0]  head_dst_y   = head_word[30:21];
@@ -223,13 +205,8 @@ module fill_pipe_controller #(
     wire        head_inbnd   = head_word[0];
 
     // ====================================================================
-    // 5) Address translations
+    // 5) Address translations (UNCHANGED)
     // ====================================================================
-    // The camera DMA stores only the cropped FRAME_HEIGHT rows (rows
-    // Y_CROP_OFFSET..Y_CROP_OFFSET+FRAME_HEIGHT-1 of the original 288-row
-    // frame) at byte offset 0 with stride 1024. The mapper outputs sy in the
-    // ORIGINAL coordinate system, so subtract Y_CROP_OFFSET here. Callers
-    // must already have verified sy is in the valid range.
     function [31:0] cam_byte_addr;
         input [9:0] sx;
         input [9:0] sy;
@@ -244,35 +221,15 @@ module fill_pipe_controller #(
         input [9:0] dx;
         input [9:0] dy;
     begin
-        // VGA buffer: row-major, 1024-byte stride. (dx, dy) of (0..639, 0..199)
-        // map directly to (col, row) on the upper half of VGA.
         vga_byte_addr = VGA_OUT_BASE + {22'b0, dx} + ({22'b0, dy} << 10);
     end
     endfunction
 
-    // Split-address helpers for the striped BRAM. The destination's (dx, dy)
-    // map to (stripe, row_in_stripe, col_global), where:
-    //   stripe         = dy / STRIPE_HEIGHT
-    //   row_in_stripe  = dy % STRIPE_HEIGHT
-    //   col_global     = dx          (left side)  or
-    //                    HALF_FRAME_WIDTH + (dx - RIGHT_OUTPUT_X_START)  (right)
-    // The packed-2D (left half / right half) layout is unchanged from the
-    // legacy single-BRAM design; only the row/stripe split is new.
-    // STRIPE_HEIGHT is not constrained to be a power of 2 (the top level
-    // currently uses 3 to minimise M10K usage), so we MUST use real / and %.
-    // Quartus synthesizes divide/modulo by a constant into a small shift/add
-    // tree -- not an iterative divider -- so the area cost is negligible.
-    function [STRIPE_W-1:0] bram_stripe_of;
+    // Line-buffer column mapping (replaces stripe-based helpers)
+    function [SLOT_W-1:0] bram_row_slot_of;
         input [9:0] dy;
     begin
-        bram_stripe_of = dy / STRIPE_HEIGHT;
-    end
-    endfunction
-
-    function [ROW_IN_STRIPE_W-1:0] bram_row_in_stripe_of;
-        input [9:0] dy;
-    begin
-        bram_row_in_stripe_of = dy % STRIPE_HEIGHT;
+        bram_row_slot_of = dy % BLOCK_SIZE;
     end
     endfunction
 
@@ -291,19 +248,7 @@ module fill_pipe_controller #(
     endfunction
 
     // ====================================================================
-    // 6) Bus consumer FSM. Per pixel:
-    //    - in-bounds:  read camera -> idle -> (BRAM + VGA write) -> idle  (4 cyc)
-    //    - out-of-bnd: (BRAM write 0 + VGA write 0) -> idle               (2 cyc)
-    //
-    // BUS_TRANSITION exists ONLY between an in-bounds read and its VGA
-    // write so the EBAB sees one fully-idle cycle (bus_read=bus_write=0)
-    // between the two transactions. Without it, dropping bus_read and
-    // raising bus_write on the same edge confused the clock-bridge to
-    // CLOCK_50: VGA writes were silently lost (camera display blank) and
-    // the back-to-back read pattern stalled often enough that the BRAM
-    // ended up filled with corrupt data (garbage disparity output). The
-    // legacy FSM had this idle cycle for free between state 1 and state 8;
-    // restoring it here is the price of pipelining.
+    // 6) Bus consumer FSM (UNCHANGED bus protocol)
     // ====================================================================
     localparam [2:0] BUS_IDLE        = 3'd0;
     localparam [2:0] BUS_WAIT_READ   = 3'd1;
@@ -314,10 +259,6 @@ module fill_pipe_controller #(
 
     reg [9:0] inflight_dst_x;
     reg [9:0] inflight_dst_y;
-
-    // Pixel captured from the camera read; held one cycle so the VGA write
-    // (issued in BUS_TRANSITION) can use it after bus_read_data is no longer
-    // guaranteed to be valid.
     reg [7:0] captured_pixel;
 
     reg fifo_pop_r;
@@ -335,8 +276,7 @@ module fill_pipe_controller #(
             bus_byte_enable <= 4'b0001;
             bus_write_data  <= 32'd0;
             bram_wr_en            <= 1'b0;
-            bram_wr_stripe        <= {STRIPE_W{1'b0}};
-            bram_wr_row_in_stripe <= {ROW_IN_STRIPE_W{1'b0}};
+            bram_wr_row_slot      <= {SLOT_W{1'b0}};
             bram_wr_col           <= {COL_W{1'b0}};
             bram_wr_data          <= 8'd0;
             inflight_dst_x  <= 10'd0;
@@ -361,19 +301,13 @@ module fill_pipe_controller #(
                         inflight_dst_x <= head_dst_x;
                         inflight_dst_y <= head_dst_y;
                         if (head_inbnd) begin
-                            // Issue a camera-SRAM read. BRAM + VGA writes
-                            // happen when ack returns (via BUS_TRANSITION).
                             bus_addr        <= cam_byte_addr(head_src_x, head_src_y);
                             bus_read        <= 1'b1;
                             bus_byte_enable <= 4'b0001;
                             bus_state       <= BUS_WAIT_READ;
                         end else begin
-                            // Out-of-bounds destination: write 0 to BRAM,
-                            // and write 0 to VGA (so the camera display goes
-                            // black in the gap region, matching legacy).
                             bram_wr_en            <= 1'b1;
-                            bram_wr_stripe        <= bram_stripe_of(head_dst_y);
-                            bram_wr_row_in_stripe <= bram_row_in_stripe_of(head_dst_y);
+                            bram_wr_row_slot      <= bram_row_slot_of(head_dst_y);
                             bram_wr_col           <= bram_col_of(head_dst_x);
                             bram_wr_data          <= 8'h00;
                             bus_addr        <= vga_byte_addr(head_dst_x, head_dst_y);
@@ -390,14 +324,9 @@ module fill_pipe_controller #(
 
                 BUS_WAIT_READ: begin
                     if (bus_ack) begin
-                        // Camera read complete. Drop read, latch the pixel,
-                        // and schedule the BRAM write for next cycle. The
-                        // VGA write is staged in BUS_TRANSITION so that the
-                        // intervening cycle has bus_read = bus_write = 0.
                         bus_read              <= 1'b0;
                         bram_wr_en            <= 1'b1;
-                        bram_wr_stripe        <= bram_stripe_of(inflight_dst_y);
-                        bram_wr_row_in_stripe <= bram_row_in_stripe_of(inflight_dst_y);
+                        bram_wr_row_slot      <= bram_row_slot_of(inflight_dst_y);
                         bram_wr_col           <= bram_col_of(inflight_dst_x);
                         bram_wr_data          <= bus_read_data[7:0];
                         captured_pixel        <= bus_read_data[7:0];
@@ -406,11 +335,6 @@ module fill_pipe_controller #(
                 end
 
                 BUS_TRANSITION: begin
-                    // Idle cycle on the EBAB (bus_read = bus_write = 0,
-                    // both held over from the previous cycle's defaults
-                    // and explicit drop). The BRAM write fires this cycle
-                    // from the registers latched in BUS_WAIT_READ. Now
-                    // stage the VGA write to go out next cycle.
                     bus_addr        <= vga_byte_addr(inflight_dst_x,
                                                      inflight_dst_y);
                     bus_write       <= 1'b1;

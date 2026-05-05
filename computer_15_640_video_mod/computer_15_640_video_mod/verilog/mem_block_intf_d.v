@@ -4,6 +4,14 @@ module mem_block_intf #(
 	parameter int BLOCK_SIZE       = 5,
 	parameter int PIXEL_W          = 8,
 	parameter int MAX_DISP         = 85,
+	// Vertical search half-range (rows). 0 = pure horizontal scan (original
+	// behavior). 1..3 also matches the right block at +/-VERT_RANGE row
+	// offsets and keeps the minimum SAD. Hardware on the right side
+	// (sliding_window + block_match_sad instances) scales linearly in
+	// 2*VERT_RANGE+1; per-cycle latency is unchanged because all offsets
+	// evaluate in parallel each disparity step. Memory bandwidth is also
+	// unchanged: mem_rdata already delivers the full column per request.
+	parameter int VERT_RANGE       = 0,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
 	parameter int NUM_SAD_UNITS    = 32,
@@ -37,6 +45,13 @@ module mem_block_intf #(
 	localparam int X_MIN         = 0;
 	localparam int X_MAX         = HALF_FRAME_WIDTH - 1;
 
+	// Right-side vertical search sizing.
+	// VERT_OFFSETS    = number of row offsets to evaluate per disparity step.
+	// RIGHT_BUF_DEPTH = rows held in the right column buffer per unit, wide
+	//                   enough to feed every offset's BLOCK_SIZE-tall window.
+	localparam int VERT_OFFSETS    = 2 * VERT_RANGE + 1;
+	localparam int RIGHT_BUF_DEPTH = BLOCK_SIZE + 2 * VERT_RANGE;
+
 	localparam logic [X_W-1:0]      X_MIN_L     = X_MIN;
 	localparam logic [X_W-1:0]      X_MAX_L     = X_MAX;
 	localparam logic [DISP_W-1:0]   MAX_DISP_L  = MAX_DISP;
@@ -51,7 +66,9 @@ module mem_block_intf #(
 	logic [2:0] next_state;
 
 	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
-	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
+	// Right buffer is taller than the left so that VERT_OFFSETS different
+	// vertical slices of width BLOCK_SIZE can be drawn from it each cycle.
+	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:RIGHT_BUF_DEPTH-1];
 
 
 	logic [SAD_W-1:0] sad_value [0:NUM_SAD_UNITS-1];
@@ -65,17 +82,16 @@ module mem_block_intf #(
 	genvar g;
 	generate
 		for (g = 0; g < NUM_SAD_UNITS; g++) begin : GEN_UNIT
+			// Reference (left) side: one sliding_window for the unit. The
+			// reference position is what the disparity output is anchored to,
+			// so it does not shift vertically -- only the matching block does.
 			logic [BLOCK_SIZE*PIXEL_W-1:0] left_col_flat_g;
-			logic [BLOCK_SIZE*PIXEL_W-1:0] right_col_flat_g;
 			logic [PIXEL_W-1:0] left_block_g  [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
-			logic [PIXEL_W-1:0] right_block_g [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
 			logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] left_block_flat_g;
-			logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] right_block_flat_g;
 
 			genvar rr;
-			for (rr = 0; rr < BLOCK_SIZE; rr++) begin : GEN_COL_WIRE
+			for (rr = 0; rr < BLOCK_SIZE; rr++) begin : GEN_LEFT_COL_WIRE
 				assign left_col_flat_g[(rr+1)*PIXEL_W-1 -: PIXEL_W] = left_col_buf[g][rr];
-				assign right_col_flat_g[(rr+1)*PIXEL_W-1 -: PIXEL_W] = right_col_buf[g][rr];
 			end
 
 			sliding_window #(
@@ -90,27 +106,61 @@ module mem_block_intf #(
 				.block_out_flat(left_block_flat_g)
 			);
 
-			sliding_window #(
-				.BLOCK_SIZE(BLOCK_SIZE),
-				.PIXEL_W(PIXEL_W)
-			) u_match_window (
-				.clk(clk),
-				.rst(rst),
-				.valid_in(slide_matching),
-				.pixel_in_col_flat(right_col_flat_g),
-				.block_out(right_block_g),
-				.block_out_flat(right_block_flat_g)
-			);
+			// Matching (right) side: VERT_OFFSETS parallel sliding_window +
+			// block_match_sad instances. Each takes a different BLOCK_SIZE-row
+			// slice of the (BLOCK_SIZE + 2*VERT_RANGE)-row right column buffer
+			// -- i.e., the right block is offset by (vo - VERT_RANGE) rows
+			// relative to the left block. The minimum SAD across all offsets
+			// is what feeds best-disparity tracking, so a small vertical
+			// rectification slop is tolerated for free per disparity step.
+			logic [SAD_W-1:0] sad_per_off [0:VERT_OFFSETS-1];
 
-			block_match_sad #(
-				.BLOCK_SIZE(BLOCK_SIZE),
-				.PIXEL_W(PIXEL_W),
-				.SAD_W(SAD_W)
-			) u_block_match_sad (
-				.left_block_flat(left_block_flat_g),
-				.right_block_flat(right_block_flat_g),
-				.sad(sad_value[g])
-			);
+			genvar vo;
+			for (vo = 0; vo < VERT_OFFSETS; vo++) begin : GEN_VOFF
+				logic [BLOCK_SIZE*PIXEL_W-1:0] right_col_flat_vo;
+				logic [PIXEL_W-1:0] right_block_vo  [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
+				logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] right_block_flat_vo;
+
+				genvar rrv;
+				for (rrv = 0; rrv < BLOCK_SIZE; rrv++) begin : GEN_RIGHT_COL_WIRE
+					assign right_col_flat_vo[(rrv+1)*PIXEL_W-1 -: PIXEL_W] =
+						right_col_buf[g][rrv + vo];
+				end
+
+				sliding_window #(
+					.BLOCK_SIZE(BLOCK_SIZE),
+					.PIXEL_W(PIXEL_W)
+				) u_match_window (
+					.clk(clk),
+					.rst(rst),
+					.valid_in(slide_matching),
+					.pixel_in_col_flat(right_col_flat_vo),
+					.block_out(right_block_vo),
+					.block_out_flat(right_block_flat_vo)
+				);
+
+				block_match_sad #(
+					.BLOCK_SIZE(BLOCK_SIZE),
+					.PIXEL_W(PIXEL_W),
+					.SAD_W(SAD_W)
+				) u_block_match_sad (
+					.left_block_flat(left_block_flat_g),
+					.right_block_flat(right_block_flat_vo),
+					.sad(sad_per_off[vo])
+				);
+			end
+
+			// Min-reduce across the vertical offsets. With VERT_OFFSETS == 1
+			// (the default), this collapses to a pass-through and synthesizes
+			// identically to the original single-SAD path.
+			always_comb begin
+				sad_value[g] = sad_per_off[0];
+				for (int kk = 1; kk < VERT_OFFSETS; kk++) begin
+					if (sad_per_off[kk] < sad_value[g]) begin
+						sad_value[g] = sad_per_off[kk];
+					end
+				end
+			end
 		end
 	endgenerate
 
@@ -362,11 +412,24 @@ module mem_block_intf #(
 					if (valid_rd_result) begin
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
+							// Fill the (BLOCK_SIZE + 2*VERT_RANGE)-row right
+							// column buffer; clamp out-of-frame rows to 0 so
+							// that vertical offsets near the top/bottom of the
+							// image degrade gracefully instead of indexing
+							// junk. With VERT_RANGE == 0 this matches the
+							// original behavior bit-for-bit (and the bounds
+							// check is statically true for valid frames).
+							for (int rr = 0; rr < RIGHT_BUF_DEPTH; rr++) begin
+								int src_row;
+								src_row = g * STRIPE_HEIGHT + int'(phase_result) + rr - VERT_RANGE;
+								if ((src_row >= 0) && (src_row < FRAME_HEIGHT)) begin
+									right_col_buf[g][rr] <= mem_rdata[src_row];
+								end else begin
+									right_col_buf[g][rr] <= '0;
+								end
 							end
 						end
-						slide_matching <= 1'b1; 
+						slide_matching <= 1'b1;
 					end
 
 					// update best SAD and disparity one cycle after slide so window is current
@@ -431,11 +494,24 @@ module mem_block_intf #(
 					end else if (valid_rd_result && !to_ref_block_result) begin
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
+							// Fill the (BLOCK_SIZE + 2*VERT_RANGE)-row right
+							// column buffer; clamp out-of-frame rows to 0 so
+							// that vertical offsets near the top/bottom of the
+							// image degrade gracefully instead of indexing
+							// junk. With VERT_RANGE == 0 this matches the
+							// original behavior bit-for-bit (and the bounds
+							// check is statically true for valid frames).
+							for (int rr = 0; rr < RIGHT_BUF_DEPTH; rr++) begin
+								int src_row;
+								src_row = g * STRIPE_HEIGHT + int'(phase_result) + rr - VERT_RANGE;
+								if ((src_row >= 0) && (src_row < FRAME_HEIGHT)) begin
+									right_col_buf[g][rr] <= mem_rdata[src_row];
+								end else begin
+									right_col_buf[g][rr] <= '0;
+								end
 							end
 						end
-						slide_matching <= 1'b1; 
+						slide_matching <= 1'b1;
 
 
 					end
@@ -489,11 +565,24 @@ module mem_block_intf #(
 					end else if (valid_rd_result && !to_ref_block_result) begin
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
+							// Fill the (BLOCK_SIZE + 2*VERT_RANGE)-row right
+							// column buffer; clamp out-of-frame rows to 0 so
+							// that vertical offsets near the top/bottom of the
+							// image degrade gracefully instead of indexing
+							// junk. With VERT_RANGE == 0 this matches the
+							// original behavior bit-for-bit (and the bounds
+							// check is statically true for valid frames).
+							for (int rr = 0; rr < RIGHT_BUF_DEPTH; rr++) begin
+								int src_row;
+								src_row = g * STRIPE_HEIGHT + int'(phase_result) + rr - VERT_RANGE;
+								if ((src_row >= 0) && (src_row < FRAME_HEIGHT)) begin
+									right_col_buf[g][rr] <= mem_rdata[src_row];
+								end else begin
+									right_col_buf[g][rr] <= '0;
+								end
 							end
 						end
-						slide_matching <= 1'b1; 
+						slide_matching <= 1'b1;
 					end
 
 				end

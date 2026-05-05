@@ -4,6 +4,10 @@
 			"name" : "Top",
 			"pins" : [
 				{
+					"name" : "FPGA_I2C_SCLK",
+					"strict" : false
+				},
+				{
 					"name" : "VGA_B[0]",
 					"strict" : false
 				},
@@ -109,10 +113,6 @@
 				},
 				{
 					"name" : "VGA_VS",
-					"strict" : false
-				},
-				{
-					"name" : "FPGA_I2C_SCLK",
 					"strict" : false
 				},
 				{
@@ -260,11 +260,11 @@
 					"strict" : false
 				},
 				{
-					"name" : "GPIO_0[4]",
+					"name" : "GPIO_0[1]",
 					"strict" : false
 				},
 				{
-					"name" : "GPIO_0[1]",
+					"name" : "GPIO_0[4]",
 					"strict" : false
 				},
 				{
@@ -272,11 +272,11 @@
 					"strict" : false
 				},
 				{
-					"name" : "CLOCK2_50",
+					"name" : "CLOCK_50",
 					"strict" : false
 				},
 				{
-					"name" : "CLOCK_50",
+					"name" : "CLOCK2_50",
 					"strict" : false
 				},
 				{

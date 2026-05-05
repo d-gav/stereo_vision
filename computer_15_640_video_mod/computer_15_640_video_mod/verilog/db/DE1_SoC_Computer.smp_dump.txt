@@ -1,4 +1,11 @@
 
+State Machine - |DE1_SoC_Computer|mem_block_intf:u_mem_block_intf|curr_state
+Name curr_state.INCR_PHASE curr_state.INCR_X curr_state.INCR_DISP curr_state.IDLE 
+curr_state.IDLE 0 0 0 0 
+curr_state.INCR_DISP 0 0 1 1 
+curr_state.INCR_X 0 1 0 1 
+curr_state.INCR_PHASE 1 0 0 1 
+
 State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_mm_interconnect_1:mm_interconnect_1|altera_merlin_burst_adapter:video_in_dma_addr_translation_slave_burst_adapter|altera_merlin_burst_adapter_13_1:altera_merlin_burst_adapter_13_1.burst_adapter|state
 Name state.ST_IDLE state.ST_UNCOMP_WR_SUBBURST state.ST_UNCOMP_TRANS state.ST_COMP_TRANS 
 state.ST_IDLE 0 0 0 0 
@@ -88,19 +95,6 @@ s_serial_protocol.STATE_3_START_BIT 0 0 1 0 0 1
 s_serial_protocol.STATE_4_TRANSFER 0 1 0 0 0 1 
 s_serial_protocol.STATE_5_STOP_BIT 1 0 0 0 0 1 
 
-State Machine - |DE1_SoC_Computer|mem_block_intf:u_mem_block_intf|curr_state
-Name curr_state.INCR_PHASE curr_state.INCR_X curr_state.INCR_DISP curr_state.IDLE 
-curr_state.IDLE 0 0 0 0 
-curr_state.INCR_DISP 0 0 1 1 
-curr_state.INCR_X 0 1 0 1 
-curr_state.INCR_PHASE 1 0 0 1 
-
-State Machine - |DE1_SoC_Computer|column_prefetch:u_col_prefetch|pf_state
-Name pf_state.PF_IDLE pf_state.PF_DONE pf_state.PF_FETCH 
-pf_state.PF_IDLE 0 0 0 
-pf_state.PF_FETCH 1 0 1 
-pf_state.PF_DONE 1 1 0 
-
 State Machine - |DE1_SoC_Computer|state
 Name state.1110 state.1101 state.1011 state.1010 state.1001 state.1000 state.0001 state.0000 
 state.0000 0 0 0 0 0 0 0 0 
@@ -125,6 +119,18 @@ state.ST_MUL 0 0 0 1 0 0 0 0 0 0 1
 state.ST_OFFSET 0 0 1 0 0 0 0 0 0 0 1 
 state.ST_CHECK 0 1 0 0 0 0 0 0 0 0 1 
 state.ST_DONE 1 0 0 0 0 0 0 0 0 0 1 
+
+State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_Video_In_Subsystem:video_in_subsystem|Computer_System_Video_In_Subsystem_Video_In_Clipper:video_in_clipper|altera_up_video_clipper_drop:Clipper_Drop|s_video_clipper_drop
+Name s_video_clipper_drop.STATE_0_WAIT_FOR_START s_video_clipper_drop.STATE_2_ADD_MISSING_PART s_video_clipper_drop.STATE_1_RUN_CLIPPER 
+s_video_clipper_drop.STATE_0_WAIT_FOR_START 0 0 0 
+s_video_clipper_drop.STATE_1_RUN_CLIPPER 1 0 1 
+s_video_clipper_drop.STATE_2_ADD_MISSING_PART 1 1 0 
+
+State Machine - |DE1_SoC_Computer|column_prefetch:u_col_prefetch|pf_state
+Name pf_state.PF_IDLE pf_state.PF_DONE pf_state.PF_FETCH 
+pf_state.PF_IDLE 0 0 0 
+pf_state.PF_FETCH 1 0 1 
+pf_state.PF_DONE 1 1 0 
 
 State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_SDRAM:sdram|i_state
 Name i_state.111 i_state.101 i_state.011 i_state.010 i_state.001 i_state.000 
@@ -160,9 +166,3 @@ m_next.000000001 0 0 0 0
 m_next.000001000 0 0 1 1 
 m_next.000010000 0 1 0 1 
 m_next.010000000 1 0 0 1 
-
-State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_Video_In_Subsystem:video_in_subsystem|Computer_System_Video_In_Subsystem_Video_In_Clipper:video_in_clipper|altera_up_video_clipper_drop:Clipper_Drop|s_video_clipper_drop
-Name s_video_clipper_drop.STATE_0_WAIT_FOR_START s_video_clipper_drop.STATE_2_ADD_MISSING_PART s_video_clipper_drop.STATE_1_RUN_CLIPPER 
-s_video_clipper_drop.STATE_0_WAIT_FOR_START 0 0 0 
-s_video_clipper_drop.STATE_1_RUN_CLIPPER 1 0 1 
-s_video_clipper_drop.STATE_2_ADD_MISSING_PART 1 1 0 

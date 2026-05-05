@@ -64,7 +64,14 @@ module fill_pipe_controller #(
     output reg  [COL_W-1:0]               bram_wr_col,
     output reg  [7:0]                     bram_wr_data,
 
-    output reg                        done
+    output reg                        done,
+
+    // Debug taps: bus FSM state (3 bits, see localparams below) and a
+    // saturating "cycles waiting for ack" counter so an EBAB stall is
+    // visible on a HEX display. ack_wait stops counting at 0xFF so it
+    // doesn't roll over and look like progress.
+    output wire [2:0]                 bus_state_dbg,
+    output reg  [7:0]                 ack_wait_dbg
 );
 
     // ---- Bus base addresses (must match top-level Qsys mapping) ----
@@ -333,6 +340,22 @@ module fill_pipe_controller #(
 
     reg frame_complete;
     wire pipeline_drained = last_submitted && fifo_empty && (bus_state == BUS_IDLE);
+
+    assign bus_state_dbg = bus_state;
+
+    // Saturating counter that increments every cycle the FSM is waiting on
+    // bus_ack and resets whenever an ack arrives or we're outside a wait
+    // state. If you see this stuck at 0xFF on the HEX display, the EBAB
+    // never acked the outstanding read or write — that's the freeze.
+    always @(posedge clk or negedge reset_n) begin
+        if (!reset_n) begin
+            ack_wait_dbg <= 8'd0;
+        end else if ((bus_state == BUS_WAIT_READ || bus_state == BUS_WAIT_WRITE) && !bus_ack) begin
+            if (ack_wait_dbg != 8'hFF) ack_wait_dbg <= ack_wait_dbg + 8'd1;
+        end else begin
+            ack_wait_dbg <= 8'd0;
+        end
+    end
 
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin

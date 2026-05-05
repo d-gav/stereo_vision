@@ -406,13 +406,48 @@ localparam [1:0] PHASE_FILL      = 2'd0;
 localparam [1:0] PHASE_COMPUTE   = 2'd1;
 reg [1:0] top_phase;
 
-wire [15:0] hex3_hex0;
-assign HEX4 = 7'b1111111;
-assign HEX5 = 7'b1111111;
-HexDigit Digit0(HEX0, hex3_hex0[3:0]);
-HexDigit Digit1(HEX1, hex3_hex0[7:4]);
-HexDigit Digit2(HEX2, hex3_hex0[11:8]);
-HexDigit Digit3(HEX3, hex3_hex0[15:12]);
+// =====================================================================
+// Debug HEX display layout (left = HEX5, right = HEX0):
+//
+//   HEX5  HEX4   HEX3   HEX2   HEX1     HEX0
+//   [Ph]  [LSt]  [BSt]  [Sts]  [AckHi]  [AckLo]
+//
+//   HEX5 [Ph]    : top_phase. 0 = PHASE_FILL, 1 = PHASE_COMPUTE.
+//                  If this never moves off 1, PHASE_COMPUTE / SAD is hung.
+//                  If it never moves off 0 with stereo on, fill_pipe is hung.
+//   HEX4 [LSt]   : legacy FSM `state` (4 bits).
+//                    0 = idle (between pixels in legacy or waiting for disp)
+//                    1 = waiting for camera-read ack (legacy fill)
+//                    8 = issuing BRAM+VGA write (legacy fill)
+//                    9 = waiting for VGA-write ack (legacy fill)
+//                   10 = bus_read setup
+//                   11 = waiting for radial mapper done
+//                   13 = waiting for disparity-VGA-write ack (PHASE_COMPUTE)
+//                   14 = mbi_disp_ack pulse cycle (PHASE_COMPUTE)
+//   HEX3 [BSt]   : fill_pipe bus FSM state (3 bits).
+//                    0 = BUS_IDLE
+//                    1 = BUS_WAIT_READ   (waiting for cam ack)
+//                    2 = BUS_TRANSITION  (one idle cycle between r/w)
+//                    3 = BUS_WAIT_WRITE  (waiting for VGA ack)
+//                    4 = BUS_DONE        (one-cycle done pulse)
+//   HEX2 [Sts]   : status nibble {stereo_active, bus_grant, mux_bus_read, mux_bus_write}
+//                  bit3 = stereo_active (latched mode)
+//                  bit2 = bus_grant     (timer throttle: high 1/4 cycles)
+//                  bit1 = mux_bus_read  (any read currently asserted on EBAB)
+//                  bit0 = mux_bus_write (any write currently asserted on EBAB)
+//   HEX1 [AckHi] : high nibble of fill_pipe ack_wait counter (cycles since
+//                  last bus_ack; saturates at 0xFF).
+//   HEX0 [AckLo] : low nibble of same counter.
+//                  Reads 00 = healthy. Pinned to FF = bus is hung waiting
+//                  for an ack the EBAB never delivered.
+// =====================================================================
+wire [23:0] hex_word;
+HexDigit Digit0(HEX0, hex_word[3:0]);
+HexDigit Digit1(HEX1, hex_word[7:4]);
+HexDigit Digit2(HEX2, hex_word[11:8]);
+HexDigit Digit3(HEX3, hex_word[15:12]);
+HexDigit Digit4(HEX4, hex_word[19:16]);
+HexDigit Digit5(HEX5, hex_word[23:20]);
 
 assign TD_RESET_N = SW[1];
 assign GPIO_0[0] = TD_HS;
@@ -584,8 +619,18 @@ wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;
 wire [31:0] disp_stream_vga_addr = vga_out_base_address +
 	{22'b0, mbi_disp_x} + ({22'b0, disp_vga_y} << 10);
 
-// Debug: show top_phase on HEX
-assign hex3_hex0 = {6'b0, top_phase, 8'b0};
+// Debug HEX assembly. Field layout documented above the HexDigit instances.
+// Verilog continuous-assigns can forward-reference wires, so the signals
+// declared further down (mux_bus_*, stereo_active, fp_*_dbg, bus_grant)
+// resolve fine at elaboration.
+assign hex_word = {
+    /* HEX5 */ 3'b000, top_phase[0],
+    /* HEX4 */ state,
+    /* HEX3 */ 1'b0, fp_bus_state_dbg,
+    /* HEX2 */ stereo_active, bus_grant, mux_bus_read, mux_bus_write,
+    /* HEX1 */ fp_ack_wait_dbg[7:4],
+    /* HEX0 */ fp_ack_wait_dbg[3:0]
+};
 
 // Radial mapper — feed original-frame coordinates (add Y_CROP_OFFSET to dst_y)
 wire [9:0] mapper_dst_y = video_in_y_cood + Y_CROP_OFFSET;
@@ -635,6 +680,8 @@ wire [STRIPE_W-1:0]           fp_bram_wr_stripe;
 wire [ROW_IN_STRIPE_W-1:0]    fp_bram_wr_row_in_stripe;
 wire [BRAM_COL_W-1:0]         fp_bram_wr_col;
 wire [7:0]                    fp_bram_wr_data;
+wire [2:0]                    fp_bus_state_dbg;
+wire [7:0]                    fp_ack_wait_dbg;
 
 // stereo_active is the LATCHED version of stereo_enabled. The bus mux
 // (pipe_active below) keys off this, NOT stereo_enabled directly: SW[4]
@@ -723,7 +770,9 @@ fill_pipe_controller #(
     .bram_wr_col           (fp_bram_wr_col),
     .bram_wr_data          (fp_bram_wr_data),
 
-    .done                  (fp_done)
+    .done                  (fp_done),
+    .bus_state_dbg         (fp_bus_state_dbg),
+    .ack_wait_dbg          (fp_ack_wait_dbg)
 );
 
 //=======================================================

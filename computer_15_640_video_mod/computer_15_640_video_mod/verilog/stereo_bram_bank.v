@@ -9,10 +9,10 @@
 // (rd_col, rd_row_in_stripe) pair returns NUM_STRIPES bytes in parallel —
 // one byte from each stripe at the same column / row-within-stripe.
 //
-// This lets column_prefetch fetch a full column in STRIPE_HEIGHT cycles
-// (one read per row-within-stripe, served by all stripes simultaneously)
-// instead of FRAME_HEIGHT cycles. With STRIPE_HEIGHT=8 and FRAME_HEIGHT=200
-// that's a 25× reduction in column-fetch latency.
+// Read data is exposed as a packed bus rd_data_flat = {stripe[N-1], ...,
+// stripe[1], stripe[0]}, each DATA_W bits wide. Consumers slice it. Using a
+// packed bus instead of an unpacked array port avoids Quartus quirks with
+// multi-driver unpacked array outputs (one driver per generate iteration).
 //
 // Write side stays single-byte-per-cycle. Writers split the (dy, col)
 // destination into (stripe, row_in_stripe, col) and only the addressed
@@ -20,61 +20,63 @@
 // =============================================================================
 
 module stereo_bram_bank #(
-    parameter int FRAME_HEIGHT     = 200,
-    parameter int FULL_ROW_WIDTH   = 640,
-    parameter int STRIPE_HEIGHT    = 8,
-    parameter int NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT,
-    parameter int DATA_W           = 8,
-    parameter int STRIPE_W         = (NUM_STRIPES   <= 1) ? 1 : $clog2(NUM_STRIPES),
-    parameter int ROW_IN_STRIPE_W  = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT),
-    parameter int COL_W            = $clog2(FULL_ROW_WIDTH)
+    parameter integer FRAME_HEIGHT     = 200,
+    parameter integer FULL_ROW_WIDTH   = 640,
+    parameter integer STRIPE_HEIGHT    = 8,
+    parameter integer NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT,
+    parameter integer DATA_W           = 8,
+    parameter integer STRIPE_W         = (NUM_STRIPES   <= 1) ? 1 : $clog2(NUM_STRIPES),
+    parameter integer ROW_IN_STRIPE_W  = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT),
+    parameter integer COL_W            = $clog2(FULL_ROW_WIDTH),
+    parameter integer STRIPE_ADDR_W    = $clog2(STRIPE_HEIGHT * FULL_ROW_WIDTH)
 )(
-    input  logic                       clk,
+    input  wire                                clk,
 
     // Write port: one pixel per cycle. Writers compute the destination's
     // (stripe, row_in_stripe, col) themselves so the BRAM doesn't need a
     // divider. Only the indexed stripe BRAM has its enable asserted.
-    input  logic                       wr_en,
-    input  logic [STRIPE_W-1:0]        wr_stripe,
-    input  logic [ROW_IN_STRIPE_W-1:0] wr_row_in_stripe,
-    input  logic [COL_W-1:0]           wr_col,
-    input  logic [DATA_W-1:0]          wr_data,
+    input  wire                                wr_en,
+    input  wire [STRIPE_W-1:0]                 wr_stripe,
+    input  wire [ROW_IN_STRIPE_W-1:0]          wr_row_in_stripe,
+    input  wire [COL_W-1:0]                    wr_col,
+    input  wire [DATA_W-1:0]                   wr_data,
 
-    // Parallel read port: rd_col and rd_row_in_stripe are shared across all
+    // Parallel read port: rd_col and rd_row_in_stripe shared across all
     // stripes; each stripe returns its byte at that (col, row_in_stripe).
+    // Returned as a packed bus: rd_data_flat[g*DATA_W +: DATA_W] is stripe g.
     // Registered output, 1-cycle BRAM read latency (M10K behavior).
-    input  logic [COL_W-1:0]           rd_col,
-    input  logic [ROW_IN_STRIPE_W-1:0] rd_row_in_stripe,
-    output logic [DATA_W-1:0]          rd_data [0:NUM_STRIPES-1]
+    input  wire [COL_W-1:0]                    rd_col,
+    input  wire [ROW_IN_STRIPE_W-1:0]          rd_row_in_stripe,
+    output wire [NUM_STRIPES*DATA_W-1:0]       rd_data_flat
 );
 
-    localparam int STRIPE_DEPTH  = STRIPE_HEIGHT * FULL_ROW_WIDTH;
-    localparam int STRIPE_ADDR_W = $clog2(STRIPE_DEPTH);
+    localparam integer STRIPE_DEPTH = STRIPE_HEIGHT * FULL_ROW_WIDTH;
 
     // Address within a stripe = row_in_stripe * FULL_ROW_WIDTH + col.
-    // Multiplications are by a fixed (compile-time) constant, so Quartus
-    // synthesizes them as a small shift+add tree, not a multiplier.
-    logic [STRIPE_ADDR_W-1:0] wr_addr_in_stripe;
-    logic [STRIPE_ADDR_W-1:0] rd_addr_in_stripe;
-    assign wr_addr_in_stripe = (STRIPE_ADDR_W'(wr_row_in_stripe) * FULL_ROW_WIDTH) +
-                               STRIPE_ADDR_W'(wr_col);
-    assign rd_addr_in_stripe = (STRIPE_ADDR_W'(rd_row_in_stripe) * FULL_ROW_WIDTH) +
-                               STRIPE_ADDR_W'(rd_col);
+    // Multiply is by a compile-time constant so Quartus emits a shift/add
+    // tree, not a true multiplier. Width-extension happens implicitly.
+    wire [STRIPE_ADDR_W-1:0] wr_addr_in_stripe;
+    wire [STRIPE_ADDR_W-1:0] rd_addr_in_stripe;
+    assign wr_addr_in_stripe = wr_row_in_stripe * FULL_ROW_WIDTH + wr_col;
+    assign rd_addr_in_stripe = rd_row_in_stripe * FULL_ROW_WIDTH + rd_col;
 
     genvar g;
     generate
-        for (g = 0; g < NUM_STRIPES; g++) begin : GEN_STRIPE
-            (* ramstyle = "M10K" *) logic [DATA_W-1:0] mem [0:STRIPE_DEPTH-1];
+        for (g = 0; g < NUM_STRIPES; g = g + 1) begin : GEN_STRIPE
+            (* ramstyle = "M10K" *) reg [DATA_W-1:0] mem [0:STRIPE_DEPTH-1];
+            reg [DATA_W-1:0] rd_q;
 
-            always_ff @(posedge clk) begin
-                if (wr_en && (wr_stripe == STRIPE_W'(g))) begin
+            always @(posedge clk) begin
+                if (wr_en && (wr_stripe == g)) begin
                     mem[wr_addr_in_stripe] <= wr_data;
                 end
             end
 
-            always_ff @(posedge clk) begin
-                rd_data[g] <= mem[rd_addr_in_stripe];
+            always @(posedge clk) begin
+                rd_q <= mem[rd_addr_in_stripe];
             end
+
+            assign rd_data_flat[g*DATA_W +: DATA_W] = rd_q;
         end
     endgenerate
 

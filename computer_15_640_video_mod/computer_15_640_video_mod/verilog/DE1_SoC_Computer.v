@@ -433,7 +433,7 @@ reg [7:0]                    bram_wr_data;
 
 wire [BRAM_COL_W-1:0]        bram_rd_col;
 wire [ROW_IN_STRIPE_W-1:0]   bram_rd_row_in_stripe;
-logic [7:0]                  bram_rd_data [0:NUM_STRIPES-1];
+wire [NUM_STRIPES*8-1:0]     bram_rd_data_flat;
 
 stereo_bram_bank #(
 	.FRAME_HEIGHT  (FRAME_HEIGHT),
@@ -450,7 +450,7 @@ stereo_bram_bank #(
 	.wr_data         (mux_bram_wr_data),
 	.rd_col          (bram_rd_col),
 	.rd_row_in_stripe(bram_rd_row_in_stripe),
-	.rd_data         (bram_rd_data)
+	.rd_data_flat    (bram_rd_data_flat)
 );
 
 //=======================================================
@@ -546,7 +546,7 @@ column_prefetch #(
 	.mem_rdata            (mbi_mem_rdata),
 	.bram_rd_col          (bram_rd_col),
 	.bram_rd_row_in_stripe(bram_rd_row_in_stripe),
-	.bram_rd_data         (bram_rd_data)
+	.bram_rd_data_flat    (bram_rd_data_flat)
 );
 
 mem_block_intf #(

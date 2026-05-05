@@ -663,6 +663,16 @@ end
 wire pipe_active = (top_phase == PHASE_FILL) && stereo_active;
 wire fp_go       = pipe_active && sw0_sync && !fp_done;
 
+// Bus-issue throttle, identical to the legacy PHASE_FILL gate. Without this
+// the EBAB / VGA pixel buffer falls behind: removing the timer historically
+// caused the VGA display to stop updating entirely. The pipelined mapper
+// inside fill_pipe still runs at 1 px/cycle into its FIFO; only new bus
+// transactions (camera read or VGA write) are issued at the throttled rate.
+// PHASE_COMPUTE's disparity-write start uses the same gate -- previously
+// it was implicitly throttled by SAD compute time, but bursts of 24 emits
+// per column went out back-to-back which can over-feed the bridge.
+wire bus_grant = ((timer & 32'd5) == 32'd0);
+
 // Muxed bus signals -- these are what actually go to the EBAB master.
 wire [31:0] mux_bus_addr        = pipe_active ? fp_bus_addr        : bus_addr;
 wire        mux_bus_read        = pipe_active ? fp_bus_read        : bus_read;
@@ -697,6 +707,7 @@ fill_pipe_controller #(
     // outputs are 0 in any cycle the legacy FSM owns the bus.
     .reset_n               (KEY[0] && stereo_active),
     .go                    (fp_go),
+    .bus_grant             (bus_grant),
 
     .bus_addr              (fp_bus_addr),
     .bus_read              (fp_bus_read),
@@ -852,8 +863,12 @@ always @(posedge CLOCK2_50) begin
 				state <= 4'd1;
 			end
 
-			// Handle streaming disparity output
-			if (mbi_disp_valid && state != 4'd13 && state != 4'd14) begin
+			// Handle streaming disparity output. Same bus_grant throttle as
+			// PHASE_FILL: a column's worth of emits arrives in a back-to-back
+			// burst from mem_block_intf, and the EBAB clock-bridge can't keep
+			// up at full rate. We let mem_block_intf wait by holding off the
+			// disp_ack chain (state stays at 1 until bus_grant goes high).
+			if (mbi_disp_valid && state != 4'd13 && state != 4'd14 && bus_grant) begin
 				// New disparity pixel ready — write to VGA
 				state <= 4'd13;
 				bus_write <= 1'b1;

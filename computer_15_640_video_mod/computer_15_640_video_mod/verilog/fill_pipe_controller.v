@@ -38,6 +38,14 @@ module fill_pipe_controller #(
     input  wire                       reset_n,
     input  wire                       go,            // hold high to run a frame fill
 
+    // 1-bit "ok to issue a new transaction this cycle" gate driven by the top
+    // level (typically (timer & 5) == 0). Past experiments showed that without
+    // this throttle the EBAB / VGA pixel buffer falls behind: the camera VGA
+    // half stops updating, and the BRAM picks up corrupted pixels that show
+    // up as stripes in the disparity output. The mapper still runs at 1
+    // px/cycle into the FIFO; only the bus consumer is throttled.
+    input  wire                       bus_grant,
+
     // Avalon master (shared via top-level mux). The controller drives one of
     // {camera-SRAM read, VGA write} per transaction.
     output reg  [31:0]                bus_addr,
@@ -356,7 +364,11 @@ module fill_pipe_controller #(
                 BUS_IDLE: begin
                     bus_read  <= 1'b0;
                     bus_write <= 1'b0;
-                    if (!fifo_empty) begin
+                    // bus_grant throttles new-transaction starts to match the
+                    // legacy FSM's (timer&5)==0 cadence. In-flight transactions
+                    // (BUS_WAIT_READ, BUS_WAIT_WRITE) are NOT gated -- they
+                    // must still observe their own ack to make progress.
+                    if (!fifo_empty && bus_grant) begin
                         fifo_pop_r     <= 1'b1;
                         inflight_dst_x <= head_dst_x;
                         inflight_dst_y <= head_dst_y;

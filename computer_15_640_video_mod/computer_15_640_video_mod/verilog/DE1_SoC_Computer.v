@@ -612,7 +612,7 @@ end
 wire sw0_sync = sw0_q2;
 wire sw3_sync = sw3_q2;
 
-// SW[4] = stereo enable
+// SW[4] = stereo enable (raw, asynchronously toggled by user).
 wire stereo_enabled = sw4_q2;
 
 //=======================================================
@@ -636,12 +636,31 @@ wire [ROW_IN_STRIPE_W-1:0]    fp_bram_wr_row_in_stripe;
 wire [BRAM_COL_W-1:0]         fp_bram_wr_col;
 wire [7:0]                    fp_bram_wr_data;
 
+// stereo_active is the LATCHED version of stereo_enabled. The bus mux
+// (pipe_active below) keys off this, NOT stereo_enabled directly: SW[4]
+// toggling combinationally tore the EBAB transactions in half (legacy
+// FSM mid-read, mux flips, fp_bus_read = 0 dropped read on the wire,
+// EBAB stranded an outstanding response, design wedged until reflash).
+//
+// Update only when both controllers are fully quiet on the shared bus and
+// BRAM. While the toggling side has an in-flight transaction, stereo_active
+// stays put -- the in-flight FSM drains naturally before ownership flips.
+reg stereo_active;
+wire stereo_safe = (state == 4'd0)
+                && !bus_read    && !bus_write    && !bram_wr_en
+                && !fp_bus_read && !fp_bus_write && !fp_bram_wr_en;
+
+always @(posedge CLOCK2_50 or negedge KEY[0]) begin
+    if (!KEY[0])         stereo_active <= 1'b0;
+    else if (stereo_safe) stereo_active <= stereo_enabled;
+end
+
 // pipe_active gates whose signals reach the EBAB / BRAM. While pipe_active is
 // true (PHASE_FILL with stereo on), the legacy bus_*/bram_wr_* registers are
 // kept off the wires. fp_go is purely combinational from this gate plus SW[0],
 // minus the one cycle that fp_done is asserted -- otherwise the controller
 // would race-restart between done and the phase transition.
-wire pipe_active = (top_phase == PHASE_FILL) && stereo_enabled;
+wire pipe_active = (top_phase == PHASE_FILL) && stereo_active;
 wire fp_go       = pipe_active && sw0_sync && !fp_done;
 
 // Muxed bus signals -- these are what actually go to the EBAB master.
@@ -672,7 +691,11 @@ fill_pipe_controller #(
     .MAPPER_LATENCY      (11)
 ) u_fill_pipe (
     .clk                   (CLOCK2_50),
-    .reset_n               (KEY[0]),
+    // Held in reset whenever stereo_active = 0 so the controller can't be
+    // partway through an FSM transition when the bus mux switches owners.
+    // Combined with stereo_active's safe-update gating this guarantees fp_*
+    // outputs are 0 in any cycle the legacy FSM owns the bus.
+    .reset_n               (KEY[0] && stereo_active),
     .go                    (fp_go),
 
     .bus_addr              (fp_bus_addr),
@@ -732,7 +755,11 @@ always @(posedge CLOCK2_50) begin
 		PHASE_FILL: begin
 			mbi_rst <= 1'b1;
 
-			if (stereo_enabled) begin
+			// Gate on stereo_active (latched), NOT stereo_enabled (raw).
+			// Otherwise SW[4] toggling mid-frame swings the if/else branch
+			// instantly and the legacy FSM gets frozen mid-transaction with
+			// bus_read still high, stranding the EBAB.
+			if (stereo_active) begin
 				// ---- Streaming pipelined fill via fill_pipe_controller ----
 				// fp_go is combinational from (top_phase, SW[0]); the phase
 				// machine itself sequences FILL -> COMPUTE -> FILL.

@@ -292,17 +292,33 @@ module fill_pipe_controller #(
 
     // ====================================================================
     // 6) Bus consumer FSM. Per pixel:
-    //    - in-bounds:  read camera -> (BRAM write + VGA write) -> idle    (3 cyc)
+    //    - in-bounds:  read camera -> idle -> (BRAM + VGA write) -> idle  (4 cyc)
     //    - out-of-bnd: (BRAM write 0 + VGA write 0) -> idle               (2 cyc)
+    //
+    // BUS_TRANSITION exists ONLY between an in-bounds read and its VGA
+    // write so the EBAB sees one fully-idle cycle (bus_read=bus_write=0)
+    // between the two transactions. Without it, dropping bus_read and
+    // raising bus_write on the same edge confused the clock-bridge to
+    // CLOCK_50: VGA writes were silently lost (camera display blank) and
+    // the back-to-back read pattern stalled often enough that the BRAM
+    // ended up filled with corrupt data (garbage disparity output). The
+    // legacy FSM had this idle cycle for free between state 1 and state 8;
+    // restoring it here is the price of pipelining.
     // ====================================================================
-    localparam [1:0] BUS_IDLE       = 2'd0;
-    localparam [1:0] BUS_WAIT_READ  = 2'd1;
-    localparam [1:0] BUS_WAIT_WRITE = 2'd2;
-    localparam [1:0] BUS_DONE       = 2'd3;
-    reg [1:0] bus_state;
+    localparam [2:0] BUS_IDLE        = 3'd0;
+    localparam [2:0] BUS_WAIT_READ   = 3'd1;
+    localparam [2:0] BUS_TRANSITION  = 3'd2;
+    localparam [2:0] BUS_WAIT_WRITE  = 3'd3;
+    localparam [2:0] BUS_DONE        = 3'd4;
+    reg [2:0] bus_state;
 
     reg [9:0] inflight_dst_x;
     reg [9:0] inflight_dst_y;
+
+    // Pixel captured from the camera read; held one cycle so the VGA write
+    // (issued in BUS_TRANSITION) can use it after bus_read_data is no longer
+    // guaranteed to be valid.
+    reg [7:0] captured_pixel;
 
     reg fifo_pop_r;
     assign fifo_pop = fifo_pop_r;
@@ -325,6 +341,7 @@ module fill_pipe_controller #(
             bram_wr_data          <= 8'd0;
             inflight_dst_x  <= 10'd0;
             inflight_dst_y  <= 10'd0;
+            captured_pixel  <= 8'd0;
             done            <= 1'b0;
             fifo_pop_r      <= 1'b0;
             frame_complete  <= 1'b0;
@@ -345,7 +362,7 @@ module fill_pipe_controller #(
                         inflight_dst_y <= head_dst_y;
                         if (head_inbnd) begin
                             // Issue a camera-SRAM read. BRAM + VGA writes
-                            // happen when ack returns.
+                            // happen when ack returns (via BUS_TRANSITION).
                             bus_addr        <= cam_byte_addr(head_src_x, head_src_y);
                             bus_read        <= 1'b1;
                             bus_byte_enable <= 4'b0001;
@@ -373,21 +390,33 @@ module fill_pipe_controller #(
 
                 BUS_WAIT_READ: begin
                     if (bus_ack) begin
-                        // Camera read complete. Drop read, register the BRAM
-                        // write, and start a VGA write with the same pixel.
+                        // Camera read complete. Drop read, latch the pixel,
+                        // and schedule the BRAM write for next cycle. The
+                        // VGA write is staged in BUS_TRANSITION so that the
+                        // intervening cycle has bus_read = bus_write = 0.
                         bus_read              <= 1'b0;
                         bram_wr_en            <= 1'b1;
                         bram_wr_stripe        <= bram_stripe_of(inflight_dst_y);
                         bram_wr_row_in_stripe <= bram_row_in_stripe_of(inflight_dst_y);
                         bram_wr_col           <= bram_col_of(inflight_dst_x);
                         bram_wr_data          <= bus_read_data[7:0];
-                        bus_addr       <= vga_byte_addr(inflight_dst_x,
-                                                        inflight_dst_y);
-                        bus_write      <= 1'b1;
-                        bus_write_data <= {24'd0, bus_read_data[7:0]};
-                        bus_byte_enable<= 4'b0001;
-                        bus_state      <= BUS_WAIT_WRITE;
+                        captured_pixel        <= bus_read_data[7:0];
+                        bus_state             <= BUS_TRANSITION;
                     end
+                end
+
+                BUS_TRANSITION: begin
+                    // Idle cycle on the EBAB (bus_read = bus_write = 0,
+                    // both held over from the previous cycle's defaults
+                    // and explicit drop). The BRAM write fires this cycle
+                    // from the registers latched in BUS_WAIT_READ. Now
+                    // stage the VGA write to go out next cycle.
+                    bus_addr        <= vga_byte_addr(inflight_dst_x,
+                                                     inflight_dst_y);
+                    bus_write       <= 1'b1;
+                    bus_write_data  <= {24'd0, captured_pixel};
+                    bus_byte_enable <= 4'b0001;
+                    bus_state       <= BUS_WAIT_WRITE;
                 end
 
                 BUS_WAIT_WRITE: begin

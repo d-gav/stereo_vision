@@ -7,8 +7,6 @@ module mem_block_intf #(
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
 	parameter int NUM_SAD_UNITS    = 32,
-	parameter int SGM_P1           = 8,   // small penalty for disparity +/-1 from previous pixel
-	parameter int SGM_P2           = 32,  // large penalty for disparity change > 1
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -16,6 +14,12 @@ module mem_block_intf #(
 	input logic rst,
 	input logic go,
 	input logic stall,
+
+	// Runtime-configurable SGM smoothness penalties (driven from HPS PIO).
+	// sgm_p1 is added when |disp - prev_disp| == 1; sgm_p2 when > 1.
+	// Width is 32 to match the PIO; only the low SAD_W+2 bits are used.
+	input logic [31:0] sgm_p1,
+	input logic [31:0] sgm_p2,
 
 	output logic mem_req,
 	output logic mem_bank, // 0 = left, 1 = right
@@ -217,9 +221,9 @@ module mem_block_intf #(
 				else if (abs_diff == 0)
 					penalty = '0;                          // same disparity: no penalty
 				else if (abs_diff == 1)
-					penalty = SGM_P1;                      // +/-1: small penalty
+					penalty = sgm_p1[SAD_W+1:0];           // +/-1: small penalty (from PIO)
 				else
-					penalty = SGM_P2;                      // >1: large penalty
+					penalty = sgm_p2[SAD_W+1:0];           // >1: large penalty (from PIO)
 			end
 
 			assign penalized_cost[g] = {2'b0, sad_value[g]} + penalty;

@@ -227,6 +227,38 @@
          type = "String";
       }
    }
+   element pio_max_disp
+   {
+      datum _sortIndex
+      {
+         value = "14";
+         type = "int";
+      }
+   }
+   element pio_max_disp.s1
+   {
+      datum baseAddress
+      {
+         value = "48";
+         type = "String";
+      }
+   }
+   element pio_min_disp
+   {
+      datum _sortIndex
+      {
+         value = "15";
+         type = "int";
+      }
+   }
+   element pio_min_disp.s1
+   {
+      datum baseAddress
+      {
+         value = "64";
+         type = "String";
+      }
+   }
    element pio_small_pen
    {
       datum _sortIndex
@@ -284,6 +316,16 @@
  <interface
    name="pio_big_pen_external_connection"
    internal="pio_big_pen.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="pio_max_disp_external_connection"
+   internal="pio_max_disp.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="pio_min_disp_external_connection"
+   internal="pio_min_disp.external_connection"
    type="conduit"
    dir="end" />
  <interface
@@ -1057,6 +1099,42 @@
   <parameter name="width" value="32" />
  </module>
  <module
+   name="pio_max_disp"
+   kind="altera_avalon_pio"
+   version="18.1"
+   enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="100000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module
+   name="pio_min_disp"
+   kind="altera_avalon_pio"
+   version="18.1"
+   enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="100000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module
    name="pio_small_pen"
    kind="altera_avalon_pio"
    version="18.1"
@@ -1177,6 +1255,24 @@
    kind="avalon"
    version="18.1"
    start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="pio_max_disp.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0030" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="pio_min_disp.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0040" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
    end="Pixel_DMA_Addr_Translation.slave">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x3020" />
@@ -1261,6 +1357,16 @@
    kind="clock"
    version="18.1"
    start="System_PLL.sys_clk"
+   end="pio_max_disp.clk" />
+ <connection
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
+   end="pio_min_disp.clk" />
+ <connection
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
    end="Onchip_SRAM.clk1" />
  <connection
    kind="clock"
@@ -1337,6 +1443,16 @@
    version="18.1"
    start="ARM_A9_HPS.h2f_reset"
    end="pio_big_pen.reset" />
+ <connection
+   kind="reset"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_reset"
+   end="pio_max_disp.reset" />
+ <connection
+   kind="reset"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_reset"
+   end="pio_min_disp.reset" />
  <connection
    kind="reset"
    version="18.1"

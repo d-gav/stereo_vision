@@ -4,15 +4,15 @@
 			"name" : "Top",
 			"pins" : [
 				{
+					"name" : "HEX2[0]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[3]",
+					"strict" : false
+				},
+				{
 					"name" : "FPGA_I2C_SCLK",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[4]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[5]",
 					"strict" : false
 				},
 				{
@@ -124,6 +124,14 @@
 					"strict" : false
 				},
 				{
+					"name" : "HEX2[4]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[5]",
+					"strict" : false
+				},
+				{
 					"name" : "DRAM_ADDR[0]",
 					"strict" : false
 				},
@@ -200,19 +208,19 @@
 					"strict" : false
 				},
 				{
-					"name" : "HEX2[0]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[3]",
-					"strict" : false
-				},
-				{
 					"name" : "TD_RESET_N",
 					"strict" : false
 				},
 				{
 					"name" : "FPGA_I2C_SDAT",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_0[2]",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_0[3]",
 					"strict" : false
 				},
 				{
@@ -245,14 +253,6 @@
 				},
 				{
 					"name" : "DRAM_DQ[7]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[2]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[3]",
 					"strict" : false
 				},
 				{

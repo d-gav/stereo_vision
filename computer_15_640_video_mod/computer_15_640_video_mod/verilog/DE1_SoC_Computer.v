@@ -495,6 +495,11 @@ wire [8:0]       mbi_disp_x;
 wire [DISP_W-1:0] mbi_disp_value;
 reg              mbi_disp_ack;
 
+// SGM penalty values driven by HPS via Avalon PIOs
+// (pio_small_pen at LW offset 0x10, pio_big_pen at LW offset 0x20)
+wire [31:0] pio_small_pen_value;
+wire [31:0] pio_big_pen_value;
+
 column_prefetch #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W),
@@ -514,6 +519,7 @@ mem_block_intf #(
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
+	.sgm_p1(pio_small_pen_value), .sgm_p2(pio_big_pen_value),
 	.mem_req(mbi_mem_req), .mem_bank(mbi_mem_bank), .mem_col(mbi_mem_col),
 	.mem_rdata(mbi_mem_rdata),
 	.disp_valid(mbi_disp_valid), .disp_out_y(mbi_disp_y),
@@ -745,7 +751,11 @@ Computer_System The_System (
 	
 	//PIO out
 	.pio_test_test_export(32'd5),
-	
+
+	// SGM penalty PIOs (HPS -> FPGA, 32-bit each)
+	.pio_small_pen_external_connection_export (pio_small_pen_value),
+	.pio_big_pen_external_connection_export   (pio_big_pen_value),
+
 	.ebab_video_in_external_interface_address     (bus_addr),     // 
 	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable
 	.ebab_video_in_external_interface_read        (bus_read),        //  .read

@@ -87,6 +87,8 @@ module Computer_System (
 		output wire [3:0]  memory_mem_dm,                                //                                  .mem_dm
 		input  wire        memory_oct_rzqin,                             //                                  .oct_rzqin
 		output wire [31:0] pio_big_pen_external_connection_export,       //   pio_big_pen_external_connection.export
+		output wire [31:0] pio_max_disp_external_connection_export,      //  pio_max_disp_external_connection.export
+		output wire [31:0] pio_min_disp_external_connection_export,      //  pio_min_disp_external_connection.export
 		output wire [31:0] pio_small_pen_external_connection_export,     // pio_small_pen_external_connection.export
 		input  wire [31:0] pio_test_test_export,                         //                     pio_test_test.export
 		output wire [12:0] sdram_addr,                                   //                             sdram.addr
@@ -120,7 +122,7 @@ module Computer_System (
 		output wire        video_in_overflow_flag                        //                                  .overflow_flag
 	);
 
-	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, AV_Config:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, SDRAM:clk, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, mm_interconnect_4:System_PLL_sys_clk_clk, pio_0:clk, pio_big_pen:clk, pio_small_pen:clk, rst_controller:clk, rst_controller_004:clk]
+	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, AV_Config:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, SDRAM:clk, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, mm_interconnect_4:System_PLL_sys_clk_clk, pio_0:clk, pio_big_pen:clk, pio_max_disp:clk, pio_min_disp:clk, pio_small_pen:clk, rst_controller:clk, rst_controller_004:clk]
 	wire    [7:0] ebab_video_in_avalon_master_readdata;                                         // mm_interconnect_0:EBAB_video_in_avalon_master_readdata -> EBAB_video_in:avalon_readdata
 	wire          ebab_video_in_avalon_master_waitrequest;                                      // mm_interconnect_0:EBAB_video_in_avalon_master_waitrequest -> EBAB_video_in:avalon_waitrequest
 	wire          ebab_video_in_avalon_master_byteenable;                                       // EBAB_video_in:avalon_byteenable -> mm_interconnect_0:EBAB_video_in_avalon_master_byteenable
@@ -260,6 +262,16 @@ module Computer_System (
 	wire    [1:0] mm_interconnect_1_pio_big_pen_s1_address;                                     // mm_interconnect_1:pio_big_pen_s1_address -> pio_big_pen:address
 	wire          mm_interconnect_1_pio_big_pen_s1_write;                                       // mm_interconnect_1:pio_big_pen_s1_write -> pio_big_pen:write_n
 	wire   [31:0] mm_interconnect_1_pio_big_pen_s1_writedata;                                   // mm_interconnect_1:pio_big_pen_s1_writedata -> pio_big_pen:writedata
+	wire          mm_interconnect_1_pio_max_disp_s1_chipselect;                                 // mm_interconnect_1:pio_max_disp_s1_chipselect -> pio_max_disp:chipselect
+	wire   [31:0] mm_interconnect_1_pio_max_disp_s1_readdata;                                   // pio_max_disp:readdata -> mm_interconnect_1:pio_max_disp_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_max_disp_s1_address;                                    // mm_interconnect_1:pio_max_disp_s1_address -> pio_max_disp:address
+	wire          mm_interconnect_1_pio_max_disp_s1_write;                                      // mm_interconnect_1:pio_max_disp_s1_write -> pio_max_disp:write_n
+	wire   [31:0] mm_interconnect_1_pio_max_disp_s1_writedata;                                  // mm_interconnect_1:pio_max_disp_s1_writedata -> pio_max_disp:writedata
+	wire          mm_interconnect_1_pio_min_disp_s1_chipselect;                                 // mm_interconnect_1:pio_min_disp_s1_chipselect -> pio_min_disp:chipselect
+	wire   [31:0] mm_interconnect_1_pio_min_disp_s1_readdata;                                   // pio_min_disp:readdata -> mm_interconnect_1:pio_min_disp_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_min_disp_s1_address;                                    // mm_interconnect_1:pio_min_disp_s1_address -> pio_min_disp:address
+	wire          mm_interconnect_1_pio_min_disp_s1_write;                                      // mm_interconnect_1:pio_min_disp_s1_write -> pio_min_disp:write_n
+	wire   [31:0] mm_interconnect_1_pio_min_disp_s1_writedata;                                  // mm_interconnect_1:pio_min_disp_s1_writedata -> pio_min_disp:writedata
 	wire   [31:0] mm_interconnect_1_pixel_dma_addr_translation_slave_readdata;                  // Pixel_DMA_Addr_Translation:slave_readdata -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_readdata
 	wire          mm_interconnect_1_pixel_dma_addr_translation_slave_waitrequest;               // Pixel_DMA_Addr_Translation:slave_waitrequest -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_waitrequest
 	wire    [1:0] mm_interconnect_1_pixel_dma_addr_translation_slave_address;                   // mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_address -> Pixel_DMA_Addr_Translation:slave_address
@@ -319,7 +331,7 @@ module Computer_System (
 	wire          rst_controller_001_reset_out_reset;                                           // rst_controller_001:reset_out -> [EBAB_video_in:reset, mm_interconnect_0:EBAB_video_in_reset_reset_bridge_in_reset_reset]
 	wire          rst_controller_002_reset_out_reset;                                           // rst_controller_002:reset_out -> VGA_Subsystem:sys_reset_reset_n
 	wire          rst_controller_003_reset_out_reset;                                           // rst_controller_003:reset_out -> Video_In_Subsystem:sys_reset_reset_n
-	wire          rst_controller_004_reset_out_reset;                                           // rst_controller_004:reset_out -> [mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_agent_clk_reset_reset_bridge_in_reset_reset, mm_interconnect_1:pio_0_reset_reset_bridge_in_reset_reset, pio_0:reset_n, pio_big_pen:reset_n, pio_small_pen:reset_n]
+	wire          rst_controller_004_reset_out_reset;                                           // rst_controller_004:reset_out -> [mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_agent_clk_reset_reset_bridge_in_reset_reset, mm_interconnect_1:pio_0_reset_reset_bridge_in_reset_reset, pio_0:reset_n, pio_big_pen:reset_n, pio_max_disp:reset_n, pio_min_disp:reset_n, pio_small_pen:reset_n]
 
 	Computer_System_ARM_A9_HPS #(
 		.F2S_Width (2),
@@ -728,6 +740,28 @@ module Computer_System (
 		.out_port   (pio_big_pen_external_connection_export)       // external_connection.export
 	);
 
+	Computer_System_pio_big_pen pio_max_disp (
+		.clk        (system_pll_sys_clk_clk),                       //                 clk.clk
+		.reset_n    (~rst_controller_004_reset_out_reset),          //               reset.reset_n
+		.address    (mm_interconnect_1_pio_max_disp_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_max_disp_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_max_disp_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_max_disp_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_max_disp_s1_readdata),   //                    .readdata
+		.out_port   (pio_max_disp_external_connection_export)       // external_connection.export
+	);
+
+	Computer_System_pio_big_pen pio_min_disp (
+		.clk        (system_pll_sys_clk_clk),                       //                 clk.clk
+		.reset_n    (~rst_controller_004_reset_out_reset),          //               reset.reset_n
+		.address    (mm_interconnect_1_pio_min_disp_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_min_disp_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_min_disp_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_min_disp_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_min_disp_s1_readdata),   //                    .readdata
+		.out_port   (pio_min_disp_external_connection_export)       // external_connection.export
+	);
+
 	Computer_System_pio_big_pen pio_small_pen (
 		.clk        (system_pll_sys_clk_clk),                        //                 clk.clk
 		.reset_n    (~rst_controller_004_reset_out_reset),           //               reset.reset_n
@@ -875,6 +909,16 @@ module Computer_System (
 		.pio_big_pen_s1_readdata                                    (mm_interconnect_1_pio_big_pen_s1_readdata),                                    //                                                .readdata
 		.pio_big_pen_s1_writedata                                   (mm_interconnect_1_pio_big_pen_s1_writedata),                                   //                                                .writedata
 		.pio_big_pen_s1_chipselect                                  (mm_interconnect_1_pio_big_pen_s1_chipselect),                                  //                                                .chipselect
+		.pio_max_disp_s1_address                                    (mm_interconnect_1_pio_max_disp_s1_address),                                    //                                 pio_max_disp_s1.address
+		.pio_max_disp_s1_write                                      (mm_interconnect_1_pio_max_disp_s1_write),                                      //                                                .write
+		.pio_max_disp_s1_readdata                                   (mm_interconnect_1_pio_max_disp_s1_readdata),                                   //                                                .readdata
+		.pio_max_disp_s1_writedata                                  (mm_interconnect_1_pio_max_disp_s1_writedata),                                  //                                                .writedata
+		.pio_max_disp_s1_chipselect                                 (mm_interconnect_1_pio_max_disp_s1_chipselect),                                 //                                                .chipselect
+		.pio_min_disp_s1_address                                    (mm_interconnect_1_pio_min_disp_s1_address),                                    //                                 pio_min_disp_s1.address
+		.pio_min_disp_s1_write                                      (mm_interconnect_1_pio_min_disp_s1_write),                                      //                                                .write
+		.pio_min_disp_s1_readdata                                   (mm_interconnect_1_pio_min_disp_s1_readdata),                                   //                                                .readdata
+		.pio_min_disp_s1_writedata                                  (mm_interconnect_1_pio_min_disp_s1_writedata),                                  //                                                .writedata
+		.pio_min_disp_s1_chipselect                                 (mm_interconnect_1_pio_min_disp_s1_chipselect),                                 //                                                .chipselect
 		.pio_small_pen_s1_address                                   (mm_interconnect_1_pio_small_pen_s1_address),                                   //                                pio_small_pen_s1.address
 		.pio_small_pen_s1_write                                     (mm_interconnect_1_pio_small_pen_s1_write),                                     //                                                .write
 		.pio_small_pen_s1_readdata                                  (mm_interconnect_1_pio_small_pen_s1_readdata),                                  //                                                .readdata

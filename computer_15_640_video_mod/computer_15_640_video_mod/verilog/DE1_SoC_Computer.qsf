@@ -974,6 +974,8 @@ set_global_assignment -name TIMING_ANALYZER_MULTICORNER_ANALYSIS ON
 set_global_assignment -name NUM_PARALLEL_PROCESSORS ALL
 set_global_assignment -name VERILOG_FILE hex_decoder.v
 set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15.v
+set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15_pipe.v
+set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15_pipe_compat.v
 set_global_assignment -name VERILOG_FILE stereo_bram_bank.v
 set_global_assignment -name SYSTEMVERILOG_FILE column_prefetch.v
 set_global_assignment -name SYSTEMVERILOG_FILE mem_block_intf_d.v

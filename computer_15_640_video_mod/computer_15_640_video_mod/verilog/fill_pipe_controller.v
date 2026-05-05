@@ -258,17 +258,21 @@ module fill_pipe_controller #(
     //                    HALF_FRAME_WIDTH + (dx - RIGHT_OUTPUT_X_START)  (right)
     // The packed-2D (left half / right half) layout is unchanged from the
     // legacy single-BRAM design; only the row/stripe split is new.
+    // STRIPE_HEIGHT is not constrained to be a power of 2 (the top level
+    // currently uses 3 to minimise M10K usage), so we MUST use real / and %.
+    // Quartus synthesizes divide/modulo by a constant into a small shift/add
+    // tree -- not an iterative divider -- so the area cost is negligible.
     function [STRIPE_W-1:0] bram_stripe_of;
         input [9:0] dy;
     begin
-        bram_stripe_of = dy[STRIPE_W+ROW_IN_STRIPE_W-1:ROW_IN_STRIPE_W];
+        bram_stripe_of = dy / STRIPE_HEIGHT;
     end
     endfunction
 
     function [ROW_IN_STRIPE_W-1:0] bram_row_in_stripe_of;
         input [9:0] dy;
     begin
-        bram_row_in_stripe_of = dy[ROW_IN_STRIPE_W-1:0];
+        bram_row_in_stripe_of = dy % STRIPE_HEIGHT;
     end
     endfunction
 

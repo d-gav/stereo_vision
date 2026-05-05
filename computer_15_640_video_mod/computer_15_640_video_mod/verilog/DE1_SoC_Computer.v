@@ -385,11 +385,20 @@ localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320
 // one byte from each stripe in parallel each cycle. Choose STRIPE_HEIGHT
 // equal to FRAME_HEIGHT/NUM_SAD_UNITS so the SAD engine's stripes line up
 // with the BRAM stripes.
+// STRIPE_HEIGHT chosen to minimise M10K usage. Each stripe has DEPTH =
+// STRIPE_HEIGHT * 640 entries, and Quartus provisions M10Ks by rounding the
+// address space up to the next power of 2. STRIPE_HEIGHT=3 -> DEPTH=1920 ->
+// 11-bit addr -> 2 M10Ks/stripe * 67 stripes = 134 M10Ks. STRIPE_HEIGHT=8
+// gave 8 M10Ks * 25 = 200 and overflowed the chip's M10K budget.
+//
+// Note: bram_stripe_of() / bram_row_in_stripe_of() in fill_pipe_controller.v
+// (and the equivalent legacy assignment in state==4'd8 below) MUST use real
+// `/` and `%`, NOT bit-slicing, since 3 is not a power of 2.
 localparam NUM_SAD_UNITS    = 24;
-localparam STRIPE_HEIGHT    = 6;  // FRAME_HEIGHT / NUM_SAD_UNITS = 200/24 = 8 (rounded)
-localparam NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT; // 25
-localparam STRIPE_W         = 5;  // $clog2(NUM_STRIPES) = $clog2(25) = 5
-localparam ROW_IN_STRIPE_W  = 3;  // $clog2(STRIPE_HEIGHT) = $clog2(8) = 3
+localparam STRIPE_HEIGHT    = 3;
+localparam NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT; // 67
+localparam STRIPE_W         = 7;  // $clog2(NUM_STRIPES) = $clog2(67) = 7
+localparam ROW_IN_STRIPE_W  = 2;  // $clog2(STRIPE_HEIGHT) = $clog2(3) = 2
 localparam BRAM_COL_W       = 10; // $clog2(FULL_ROW_WIDTH) = $clog2(640) = 10
 
 // Top-level phase
@@ -773,11 +782,13 @@ always @(posedge CLOCK2_50) begin
 				if (state==4'd8) begin
 					// Write to striped BRAM. Decompose dy into
 					// (stripe, row_in_stripe) and select the col_global
-					// (left at 0..319, right at 320..639).
+					// (left at 0..319, right at 320..639). Use real / and %
+					// since STRIPE_HEIGHT is not a power of 2 (=3); Quartus
+					// synthesizes divide-by-constant as a tiny shift/add net.
 					bram_wr_en            <= 1'b1;
 					bram_wr_data          <= current_pixel_color1;
-					bram_wr_stripe        <= old_video_in_y_cood[STRIPE_W+ROW_IN_STRIPE_W-1:ROW_IN_STRIPE_W];
-					bram_wr_row_in_stripe <= old_video_in_y_cood[ROW_IN_STRIPE_W-1:0];
+					bram_wr_stripe        <= old_video_in_y_cood / STRIPE_HEIGHT;
+					bram_wr_row_in_stripe <= old_video_in_y_cood % STRIPE_HEIGHT;
 					if (right_read_side) begin
 						bram_wr_col <= HALF_FRAME_WIDTH + right_cam_mem_x_cood;
 					end else begin

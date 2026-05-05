@@ -576,6 +576,10 @@
    type="VERILOG"
    library="mm_interconnect_0" />
  <file
+   path="simulation/submodules/Computer_System_pio_big_pen.v"
+   type="VERILOG"
+   library="pio_big_pen" />
+ <file
    path="simulation/submodules/Computer_System_pio_0.v"
    type="VERILOG"
    library="pio_0" />

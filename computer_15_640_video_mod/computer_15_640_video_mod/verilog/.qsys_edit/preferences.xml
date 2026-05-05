@@ -9,7 +9,7 @@
   </columns>
  </systemtable>
  <library
-   expandedCategories="Library/Basic Functions/On Chip Memory,Library/University Program/Memory,Library,Library/University Program,Library/Processors and Peripherals,Project,Library/Memory Interfaces and Controllers,Library/Basic Functions" />
+   expandedCategories="Library/Interface Protocols,Library,Library/Processors and Peripherals/Peripherals,Library/Interface Protocols/PCI Express/QSYS Example Designs,Library/Interface Protocols/PCI Express,Library/Processors and Peripherals" />
  <window width="2576" height="1408" x="-8" y="-8" />
  <generation greybox="0" simulation="VERILOG" />
 </preferences>

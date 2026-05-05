@@ -12,7 +12,7 @@
 # or its authorized distributors. Please refer to the applicable 
 # agreement for further details.
 
-# ACDS 18.1 625 win32 2026.05.04.11:48:49
+# ACDS 18.1 625 win32 2026.05.05.17:22:52
 
 # ----------------------------------------
 # vcsmx - auto-generated simulation script
@@ -107,7 +107,7 @@
 # within the Quartus project, and generate a unified
 # script which supports all the Altera IP within the design.
 # ----------------------------------------
-# ACDS 18.1 625 win32 2026.05.04.11:48:49
+# ACDS 18.1 625 win32 2026.05.05.17:22:52
 # ----------------------------------------
 # initialize variables
 TOP_LEVEL_NAME="Computer_System"
@@ -211,6 +211,7 @@ mkdir -p ./libraries/mm_interconnect_3/
 mkdir -p ./libraries/mm_interconnect_2/
 mkdir -p ./libraries/mm_interconnect_1/
 mkdir -p ./libraries/mm_interconnect_0/
+mkdir -p ./libraries/pio_big_pen/
 mkdir -p ./libraries/pio_0/
 mkdir -p ./libraries/Video_In_Subsystem/
 mkdir -p ./libraries/VGA_Subsystem/
@@ -396,6 +397,7 @@ if [ $SKIP_COM -eq 0 ]; then
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_2.v"                                                            -work mm_interconnect_2                             
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1.v"                                                            -work mm_interconnect_1                             
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0.v"                                                            -work mm_interconnect_0                             
+  vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_pio_big_pen.v"                                                                  -work pio_big_pen                                   
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_pio_0.v"                                                                        -work pio_0                                         
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_Video_In_Subsystem.v"                                                           -work Video_In_Subsystem                            
   vlogan +v2k $USER_DEFINED_VERILOG_COMPILE_OPTIONS $USER_DEFINED_COMPILE_OPTIONS           "$QSYS_SIMDIR/submodules/Computer_System_VGA_Subsystem.v"                                                                -work VGA_Subsystem                                 

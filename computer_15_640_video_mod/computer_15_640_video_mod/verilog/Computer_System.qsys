@@ -211,6 +211,38 @@
          type = "int";
       }
    }
+   element pio_big_pen
+   {
+      datum _sortIndex
+      {
+         value = "13";
+         type = "int";
+      }
+   }
+   element pio_big_pen.s1
+   {
+      datum baseAddress
+      {
+         value = "32";
+         type = "String";
+      }
+   }
+   element pio_small_pen
+   {
+      datum _sortIndex
+      {
+         value = "12";
+         type = "int";
+      }
+   }
+   element pio_small_pen.s1
+   {
+      datum baseAddress
+      {
+         value = "16";
+         type = "String";
+      }
+   }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
@@ -249,6 +281,16 @@
    dir="end" />
  <interface name="hps_io" internal="ARM_A9_HPS.hps_io" type="conduit" dir="end" />
  <interface name="memory" internal="ARM_A9_HPS.memory" type="conduit" dir="end" />
+ <interface
+   name="pio_big_pen_external_connection"
+   internal="pio_big_pen.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="pio_small_pen_external_connection"
+   internal="pio_small_pen.external_connection"
+   type="conduit"
+   dir="end" />
  <interface
    name="pio_test_test"
    internal="pio_0.external_connection"
@@ -855,7 +897,7 @@
    version="18.1"
    enabled="1">
   <parameter name="allowInSystemMemoryContentEditor" value="false" />
-  <parameter name="autoInitializationFileName">Computer_System_Onchip_SRAM</parameter>
+  <parameter name="autoInitializationFileName">$${FILENAME}_Onchip_SRAM</parameter>
   <parameter name="blockType" value="AUTO" />
   <parameter name="copyInitFile" value="false" />
   <parameter name="dataWidth" value="8" />
@@ -902,7 +944,7 @@
   <parameter name="casLatency" value="3" />
   <parameter name="clockRate" value="100000000" />
   <parameter name="columnWidth" value="10" />
-  <parameter name="componentName">Computer_System_SDRAM</parameter>
+  <parameter name="componentName" value="$${FILENAME}_SDRAM" />
   <parameter name="dataWidth" value="8" />
   <parameter name="generateSimulationModel" value="true" />
   <parameter name="initNOPDelay" value="0.0" />
@@ -943,10 +985,10 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="9" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="9" />
-  <parameter name="AUTO_UNIQUE_ID">Computer_System_VGA_Subsystem</parameter>
-  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="6" />
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_VGA_Subsystem</parameter>
+  <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_DOMAIN" value="5" />
   <parameter name="AUTO_VGA_PLL_REF_CLK_CLOCK_RATE" value="0" />
-  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="6" />
+  <parameter name="AUTO_VGA_PLL_REF_CLK_RESET_DOMAIN" value="5" />
  </module>
  <module
    name="Video_In_DMA_Addr_Translation"
@@ -967,7 +1009,7 @@
   <parameter name="AUTO_SYS_CLK_CLOCK_DOMAIN" value="9" />
   <parameter name="AUTO_SYS_CLK_CLOCK_RATE" value="100000000" />
   <parameter name="AUTO_SYS_CLK_RESET_DOMAIN" value="9" />
-  <parameter name="AUTO_UNIQUE_ID">Computer_System_Video_In_Subsystem</parameter>
+  <parameter name="AUTO_UNIQUE_ID">$${FILENAME}_Video_In_Subsystem</parameter>
   <parameter name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_MAP"><![CDATA[<address-map><slave name='Onchip_SRAM.s1' start='0x8000000' end='0x8032000' /></address-map>]]></parameter>
   <parameter
      name="AUTO_VIDEO_IN_DMA_MASTER_ADDRESS_WIDTH"
@@ -988,6 +1030,42 @@
   <parameter name="captureEdge" value="false" />
   <parameter name="clockRate" value="100000000" />
   <parameter name="direction" value="Input" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module
+   name="pio_big_pen"
+   kind="altera_avalon_pio"
+   version="18.1"
+   enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="100000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
+ <module
+   name="pio_small_pen"
+   kind="altera_avalon_pio"
+   version="18.1"
+   enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="100000000" />
+  <parameter name="direction" value="Output" />
   <parameter name="edgeType" value="RISING" />
   <parameter name="generateIRQ" value="false" />
   <parameter name="irqType" value="LEVEL" />
@@ -1081,6 +1159,24 @@
    kind="avalon"
    version="18.1"
    start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="pio_small_pen.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0010" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="pio_big_pen.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0020" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
    end="Pixel_DMA_Addr_Translation.slave">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x3020" />
@@ -1155,6 +1251,16 @@
    kind="clock"
    version="18.1"
    start="System_PLL.sys_clk"
+   end="pio_small_pen.clk" />
+ <connection
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
+   end="pio_big_pen.clk" />
+ <connection
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
    end="Onchip_SRAM.clk1" />
  <connection
    kind="clock"
@@ -1221,6 +1327,16 @@
    version="18.1"
    start="ARM_A9_HPS.h2f_reset"
    end="pio_0.reset" />
+ <connection
+   kind="reset"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_reset"
+   end="pio_small_pen.reset" />
+ <connection
+   kind="reset"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_reset"
+   end="pio_big_pen.reset" />
  <connection
    kind="reset"
    version="18.1"

@@ -66,6 +66,7 @@ set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join 
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_mm_interconnect_0_router_002.sv"]
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_mm_interconnect_0_router.sv"]
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/altera_merlin_master_agent.sv"]
+set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_pio_big_pen.v"]
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_pio_0.v"]
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_Video_In_Subsystem.v"]
 set_global_assignment -library "lib_Computer_System" -name MISC_FILE [file join $::quartus(sip_path) "submodules/Computer_System_Video_In_Subsystem_Video_In_RGB_Resampler.v"]

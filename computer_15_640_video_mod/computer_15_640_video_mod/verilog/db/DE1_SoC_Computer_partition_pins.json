@@ -8,6 +8,14 @@
 					"strict" : false
 				},
 				{
+					"name" : "HEX2[4]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[5]",
+					"strict" : false
+				},
+				{
 					"name" : "VGA_B[0]",
 					"strict" : false
 				},
@@ -192,10 +200,6 @@
 					"strict" : false
 				},
 				{
-					"name" : "TD_RESET_N",
-					"strict" : false
-				},
-				{
 					"name" : "HEX2[0]",
 					"strict" : false
 				},
@@ -204,23 +208,11 @@
 					"strict" : false
 				},
 				{
-					"name" : "HEX2[4]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[5]",
+					"name" : "TD_RESET_N",
 					"strict" : false
 				},
 				{
 					"name" : "FPGA_I2C_SDAT",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[2]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[3]",
 					"strict" : false
 				},
 				{
@@ -256,6 +248,14 @@
 					"strict" : false
 				},
 				{
+					"name" : "GPIO_0[2]",
+					"strict" : false
+				},
+				{
+					"name" : "GPIO_0[3]",
+					"strict" : false
+				},
+				{
 					"name" : "GPIO_0[0]",
 					"strict" : false
 				},
@@ -272,10 +272,6 @@
 					"strict" : false
 				},
 				{
-					"name" : "CLOCK_50",
-					"strict" : false
-				},
-				{
 					"name" : "CLOCK2_50",
 					"strict" : false
 				},
@@ -285,6 +281,14 @@
 				},
 				{
 					"name" : "KEY[0]",
+					"strict" : false
+				},
+				{
+					"name" : "CLOCK_50",
+					"strict" : false
+				},
+				{
+					"name" : "SW[0]",
 					"strict" : false
 				},
 				{
@@ -301,10 +305,6 @@
 				},
 				{
 					"name" : "TD_VS",
-					"strict" : false
-				},
-				{
-					"name" : "SW[0]",
 					"strict" : false
 				},
 				{

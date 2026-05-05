@@ -73,6 +73,7 @@ DEFINE mm_interconnect_3                              ./libraries/mm_interconnec
 DEFINE mm_interconnect_2                              ./libraries/mm_interconnect_2/                             
 DEFINE mm_interconnect_1                              ./libraries/mm_interconnect_1/                             
 DEFINE mm_interconnect_0                              ./libraries/mm_interconnect_0/                             
+DEFINE pio_big_pen                                    ./libraries/pio_big_pen/                                   
 DEFINE pio_0                                          ./libraries/pio_0/                                         
 DEFINE Video_In_Subsystem                             ./libraries/Video_In_Subsystem/                            
 DEFINE VGA_Subsystem                                  ./libraries/VGA_Subsystem/                                 

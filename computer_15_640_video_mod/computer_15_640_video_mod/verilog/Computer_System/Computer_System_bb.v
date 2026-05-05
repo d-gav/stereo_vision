@@ -111,7 +111,9 @@ module Computer_System (
 	video_in_TD_VS,
 	video_in_clk27_reset,
 	video_in_TD_RESET,
-	video_in_overflow_flag);	
+	video_in_overflow_flag,
+	pio_small_pen_external_connection_export,
+	pio_big_pen_external_connection_export);	
 
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
@@ -225,4 +227,6 @@ module Computer_System (
 	input		video_in_clk27_reset;
 	output		video_in_TD_RESET;
 	output		video_in_overflow_flag;
+	output	[31:0]	pio_small_pen_external_connection_export;
+	output	[31:0]	pio_big_pen_external_connection_export;
 endmodule

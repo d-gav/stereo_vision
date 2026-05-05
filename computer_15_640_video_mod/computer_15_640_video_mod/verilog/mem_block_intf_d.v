@@ -7,6 +7,8 @@ module mem_block_intf #(
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
 	parameter int NUM_SAD_UNITS    = 32,
+	parameter int SGM_P1           = 8,   // small penalty for disparity +/-1 from previous pixel
+	parameter int SGM_P2           = 32,  // large penalty for disparity change > 1
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -55,8 +57,15 @@ module mem_block_intf #(
 
 
 	logic [SAD_W-1:0] sad_value [0:NUM_SAD_UNITS-1];
-	logic [SAD_W-1:0] best_sad  [0:NUM_SAD_UNITS-1];
+	logic [SAD_W+1:0] best_sad  [0:NUM_SAD_UNITS-1];
 	logic [DISP_W-1:0] best_disp [0:NUM_SAD_UNITS-1];
+
+	// SGM-inspired smoothness: previous pixel's winning disparity per unit
+	logic [DISP_W-1:0] prev_best_disp [0:NUM_SAD_UNITS-1];
+	logic              prev_best_valid; // false for the first x in each scanline
+
+	// Penalized cost (combinational, computed from sad_value + penalty)
+	logic [SAD_W+1:0] penalized_cost [0:NUM_SAD_UNITS-1]; // 2 extra bits to avoid overflow after adding P2
 
 
 	logic slide_reference;
@@ -189,6 +198,33 @@ module mem_block_intf #(
 	logic signed [DISP_W:0] reg_disp;
 
 	logic sad_compare_en; // delayed one cycle after slide_matching so SAD reflects the new window
+	logic [DISP_W-1:0] disp_compare_tag;
+
+	// Compute penalized cost for each SAD unit (combinational)
+	// disp_compare_tag holds the disparity tag of the SAD value being compared
+	generate
+		for (g = 0; g < NUM_SAD_UNITS; g++) begin : GEN_PENALTY
+			logic signed [DISP_W+1:0] disp_diff;
+			logic [DISP_W:0]          abs_diff;
+			logic [SAD_W+1:0]         penalty;
+
+			assign disp_diff = $signed({1'b0, disp_compare_tag}) - $signed({1'b0, prev_best_disp[g]});
+			assign abs_diff  = (disp_diff < 0) ? -disp_diff : disp_diff;
+
+			always_comb begin
+				if (!prev_best_valid)
+					penalty = '0;                          // first pixel in scanline: no penalty
+				else if (abs_diff == 0)
+					penalty = '0;                          // same disparity: no penalty
+				else if (abs_diff == 1)
+					penalty = SGM_P1;                      // +/-1: small penalty
+				else
+					penalty = SGM_P2;                      // >1: large penalty
+			end
+
+			assign penalized_cost[g] = {2'b0, sad_value[g]} + penalty;
+		end
+	endgenerate
 
 
 	//counters to figure out state transitions
@@ -229,6 +265,10 @@ module mem_block_intf #(
 			reg_phase <= '0;
 			reg_col_x <= '0;
 			reg_disp  <= '0;
+			disp_compare_tag <= '0;
+			prev_best_valid <= 1'b0;
+			for (int i = 0; i < NUM_SAD_UNITS; i++)
+				prev_best_disp[i] <= '0;
 			was_started <= 1'b0;
 			emit_active <= 1'b0;
 			emit_unit <= '0;
@@ -303,9 +343,14 @@ module mem_block_intf #(
 			// Reset best SAD/disparity when starting a new disparity sweep (new x or y)
 			if (next_state == INCR_DISP && curr_state != INCR_DISP) begin
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-					best_sad[i] <= {SAD_W{1'b1}};
+					best_sad[i] <= {(SAD_W+2){1'b1}};
 					best_disp[i] <= '0;
 				end
+			end
+
+			// Reset prev_best_valid at the start of a new scanline
+			if (curr_state == INCR_PHASE && next_state == INCR_DISP) begin
+				prev_best_valid <= 1'b0;
 			end
 
 			// Emit last column's disparity when transitioning from INCR_X to INCR_PHASE
@@ -316,7 +361,9 @@ module mem_block_intf #(
 				emit_col_x_lat <= reg_col_x;
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
 					emit_disp_lat[i] <= best_disp[i];
+					prev_best_disp[i] <= best_disp[i]; // latch for SGM penalty
 				end
+				prev_best_valid <= 1'b1;
 			end
 
 			// issue new request
@@ -366,14 +413,16 @@ module mem_block_intf #(
 								right_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
 							end
 						end
+						disp_compare_tag <= disp_result[DISP_W-1:0];
 						slide_matching <= 1'b1; 
 					end
 
 					// update best SAD and disparity one cycle after slide so window is current
+					// Uses penalized cost (SAD + SGM smoothness penalty) instead of raw SAD
 					if (sad_compare_en) begin
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							if (sad_value[g] < best_sad[g]) begin
-								best_sad[g] <= sad_value[g];
+							if (penalized_cost[g] < best_sad[g]) begin
+								best_sad[g] <= penalized_cost[g];
 								best_disp[g] <= disp_result;
 							end
 						end
@@ -426,7 +475,9 @@ module mem_block_intf #(
 						emit_col_x_lat <= col_x_result;
 						for (int i = 0; i < NUM_SAD_UNITS; i++) begin
 							emit_disp_lat[i] <= best_disp[i];
+							prev_best_disp[i] <= best_disp[i]; // latch for SGM penalty
 						end
+						prev_best_valid <= 1'b1;
 
 					end else if (valid_rd_result && !to_ref_block_result) begin
 						// write the new column to each compute unit's right block buffer

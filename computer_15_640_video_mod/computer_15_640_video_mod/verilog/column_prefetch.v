@@ -1,20 +1,16 @@
 // =============================================================================
-// column_prefetch (parallel-stripe version)
+// column_prefetch  (split L/R, 3 rows per bank)
 //
-// Adapter between mem_block_intf (which expects all FRAME_HEIGHT rows of one
-// column delivered in a single mem_rdata array once stall drops) and the
-// new striped stereo_bram_bank (NUM_STRIPES independent read ports, one
-// byte per stripe per cycle, all sharing the same (col, row_in_stripe)).
+// Sweeps rd_row_in_bank = 0, 1, 2. Each sweep returns NUM_BANKS bytes from
+// both left and right bank arrays. Selects the correct side based on
+// mbi_mem_bank, and scatters into mem_rdata[3*g + row_in_bank].
 //
-// Per request, we sweep row_in_stripe = 0..STRIPE_HEIGHT-1 (instead of the
-// old design's 0..FRAME_HEIGHT-1). Every cycle, all NUM_STRIPES bytes for
-// that row arrive in parallel and we scatter them into mem_rdata at indices
-// g * STRIPE_HEIGHT + row_in_stripe. Result: STRIPE_HEIGHT-cycle column
-// fetch instead of FRAME_HEIGHT-cycle. With STRIPE_HEIGHT=8 and
-// FRAME_HEIGHT=200 that's a ~20× reduction in mem_block_intf stall time.
-//
-// The mem_rdata interface to mem_block_intf is unchanged so no SAD-engine
-// code needs to be touched.
+// Timing (4 cycles total per column fetch):
+//   Cycle 0: mem_req self-stalls FSM. rd_col + rd_row_in_bank=0 presented.
+//   Cycle 1: BRAM row0 data valid. Latch rows 0,3,6,...  Switch to rib=1.
+//   Cycle 2: BRAM row1 data valid. Latch rows 1,4,7,...  Switch to rib=2.
+//   Cycle 3: BRAM row2 data valid. Latch rows 2,5,8,...  Stall drops.
+//   Cycle 4: Pipeline advances, reads mem_rdata.
 // =============================================================================
 
 module column_prefetch #(
@@ -71,8 +67,8 @@ module column_prefetch #(
             bram_rd_col           <= 0;
             bram_rd_row_in_stripe <= 0;
         end else begin
-            case (pf_state)
-                PF_IDLE: begin
+            case (cnt)
+                2'd0: begin
                     if (mbi_mem_req) begin
                         pf_state <= PF_FETCH;
                         row_cnt  <= 0;
@@ -116,13 +112,9 @@ module column_prefetch #(
                         end
                         row_cnt <= row_cnt + 1;
                     end
+                    cnt <= 2'd0;
                 end
-
-                PF_DONE: begin
-                    pf_state <= PF_IDLE;
-                end
-
-                default: pf_state <= PF_IDLE;
+                default: cnt <= 2'd0;
             endcase
         end
     end

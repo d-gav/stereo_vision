@@ -27,10 +27,7 @@ module fill_pipe_controller #(
     parameter integer LEFT_LUT_WIDTH        = 315,
     parameter integer INTER_CAMERA_GAP      = 4,
     parameter integer RIGHT_OUTPUT_X_START  = LEFT_LUT_WIDTH + INTER_CAMERA_GAP,
-    parameter integer STRIPE_HEIGHT         = 8,
-    parameter integer NUM_STRIPES           = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT,
-    parameter integer STRIPE_W              = (NUM_STRIPES   <= 1) ? 1 : $clog2(NUM_STRIPES),
-    parameter integer ROW_IN_STRIPE_W       = (STRIPE_HEIGHT <= 1) ? 1 : $clog2(STRIPE_HEIGHT),
+    parameter integer ROW_W                 = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
     parameter integer COL_W                 = $clog2(FULL_ROW_WIDTH),
     parameter integer MAPPER_LATENCY        = 11
 ) (
@@ -48,13 +45,11 @@ module fill_pipe_controller #(
     input  wire [31:0]                bus_read_data,
     input  wire                       bus_ack,
 
-    // Striped BRAM write port. Writers split the destination's (dy, col)
-    // into (stripe, row_in_stripe, col) so the BRAM doesn't need a divider.
-    output reg                            bram_wr_en,
-    output reg  [STRIPE_W-1:0]            bram_wr_stripe,
-    output reg  [ROW_IN_STRIPE_W-1:0]     bram_wr_row_in_stripe,
-    output reg  [COL_W-1:0]               bram_wr_col,
-    output reg  [7:0]                     bram_wr_data,
+    // Per-row BRAM write port. Addressed by (row, col).
+    output reg                        bram_wr_en,
+    output reg  [ROW_W-1:0]           bram_wr_row,
+    output reg  [COL_W-1:0]           bram_wr_col,
+    output reg  [7:0]                 bram_wr_data,
 
     output reg                        done
 );
@@ -250,28 +245,8 @@ module fill_pipe_controller #(
     end
     endfunction
 
-    // Split-address helpers for the striped BRAM. The destination's (dx, dy)
-    // map to (stripe, row_in_stripe, col_global), where:
-    //   stripe         = dy / STRIPE_HEIGHT
-    //   row_in_stripe  = dy % STRIPE_HEIGHT
-    //   col_global     = dx          (left side)  or
-    //                    HALF_FRAME_WIDTH + (dx - RIGHT_OUTPUT_X_START)  (right)
-    // The packed-2D (left half / right half) layout is unchanged from the
-    // legacy single-BRAM design; only the row/stripe split is new.
-    function [STRIPE_W-1:0] bram_stripe_of;
-        input [9:0] dy;
-    begin
-        bram_stripe_of = dy[STRIPE_W+ROW_IN_STRIPE_W-1:ROW_IN_STRIPE_W];
-    end
-    endfunction
-
-    function [ROW_IN_STRIPE_W-1:0] bram_row_in_stripe_of;
-        input [9:0] dy;
-    begin
-        bram_row_in_stripe_of = dy[ROW_IN_STRIPE_W-1:0];
-    end
-    endfunction
-
+    // BRAM column helper. Left side pixels go to cols 0..HALF-1,
+    // right side to HALF..FULL-1.
     function [COL_W-1:0] bram_col_of;
         input [9:0] dx;
         reg right_side;
@@ -314,11 +289,10 @@ module fill_pipe_controller #(
             bus_write       <= 1'b0;
             bus_byte_enable <= 4'b0001;
             bus_write_data  <= 32'd0;
-            bram_wr_en            <= 1'b0;
-            bram_wr_stripe        <= {STRIPE_W{1'b0}};
-            bram_wr_row_in_stripe <= {ROW_IN_STRIPE_W{1'b0}};
-            bram_wr_col           <= {COL_W{1'b0}};
-            bram_wr_data          <= 8'd0;
+            bram_wr_en      <= 1'b0;
+            bram_wr_row     <= {ROW_W{1'b0}};
+            bram_wr_col     <= {COL_W{1'b0}};
+            bram_wr_data    <= 8'd0;
             inflight_dst_x  <= 10'd0;
             inflight_dst_y  <= 10'd0;
             done            <= 1'b0;
@@ -350,11 +324,10 @@ module fill_pipe_controller #(
                             // Out-of-bounds destination: write 0 to BRAM,
                             // and write 0 to VGA (so the camera display goes
                             // black in the gap region, matching legacy).
-                            bram_wr_en            <= 1'b1;
-                            bram_wr_stripe        <= bram_stripe_of(head_dst_y);
-                            bram_wr_row_in_stripe <= bram_row_in_stripe_of(head_dst_y);
-                            bram_wr_col           <= bram_col_of(head_dst_x);
-                            bram_wr_data          <= 8'h00;
+                            bram_wr_en      <= 1'b1;
+                            bram_wr_row     <= head_dst_y[ROW_W-1:0];
+                            bram_wr_col     <= bram_col_of(head_dst_x);
+                            bram_wr_data    <= 8'h00;
                             bus_addr        <= vga_byte_addr(head_dst_x, head_dst_y);
                             bus_write       <= 1'b1;
                             bus_write_data  <= 32'd0;
@@ -371,18 +344,17 @@ module fill_pipe_controller #(
                     if (bus_ack) begin
                         // Camera read complete. Drop read, register the BRAM
                         // write, and start a VGA write with the same pixel.
-                        bus_read              <= 1'b0;
-                        bram_wr_en            <= 1'b1;
-                        bram_wr_stripe        <= bram_stripe_of(inflight_dst_y);
-                        bram_wr_row_in_stripe <= bram_row_in_stripe_of(inflight_dst_y);
-                        bram_wr_col           <= bram_col_of(inflight_dst_x);
-                        bram_wr_data          <= bus_read_data[7:0];
-                        bus_addr       <= vga_byte_addr(inflight_dst_x,
+                        bus_read        <= 1'b0;
+                        bram_wr_en      <= 1'b1;
+                        bram_wr_row     <= inflight_dst_y[ROW_W-1:0];
+                        bram_wr_col     <= bram_col_of(inflight_dst_x);
+                        bram_wr_data    <= bus_read_data[7:0];
+                        bus_addr        <= vga_byte_addr(inflight_dst_x,
                                                         inflight_dst_y);
-                        bus_write      <= 1'b1;
-                        bus_write_data <= {24'd0, bus_read_data[7:0]};
-                        bus_byte_enable<= 4'b0001;
-                        bus_state      <= BUS_WAIT_WRITE;
+                        bus_write       <= 1'b1;
+                        bus_write_data  <= {24'd0, bus_read_data[7:0]};
+                        bus_byte_enable <= 4'b0001;
+                        bus_state       <= BUS_WAIT_WRITE;
                     end
                 end
 

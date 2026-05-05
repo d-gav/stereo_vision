@@ -380,17 +380,13 @@ localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320..639)
 
-// Striped BRAM layout. The single monolithic BRAM has been replaced by
-// NUM_STRIPES independent M10K-backed sub-banks so column_prefetch can read
-// one byte from each stripe in parallel each cycle. Choose STRIPE_HEIGHT
-// equal to FRAME_HEIGHT/NUM_SAD_UNITS so the SAD engine's stripes line up
-// with the BRAM stripes.
-localparam NUM_SAD_UNITS    = 24;
-localparam STRIPE_HEIGHT    = 8;  // FRAME_HEIGHT / NUM_SAD_UNITS = 200/24 = 8 (rounded)
-localparam NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT; // 25
-localparam STRIPE_W         = 5;  // $clog2(NUM_STRIPES) = $clog2(25) = 5
-localparam ROW_IN_STRIPE_W  = 3;  // $clog2(STRIPE_HEIGHT) = $clog2(8) = 3
-localparam BRAM_COL_W       = 10; // $clog2(FULL_ROW_WIDTH) = $clog2(640) = 10
+// Per-row BRAM layout. Each of FRAME_HEIGHT rows gets its own M10K block,
+// storing FULL_ROW_WIDTH columns (left at 0..319, right at 320..639).
+// All rows read the same column in parallel, yielding a complete column
+// in 1 cycle of M10K latency.
+localparam NUM_SAD_UNITS    = 25;  // 200/25 = 8 rows per unit, divides cleanly
+localparam BRAM_ROW_W       = 8;  // $clog2(200) = 8
+localparam BRAM_COL_W       = 10; // $clog2(640) = 10
 
 // Top-level phase
 localparam [1:0] PHASE_FILL      = 2'd0;
@@ -413,44 +409,35 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 //=======================================================
-// Striped BRAM for left+right camera images.
+// Per-row BRAM for left+right camera images.
 //
-// Logical row layout is unchanged: [left col 0..319][right col 0..319]
-// per row. But storage is split into NUM_STRIPES (25) independent M10Ks of
-// STRIPE_HEIGHT (8) rows each, so column_prefetch can fetch one byte per
-// stripe per cycle in parallel.
+// Each row gets its own M10K block, storing 640 columns:
+//   cols 0..319   = left camera
+//   cols 320..639 = right camera
 //
-// Writers split (dy, col) into (stripe, row_in_stripe, col):
-//   stripe        = dy / STRIPE_HEIGHT  = dy[7:3]
-//   row_in_stripe = dy % STRIPE_HEIGHT  = dy[2:0]
-//   col           = (right_side ? HALF_FRAME_WIDTH + local_x : dx)
+// All rows share the same read column address and return
+// their byte in parallel — a complete column in 1 cycle.
 //=======================================================
 reg                          bram_wr_en;
-reg [STRIPE_W-1:0]           bram_wr_stripe;
-reg [ROW_IN_STRIPE_W-1:0]    bram_wr_row_in_stripe;
+reg [BRAM_ROW_W-1:0]         bram_wr_row;
 reg [BRAM_COL_W-1:0]         bram_wr_col;
 reg [7:0]                    bram_wr_data;
 
 wire [BRAM_COL_W-1:0]        bram_rd_col;
-wire [ROW_IN_STRIPE_W-1:0]   bram_rd_row_in_stripe;
-logic [7:0]                  bram_rd_data [0:NUM_STRIPES-1];
+logic [7:0]                  bram_rd_data [0:FRAME_HEIGHT-1];
 
 stereo_bram_bank #(
 	.FRAME_HEIGHT  (FRAME_HEIGHT),
 	.FULL_ROW_WIDTH(FULL_ROW_WIDTH),
-	.STRIPE_HEIGHT (STRIPE_HEIGHT),
-	.NUM_STRIPES   (NUM_STRIPES),
 	.DATA_W        (8)
 ) stereo_bram (
-	.clk             (CLOCK2_50),
-	.wr_en           (mux_bram_wr_en),
-	.wr_stripe       (mux_bram_wr_stripe),
-	.wr_row_in_stripe(mux_bram_wr_row_in_stripe),
-	.wr_col          (mux_bram_wr_col),
-	.wr_data         (mux_bram_wr_data),
-	.rd_col          (bram_rd_col),
-	.rd_row_in_stripe(bram_rd_row_in_stripe),
-	.rd_data         (bram_rd_data)
+	.clk      (CLOCK2_50),
+	.wr_en    (mux_bram_wr_en),
+	.wr_row   (mux_bram_wr_row),
+	.wr_col   (mux_bram_wr_col),
+	.wr_data  (mux_bram_wr_data),
+	.rd_col   (bram_rd_col),
+	.rd_data  (bram_rd_data)
 );
 
 //=======================================================
@@ -531,22 +518,19 @@ column_prefetch #(
 	.FRAME_HEIGHT    (FRAME_HEIGHT),
 	.HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.FULL_ROW_WIDTH  (FULL_ROW_WIDTH),
-	.STRIPE_HEIGHT   (STRIPE_HEIGHT),
-	.NUM_STRIPES     (NUM_STRIPES),
 	.PIXEL_W         (PIXEL_W),
 	.ROW_W           (8),
 	.COL_W           (9)
 ) u_col_prefetch (
-	.clk                  (CLOCK2_50),
-	.rst                  (~KEY[0]),
-	.mbi_mem_req          (mbi_mem_req),
-	.mbi_mem_bank         (mbi_mem_bank),
-	.mbi_mem_col          (mbi_mem_col),
-	.stall                (mbi_stall),
-	.mem_rdata            (mbi_mem_rdata),
-	.bram_rd_col          (bram_rd_col),
-	.bram_rd_row_in_stripe(bram_rd_row_in_stripe),
-	.bram_rd_data         (bram_rd_data)
+	.clk           (CLOCK2_50),
+	.rst           (~KEY[0]),
+	.mbi_mem_req   (mbi_mem_req),
+	.mbi_mem_bank  (mbi_mem_bank),
+	.mbi_mem_col   (mbi_mem_col),
+	.stall         (mbi_stall),
+	.mem_rdata     (mbi_mem_rdata),
+	.bram_rd_col   (bram_rd_col),
+	.bram_rd_data  (bram_rd_data)
 );
 
 mem_block_intf #(
@@ -621,11 +605,10 @@ wire        fp_bus_read;
 wire        fp_bus_write;
 wire [3:0]  fp_bus_byte_enable;
 wire [31:0] fp_bus_write_data;
-wire                          fp_bram_wr_en;
-wire [STRIPE_W-1:0]           fp_bram_wr_stripe;
-wire [ROW_IN_STRIPE_W-1:0]    fp_bram_wr_row_in_stripe;
-wire [BRAM_COL_W-1:0]         fp_bram_wr_col;
-wire [7:0]                    fp_bram_wr_data;
+wire                    fp_bram_wr_en;
+wire [BRAM_ROW_W-1:0]   fp_bram_wr_row;
+wire [BRAM_COL_W-1:0]   fp_bram_wr_col;
+wire [7:0]              fp_bram_wr_data;
 
 // pipe_active gates whose signals reach the EBAB / BRAM. While pipe_active is
 // true (PHASE_FILL with stereo on), the legacy bus_*/bram_wr_* registers are
@@ -643,11 +626,10 @@ wire        mux_bus_write       = pipe_active ? fp_bus_write       : bus_write;
 wire [31:0] mux_bus_write_data  = pipe_active ? fp_bus_write_data  : bus_write_data;
 
 // Muxed BRAM write signals -- what actually goes to stereo_bram.
-wire                          mux_bram_wr_en             = pipe_active ? fp_bram_wr_en             : bram_wr_en;
-wire [STRIPE_W-1:0]           mux_bram_wr_stripe         = pipe_active ? fp_bram_wr_stripe         : bram_wr_stripe;
-wire [ROW_IN_STRIPE_W-1:0]    mux_bram_wr_row_in_stripe  = pipe_active ? fp_bram_wr_row_in_stripe  : bram_wr_row_in_stripe;
-wire [BRAM_COL_W-1:0]         mux_bram_wr_col            = pipe_active ? fp_bram_wr_col            : bram_wr_col;
-wire [7:0]                    mux_bram_wr_data           = pipe_active ? fp_bram_wr_data           : bram_wr_data;
+wire                    mux_bram_wr_en   = pipe_active ? fp_bram_wr_en   : bram_wr_en;
+wire [BRAM_ROW_W-1:0]   mux_bram_wr_row  = pipe_active ? fp_bram_wr_row  : bram_wr_row;
+wire [BRAM_COL_W-1:0]   mux_bram_wr_col  = pipe_active ? fp_bram_wr_col  : bram_wr_col;
+wire [7:0]              mux_bram_wr_data = pipe_active ? fp_bram_wr_data : bram_wr_data;
 
 fill_pipe_controller #(
     .FULL_FRAME_WIDTH    (FULL_FRAME_WIDTH),
@@ -658,8 +640,6 @@ fill_pipe_controller #(
     .LEFT_LUT_WIDTH      (LEFT_LUT_WIDTH),
     .INTER_CAMERA_GAP    (INTER_CAMERA_GAP),
     .RIGHT_OUTPUT_X_START(RIGHT_OUTPUT_X_START),
-    .STRIPE_HEIGHT       (STRIPE_HEIGHT),
-    .NUM_STRIPES         (NUM_STRIPES),
     .MAPPER_LATENCY      (11)
 ) u_fill_pipe (
     .clk                   (CLOCK2_50),
@@ -675,8 +655,7 @@ fill_pipe_controller #(
     .bus_ack               (bus_ack),
 
     .bram_wr_en            (fp_bram_wr_en),
-    .bram_wr_stripe        (fp_bram_wr_stripe),
-    .bram_wr_row_in_stripe (fp_bram_wr_row_in_stripe),
+    .bram_wr_row           (fp_bram_wr_row),
     .bram_wr_col           (fp_bram_wr_col),
     .bram_wr_data          (fp_bram_wr_data),
 
@@ -700,11 +679,10 @@ always @(posedge CLOCK2_50) begin
 		display_right_sel <= SW[2];
 		timer <= 0;
 		top_phase <= PHASE_FILL;
-		bram_wr_en            <= 0;
-		bram_wr_stripe        <= 0;
-		bram_wr_row_in_stripe <= 0;
-		bram_wr_col           <= 0;
-		bram_wr_data          <= 0;
+		bram_wr_en   <= 0;
+		bram_wr_row  <= 0;
+		bram_wr_col  <= 0;
+		bram_wr_data <= 0;
 		mbi_go <= 0; mbi_rst <= 1;
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
@@ -771,13 +749,11 @@ always @(posedge CLOCK2_50) begin
 				end
 
 				if (state==4'd8) begin
-					// Write to striped BRAM. Decompose dy into
-					// (stripe, row_in_stripe) and select the col_global
-					// (left at 0..319, right at 320..639).
-					bram_wr_en            <= 1'b1;
-					bram_wr_data          <= current_pixel_color1;
-					bram_wr_stripe        <= old_video_in_y_cood[STRIPE_W+ROW_IN_STRIPE_W-1:ROW_IN_STRIPE_W];
-					bram_wr_row_in_stripe <= old_video_in_y_cood[ROW_IN_STRIPE_W-1:0];
+					// Write to per-row BRAM. Address by (row, col_global)
+					// where left is at 0..319, right at 320..639.
+					bram_wr_en   <= 1'b1;
+					bram_wr_data <= current_pixel_color1;
+					bram_wr_row  <= old_video_in_y_cood[BRAM_ROW_W-1:0];
 					if (right_read_side) begin
 						bram_wr_col <= HALF_FRAME_WIDTH + right_cam_mem_x_cood;
 					end else begin

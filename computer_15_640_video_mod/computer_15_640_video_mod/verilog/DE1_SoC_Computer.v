@@ -545,8 +545,22 @@ stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 	.busy()
 );
 
+// SW inputs are asynchronous slider switches with mechanical bounce.
+// Two-FF synchronizers prevent metastability and glitching the bus mux
+// (pipe_active) mid-transaction when SW[4] is toggled at runtime.
+reg sw0_q1, sw0_q2;
+reg sw3_q1, sw3_q2;
+reg sw4_q1, sw4_q2;
+always @(posedge CLOCK2_50) begin
+	sw0_q1 <= SW[0]; sw0_q2 <= sw0_q1;
+	sw3_q1 <= SW[3]; sw3_q2 <= sw3_q1;
+	sw4_q1 <= SW[4]; sw4_q2 <= sw4_q1;
+end
+wire sw0_sync = sw0_q2;
+wire sw3_sync = sw3_q2;
+
 // SW[4] = stereo enable
-wire stereo_enabled = SW[4];
+wire stereo_enabled = sw4_q2;
 
 //=======================================================
 // Streaming FILL controller (pipelined mapper + bus + BRAM + VGA)
@@ -573,7 +587,7 @@ wire [7:0]  fp_bram_wr_data;
 // minus the one cycle that fp_done is asserted -- otherwise the controller
 // would race-restart between done and the phase transition.
 wire pipe_active = (top_phase == PHASE_FILL) && stereo_enabled;
-wire fp_go       = pipe_active && SW[0] && !fp_done;
+wire fp_go       = pipe_active && sw0_sync && !fp_done;
 
 // Muxed bus signals -- these are what actually go to the EBAB master.
 wire [31:0] mux_bus_addr        = pipe_active ? fp_bus_addr        : bus_addr;
@@ -668,9 +682,9 @@ always @(posedge CLOCK2_50) begin
 				end
 			end else begin
 				// ---- Legacy per-pixel debug path (raw video copy to VGA) ----
-				if (state==0 && SW[0] && (timer & 5) == 0) begin
+				if (state==0 && sw0_sync && (timer & 5) == 0) begin
 					state <= 4'd11;
-					map_enable_latched <= SW[3];
+					map_enable_latched <= sw3_sync;
 					read_video_start <= 1'b1;
 					old_video_in_x_cood <= video_in_x_cood;
 					old_video_in_y_cood <= video_in_y_cood;

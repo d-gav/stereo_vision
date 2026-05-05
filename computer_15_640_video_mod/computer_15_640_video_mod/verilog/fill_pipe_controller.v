@@ -173,6 +173,15 @@ module fill_pipe_controller #(
     wire fifo_push = aligned_was_valid;
     wire fifo_pop;
 
+    // mapper_valid_out only verifies sy is in [0, 288) (the original frame).
+    // The camera SRAM only holds the cropped FRAME_HEIGHT rows (44..243), so
+    // we must additionally require src_y in [Y_CROP_OFFSET, Y_CROP_OFFSET+
+    // FRAME_HEIGHT). Otherwise cam_byte_addr would underflow or land outside
+    // the mapped slave region, hanging the Avalon interconnect.
+    wire src_y_in_cropped = (mapper_src_y >= Y_CROP_OFFSET[9:0]) &&
+                            (mapper_src_y < (Y_CROP_OFFSET[9:0] + FRAME_HEIGHT[9:0]));
+    wire effective_in_bounds = mapper_valid_out && src_y_in_cropped;
+
     always @(posedge clk or negedge reset_n) begin
         if (!reset_n) begin
             fifo_wr_ptr <= 0;
@@ -182,7 +191,7 @@ module fill_pipe_controller #(
             if (fifo_push) begin
                 fifo_mem[fifo_wr_ptr] <= {aligned_dst_x, aligned_dst_y,
                                          mapper_src_x, mapper_src_y,
-                                         mapper_valid_out};
+                                         effective_in_bounds};
                 fifo_wr_ptr <= fifo_wr_ptr + 1'b1;
             end
             if (fifo_pop) begin
@@ -209,11 +218,18 @@ module fill_pipe_controller #(
     // ====================================================================
     // 5) Address translations
     // ====================================================================
+    // The camera DMA stores only the cropped FRAME_HEIGHT rows (rows
+    // Y_CROP_OFFSET..Y_CROP_OFFSET+FRAME_HEIGHT-1 of the original 288-row
+    // frame) at byte offset 0 with stride 1024. The mapper outputs sy in the
+    // ORIGINAL coordinate system, so subtract Y_CROP_OFFSET here. Callers
+    // must already have verified sy is in the valid range.
     function [31:0] cam_byte_addr;
         input [9:0] sx;
         input [9:0] sy;
+        reg [9:0] sy_cropped;
     begin
-        cam_byte_addr = VIDEO_IN_BASE + {22'b0, sx} + ({22'b0, sy} << 10);
+        sy_cropped    = sy - Y_CROP_OFFSET[9:0];
+        cam_byte_addr = VIDEO_IN_BASE + {22'b0, sx} + ({22'b0, sy_cropped} << 10);
     end
     endfunction
 

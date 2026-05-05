@@ -416,8 +416,8 @@ wire [7:0]              bram_rd_data;
 
 stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) stereo_bram (
 	.clk(CLOCK2_50),
-	.wr_en(bram_wr_en),
-	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
+	.wr_en(mux_bram_wr_en),
+	.wr_addr(mux_bram_wr_addr), .wr_data(mux_bram_wr_data),
 	.rd_addr(bram_rd_addr), .rd_data(bram_rd_data)
 );
 
@@ -510,7 +510,7 @@ column_prefetch #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(8)
+	.NUM_SAD_UNITS(24)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
@@ -547,6 +547,76 @@ stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 
 // SW[4] = stereo enable
 wire stereo_enabled = SW[4];
+
+//=======================================================
+// Streaming FILL controller (pipelined mapper + bus + BRAM + VGA)
+//
+// When stereo is enabled this replaces the legacy per-pixel PHASE_FILL FSM.
+// The controller drives the EBAB master (one camera read + one VGA write
+// per pixel) and the stereo BRAM. The legacy FSM is left in place for the
+// non-stereo debug-display mode; muxes below select which one drives each
+// shared signal at any given cycle.
+//=======================================================
+wire        fp_done;
+wire [31:0] fp_bus_addr;
+wire        fp_bus_read;
+wire        fp_bus_write;
+wire [3:0]  fp_bus_byte_enable;
+wire [31:0] fp_bus_write_data;
+wire        fp_bram_wr_en;
+wire [BRAM_ADDR_W-1:0] fp_bram_wr_addr;
+wire [7:0]  fp_bram_wr_data;
+
+// pipe_active gates whose signals reach the EBAB / BRAM. While pipe_active is
+// true (PHASE_FILL with stereo on), the legacy bus_*/bram_wr_* registers are
+// kept off the wires. fp_go is purely combinational from this gate plus SW[0],
+// minus the one cycle that fp_done is asserted -- otherwise the controller
+// would race-restart between done and the phase transition.
+wire pipe_active = (top_phase == PHASE_FILL) && stereo_enabled;
+wire fp_go       = pipe_active && SW[0] && !fp_done;
+
+// Muxed bus signals -- these are what actually go to the EBAB master.
+wire [31:0] mux_bus_addr        = pipe_active ? fp_bus_addr        : bus_addr;
+wire        mux_bus_read        = pipe_active ? fp_bus_read        : bus_read;
+wire [3:0]  mux_bus_byte_enable = pipe_active ? fp_bus_byte_enable : bus_byte_enable;
+wire        mux_bus_write       = pipe_active ? fp_bus_write       : bus_write;
+wire [31:0] mux_bus_write_data  = pipe_active ? fp_bus_write_data  : bus_write_data;
+
+// Muxed BRAM write signals -- what actually goes to stereo_bram.
+wire        mux_bram_wr_en   = pipe_active ? fp_bram_wr_en   : bram_wr_en;
+wire [BRAM_ADDR_W-1:0] mux_bram_wr_addr = pipe_active ? fp_bram_wr_addr : bram_wr_addr;
+wire [7:0]  mux_bram_wr_data = pipe_active ? fp_bram_wr_data : bram_wr_data;
+
+fill_pipe_controller #(
+    .FULL_FRAME_WIDTH    (FULL_FRAME_WIDTH),
+    .FRAME_HEIGHT        (FRAME_HEIGHT),
+    .FULL_ROW_WIDTH      (FULL_ROW_WIDTH),
+    .Y_CROP_OFFSET       (Y_CROP_OFFSET),
+    .HALF_FRAME_WIDTH    (HALF_FRAME_WIDTH),
+    .LEFT_LUT_WIDTH      (LEFT_LUT_WIDTH),
+    .INTER_CAMERA_GAP    (INTER_CAMERA_GAP),
+    .RIGHT_OUTPUT_X_START(RIGHT_OUTPUT_X_START),
+    .BRAM_ADDR_W         (BRAM_ADDR_W),
+    .MAPPER_LATENCY      (11)
+) u_fill_pipe (
+    .clk             (CLOCK2_50),
+    .reset_n         (KEY[0]),
+    .go              (fp_go),
+
+    .bus_addr        (fp_bus_addr),
+    .bus_read        (fp_bus_read),
+    .bus_write       (fp_bus_write),
+    .bus_byte_enable (fp_bus_byte_enable),
+    .bus_write_data  (fp_bus_write_data),
+    .bus_read_data   (bus_read_data),
+    .bus_ack         (bus_ack),
+
+    .bram_wr_en      (fp_bram_wr_en),
+    .bram_wr_addr    (fp_bram_wr_addr),
+    .bram_wr_data    (fp_bram_wr_data),
+
+    .done            (fp_done)
+);
 
 //=======================================================
 // Main FSM: FILL → COMPUTE → WRITEBACK → FILL ...
@@ -586,72 +656,81 @@ always @(posedge CLOCK2_50) begin
 		PHASE_FILL: begin
 			mbi_rst <= 1'b1;
 
-			if (state==0 && SW[0] && (timer & 5) == 0) begin
-				state <= 4'd11;
-				map_enable_latched <= SW[3];
-				read_video_start <= 1'b1;
-				old_video_in_x_cood <= video_in_x_cood;
-				old_video_in_y_cood <= video_in_y_cood;
-				video_in_x_cood <= video_in_x_cood + 10'd1;
-				if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
-					video_in_x_cood <= 0;
-					video_in_y_cood <= video_in_y_cood + 10'd1;
-					if (video_in_y_cood >= FRAME_HEIGHT - 1) begin
-						video_in_y_cood <= 10'd0;
-					end
-				end
-				bus_byte_enable <= 4'b0001;
-			end
-
-			if (state==4'd11 && read_video_done) begin
-				state <= 4'd10;
-				old_poly_valid <= read_video_valid;
-			end
-
-			if (state==4'd10) begin
-				state <= 4'd1;
-				bus_byte_enable <= 4'b0001;
-				bus_addr <= video_in_bus_addr;
-				bus_read <= 1'b1;
-			end
-
-			if (state==4'd1 && bus_ack) begin
-				state <= 4'd8;
-				bus_read <= 1'b0;
-				current_pixel_color1 <= old_poly_valid ? bus_read_data[7:0] : 8'h00;
-			end
-
-			if (state==4'd8) begin
-				// Write to combined BRAM
-				// Left: row*640 + col, Right: row*640 + 320 + col
-				bram_wr_en   <= 1'b1;
-				bram_wr_data <= current_pixel_color1;
-				if (right_read_side) begin
-					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + HALF_FRAME_WIDTH + right_cam_mem_x_cood;
-				end else begin
-					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + old_video_in_x_cood;
-				end
-				// Write to VGA
-				state <= 4'd9;
-				bus_write <= 1'b1;
-				bus_addr <= vga_bus_addr;
-				bus_write_data <= current_pixel_color1;
-				bus_byte_enable <= 4'b0001;
-			end
-
-			if (state==4'd9 && bus_ack) begin
-				bus_write <= 1'b0;
-				// Check if frame complete
-				if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1) &&
-				    old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
-					if (stereo_enabled) begin
-						top_phase <= PHASE_COMPUTE;
-					end
-					// else stay in PHASE_FILL, keep looping
-					state <= 4'd0;
+			if (stereo_enabled) begin
+				// ---- Streaming pipelined fill via fill_pipe_controller ----
+				// fp_go is combinational from (top_phase, SW[0]); the phase
+				// machine itself sequences FILL -> COMPUTE -> FILL.
+				if (fp_done) begin
+					// Frame is in BRAM and on VGA. Hop to PHASE_COMPUTE.
+					top_phase    <= PHASE_COMPUTE;
 					frame_filled <= 1'b1;
-				end else begin
-					state <= 4'd0;
+					state        <= 4'd0;
+				end
+			end else begin
+				// ---- Legacy per-pixel debug path (raw video copy to VGA) ----
+				if (state==0 && SW[0] && (timer & 5) == 0) begin
+					state <= 4'd11;
+					map_enable_latched <= SW[3];
+					read_video_start <= 1'b1;
+					old_video_in_x_cood <= video_in_x_cood;
+					old_video_in_y_cood <= video_in_y_cood;
+					video_in_x_cood <= video_in_x_cood + 10'd1;
+					if (video_in_x_cood >= FULL_FRAME_WIDTH - 1) begin
+						video_in_x_cood <= 0;
+						video_in_y_cood <= video_in_y_cood + 10'd1;
+						if (video_in_y_cood >= FRAME_HEIGHT - 1) begin
+							video_in_y_cood <= 10'd0;
+						end
+					end
+					bus_byte_enable <= 4'b0001;
+				end
+
+				if (state==4'd11 && read_video_done) begin
+					state <= 4'd10;
+					old_poly_valid <= read_video_valid;
+				end
+
+				if (state==4'd10) begin
+					state <= 4'd1;
+					bus_byte_enable <= 4'b0001;
+					bus_addr <= video_in_bus_addr;
+					bus_read <= 1'b1;
+				end
+
+				if (state==4'd1 && bus_ack) begin
+					state <= 4'd8;
+					bus_read <= 1'b0;
+					current_pixel_color1 <= old_poly_valid ? bus_read_data[7:0] : 8'h00;
+				end
+
+				if (state==4'd8) begin
+					// Write to combined BRAM
+					// Left: row*640 + col, Right: row*640 + 320 + col
+					bram_wr_en   <= 1'b1;
+					bram_wr_data <= current_pixel_color1;
+					if (right_read_side) begin
+						bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + HALF_FRAME_WIDTH + right_cam_mem_x_cood;
+					end else begin
+						bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + old_video_in_x_cood;
+					end
+					// Push the same pixel to the VGA so the user can see what the
+					// cameras see. State 9 waits for the VGA bus_ack.
+					state <= 4'd9;
+					bus_write <= 1'b1;
+					bus_addr <= vga_bus_addr;
+					bus_write_data <= current_pixel_color1;
+					bus_byte_enable <= 4'b0001;
+				end
+
+				if (state==4'd9 && bus_ack) begin
+					bus_write <= 1'b0;
+					if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1) &&
+					    old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
+						state <= 4'd0;
+						frame_filled <= 1'b1;
+					end else begin
+						state <= 4'd0;
+					end
 				end
 			end
 		end
@@ -689,8 +768,8 @@ always @(posedge CLOCK2_50) begin
 
 			// Done with entire computation
 			if (mbi_done) begin
-				top_phase <= PHASE_FILL;
-				state <= 4'd0;
+				top_phase    <= PHASE_FILL;
+				state        <= 4'd0;
 				frame_filled <= 0;
 			end
 		end
@@ -746,13 +825,13 @@ Computer_System The_System (
 	//PIO out
 	.pio_test_test_export(32'd5),
 	
-	.ebab_video_in_external_interface_address     (bus_addr),     // 
-	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable
-	.ebab_video_in_external_interface_read        (bus_read),        //  .read
-	.ebab_video_in_external_interface_write       (bus_write),       //  .write
-	.ebab_video_in_external_interface_write_data  (bus_write_data),  //.write_data
+	.ebab_video_in_external_interface_address     (mux_bus_addr),     //
+	.ebab_video_in_external_interface_byte_enable (mux_bus_byte_enable), //  .byte_enable
+	.ebab_video_in_external_interface_read        (mux_bus_read),        //  .read
+	.ebab_video_in_external_interface_write       (mux_bus_write),       //  .write
+	.ebab_video_in_external_interface_write_data  (mux_bus_write_data),  //.write_data
 	.ebab_video_in_external_interface_acknowledge (bus_ack), //  .acknowledge
-	.ebab_video_in_external_interface_read_data   (bus_read_data),   
+	.ebab_video_in_external_interface_read_data   (bus_read_data),
 	// clock bridge for EBAb_video_in_external_interface_acknowledge
 	.clock_bridge_0_in_clk_clk                    (CLOCK_50),
 		

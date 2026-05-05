@@ -977,7 +977,7 @@ set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15.v
 set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15_pipe.v
 set_global_assignment -name VERILOG_FILE stereo_radial_mapper_q15_pipe_compat.v
 set_global_assignment -name VERILOG_FILE fill_pipe_controller.v
-set_global_assignment -name VERILOG_FILE stereo_bram_bank.v
+set_global_assignment -name SYSTEMVERILOG_FILE stereo_bram_bank.v
 set_global_assignment -name SYSTEMVERILOG_FILE column_prefetch.v
 set_global_assignment -name SYSTEMVERILOG_FILE mem_block_intf_d.v
 set_global_assignment -name SYSTEMVERILOG_FILE sliding_window.sv

@@ -1,26 +1,27 @@
 // =============================================================================
-// column_prefetch  (per-row BRAM version)
+// column_prefetch  (split L/R, 3 rows per bank)
 //
-// Adapter between mem_block_intf and the per-row stereo_bram_bank.
+// Sweeps rd_row_in_bank = 0, 1, 2. Each sweep returns NUM_BANKS bytes from
+// both left and right bank arrays. Selects the correct side based on
+// mbi_mem_bank, and scatters into mem_rdata[3*g + row_in_bank].
 //
-// With per-row partitioning, ALL FRAME_HEIGHT bytes arrive in parallel after
-// a single cycle of M10K read latency. The prefetch just translates the
-// (bank, col) request into a global column address and stalls for 1 cycle
-// while the BRAM reads. Combined with mem_block_intf's 1-cycle self-stall
-// from mem_req, total latency is 2 cycles per column fetch.
-//
-// bram_rd_data is wired directly through to mem_rdata (no intermediate
-// register) since the data stays stable until the next request.
+// Timing (4 cycles total per column fetch):
+//   Cycle 0: mem_req self-stalls FSM. rd_col + rd_row_in_bank=0 presented.
+//   Cycle 1: BRAM row0 data valid. Latch rows 0,3,6,...  Switch to rib=1.
+//   Cycle 2: BRAM row1 data valid. Latch rows 1,4,7,...  Switch to rib=2.
+//   Cycle 3: BRAM row2 data valid. Latch rows 2,5,8,...  Stall drops.
+//   Cycle 4: Pipeline advances, reads mem_rdata.
 // =============================================================================
 
 module column_prefetch #(
     parameter int FRAME_HEIGHT     = 200,
     parameter int HALF_FRAME_WIDTH = 320,
-    parameter int FULL_ROW_WIDTH   = 640,
+    parameter int ROWS_PER_BANK    = 3,
+    parameter int NUM_BANKS        = (FRAME_HEIGHT + ROWS_PER_BANK - 1) / ROWS_PER_BANK,
     parameter int PIXEL_W          = 8,
-    parameter int ROW_W            = 8,
     parameter int COL_W            = 9,
-    parameter int FULL_COL_W       = $clog2(FULL_ROW_WIDTH)
+    parameter int HALF_COL_W       = $clog2(HALF_FRAME_WIDTH),
+    parameter int ROW_IN_BANK_W    = (ROWS_PER_BANK <= 1) ? 1 : $clog2(ROWS_PER_BANK)
 )(
     input  logic clk,
     input  logic rst,
@@ -28,49 +29,72 @@ module column_prefetch #(
     // Interface from mem_block_intf
     input  logic             mbi_mem_req,
     input  logic             mbi_mem_bank,  // 0 = left, 1 = right
-    input  logic [COL_W-1:0] mbi_mem_col,
+    input  logic [COL_W-1:0] mbi_mem_col,   // local column (0-319 for left, 0-404 for right)
     output logic             stall,
 
-    // Data output to mem_block_intf (one full column, all FRAME_HEIGHT rows)
+    // Data output to mem_block_intf
     output logic [PIXEL_W-1:0] mem_rdata [0:FRAME_HEIGHT-1],
 
-    // Per-row BRAM read port: shared rd_col, per-row data.
-    output logic [FULL_COL_W-1:0] bram_rd_col,
-    input  logic [PIXEL_W-1:0]    bram_rd_data [0:FRAME_HEIGHT-1]
+    // BRAM read interface
+    output logic [ROW_IN_BANK_W-1:0] bram_rd_row_in_bank,
+    output logic [HALF_COL_W-1:0]    bram_rd_col,
+    input  logic [PIXEL_W-1:0]       bram_rd_data_left  [0:NUM_BANKS-1],
+    input  logic [PIXEL_W-1:0]       bram_rd_data_right [0:NUM_BANKS-1]
 );
 
-    // Combinational address translation: left at cols 0..HALF-1,
-    // right at cols HALF..FULL-1. Stays stable while FSM is stalled
-    // since mem_block_intf doesn't change mem_bank/mem_col until
-    // the next unstalled cycle.
-    always_comb begin
-        if (mbi_mem_bank)
-            bram_rd_col = FULL_COL_W'(HALF_FRAME_WIDTH + mbi_mem_col);
-        else
-            bram_rd_col = FULL_COL_W'(mbi_mem_col);
-    end
+    // Column address: use mem_col directly as local column
+    assign bram_rd_col = HALF_COL_W'(mbi_mem_col);
 
-    // Wire BRAM read data directly to mem_rdata — no intermediate latch.
-    // Data stays valid because bram_rd_col is stable while stalled.
-    genvar r;
-    generate
-        for (r = 0; r < FRAME_HEIGHT; r++) begin : GEN_WIRE
-            assign mem_rdata[r] = bram_rd_data[r];
-        end
-    endgenerate
+    // 3-cycle sweep: cnt 0=idle, 1/2/3 = reading row_in_bank 0/1/2
+    logic [1:0] cnt;
+    logic       latched_bank; // which side to read (latched on request)
 
-    // 1-cycle stall after mem_req: delays by exactly the M10K read latency.
-    // Cycle 0: mem_req=1 (self-stalls FSM via internal_stall), address presented.
-    // Cycle 1: stall=1, BRAM data becomes valid.
-    // Cycle 2: stall=0, FSM advances and reads mem_rdata.
-    logic stall_pipe;
+    // Row-in-bank presented to BRAM: one cycle ahead of the data we latch
+    assign bram_rd_row_in_bank = ROW_IN_BANK_W'(cnt);
+    assign stall = (cnt != 2'd0);
+
     always_ff @(posedge clk) begin
-        if (rst)
-            stall_pipe <= 1'b0;
-        else
-            stall_pipe <= mbi_mem_req;
+        if (rst) begin
+            cnt <= 2'd0;
+            latched_bank <= 1'b0;
+        end else begin
+            case (cnt)
+                2'd0: begin
+                    if (mbi_mem_req) begin
+                        cnt <= 2'd1;
+                        latched_bank <= mbi_mem_bank;
+                    end
+                end
+                2'd1: begin
+                    // BRAM data for row_in_bank=0 now valid. Latch rows 0,3,6,...
+                    for (int g = 0; g < NUM_BANKS; g++) begin
+                        if ((3*g) < FRAME_HEIGHT)
+                            mem_rdata[3*g] <= latched_bank ?
+                                bram_rd_data_right[g] : bram_rd_data_left[g];
+                    end
+                    cnt <= 2'd2;
+                end
+                2'd2: begin
+                    // BRAM data for row_in_bank=1 now valid. Latch rows 1,4,7,...
+                    for (int g = 0; g < NUM_BANKS; g++) begin
+                        if ((3*g + 1) < FRAME_HEIGHT)
+                            mem_rdata[3*g + 1] <= latched_bank ?
+                                bram_rd_data_right[g] : bram_rd_data_left[g];
+                    end
+                    cnt <= 2'd3;
+                end
+                2'd3: begin
+                    // BRAM data for row_in_bank=2 now valid. Latch rows 2,5,8,...
+                    for (int g = 0; g < NUM_BANKS; g++) begin
+                        if ((3*g + 2) < FRAME_HEIGHT)
+                            mem_rdata[3*g + 2] <= latched_bank ?
+                                bram_rd_data_right[g] : bram_rd_data_left[g];
+                    end
+                    cnt <= 2'd0;
+                end
+                default: cnt <= 2'd0;
+            endcase
+        end
     end
-
-    assign stall = stall_pipe;
 
 endmodule

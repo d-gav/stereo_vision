@@ -380,13 +380,16 @@ localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320..639)
 
-// Per-row BRAM layout. Each of FRAME_HEIGHT rows gets its own M10K block,
-// storing FULL_ROW_WIDTH columns (left at 0..319, right at 320..639).
-// All rows read the same column in parallel, yielding a complete column
-// in 1 cycle of M10K latency.
+// Split L/R BRAM layout. 67 left + 67 right M10K banks.
+// Each M10K stores 3 rows × 320 cols = 960 entries (93.75% of 1024×8).
+// Total: 134 M10Ks.
 localparam NUM_SAD_UNITS    = 25;  // 200/25 = 8 rows per unit, divides cleanly
+localparam ROWS_PER_BANK    = 3;
+localparam NUM_BANKS        = (FRAME_HEIGHT + ROWS_PER_BANK - 1) / ROWS_PER_BANK; // 67
 localparam BRAM_ROW_W       = 8;  // $clog2(200) = 8
 localparam BRAM_COL_W       = 10; // $clog2(640) = 10
+localparam HALF_COL_W       = 9;  // $clog2(320) = 9
+localparam ROW_IN_BANK_W    = 2;  // $clog2(3) = 2
 
 // Top-level phase
 localparam [1:0] PHASE_FILL      = 2'd0;
@@ -409,35 +412,37 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 //=======================================================
-// Per-row BRAM for left+right camera images.
+// Split L/R BRAM for left+right camera images.
 //
-// Each row gets its own M10K block, storing 640 columns:
-//   cols 0..319   = left camera
-//   cols 320..639 = right camera
-//
-// All rows share the same read column address and return
-// their byte in parallel — a complete column in 1 cycle.
+// 134 M10K banks (67 left + 67 right). Each stores
+// 3 rows × 320 cols = 960 entries at 93.75% utilization.
 //=======================================================
 reg                          bram_wr_en;
 reg [BRAM_ROW_W-1:0]         bram_wr_row;
 reg [BRAM_COL_W-1:0]         bram_wr_col;
 reg [7:0]                    bram_wr_data;
 
-wire [BRAM_COL_W-1:0]        bram_rd_col;
-logic [7:0]                  bram_rd_data [0:FRAME_HEIGHT-1];
+wire [ROW_IN_BANK_W-1:0]     bram_rd_row_in_bank;
+wire [HALF_COL_W-1:0]        bram_rd_col;
+logic [7:0]                  bram_rd_data_left  [0:NUM_BANKS-1];
+logic [7:0]                  bram_rd_data_right [0:NUM_BANKS-1];
 
 stereo_bram_bank #(
-	.FRAME_HEIGHT  (FRAME_HEIGHT),
-	.FULL_ROW_WIDTH(FULL_ROW_WIDTH),
-	.DATA_W        (8)
+	.FRAME_HEIGHT    (FRAME_HEIGHT),
+	.HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
+	.FULL_ROW_WIDTH  (FULL_ROW_WIDTH),
+	.ROWS_PER_BANK   (ROWS_PER_BANK),
+	.DATA_W          (8)
 ) stereo_bram (
-	.clk      (CLOCK2_50),
-	.wr_en    (mux_bram_wr_en),
-	.wr_row   (mux_bram_wr_row),
-	.wr_col   (mux_bram_wr_col),
-	.wr_data  (mux_bram_wr_data),
-	.rd_col   (bram_rd_col),
-	.rd_data  (bram_rd_data)
+	.clk             (CLOCK2_50),
+	.wr_en           (mux_bram_wr_en),
+	.wr_row          (mux_bram_wr_row),
+	.wr_col          (mux_bram_wr_col),
+	.wr_data         (mux_bram_wr_data),
+	.rd_row_in_bank  (bram_rd_row_in_bank),
+	.rd_col          (bram_rd_col),
+	.rd_data_left    (bram_rd_data_left),
+	.rd_data_right   (bram_rd_data_right)
 );
 
 //=======================================================
@@ -517,20 +522,22 @@ reg              mbi_disp_ack;
 column_prefetch #(
 	.FRAME_HEIGHT    (FRAME_HEIGHT),
 	.HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
-	.FULL_ROW_WIDTH  (FULL_ROW_WIDTH),
+	.ROWS_PER_BANK   (ROWS_PER_BANK),
+	.NUM_BANKS       (NUM_BANKS),
 	.PIXEL_W         (PIXEL_W),
-	.ROW_W           (8),
 	.COL_W           (9)
 ) u_col_prefetch (
-	.clk           (CLOCK2_50),
-	.rst           (~KEY[0]),
-	.mbi_mem_req   (mbi_mem_req),
-	.mbi_mem_bank  (mbi_mem_bank),
-	.mbi_mem_col   (mbi_mem_col),
-	.stall         (mbi_stall),
-	.mem_rdata     (mbi_mem_rdata),
-	.bram_rd_col   (bram_rd_col),
-	.bram_rd_data  (bram_rd_data)
+	.clk              (CLOCK2_50),
+	.rst              (~KEY[0]),
+	.mbi_mem_req      (mbi_mem_req),
+	.mbi_mem_bank     (mbi_mem_bank),
+	.mbi_mem_col      (mbi_mem_col),
+	.stall            (mbi_stall),
+	.mem_rdata        (mbi_mem_rdata),
+	.bram_rd_row_in_bank (bram_rd_row_in_bank),
+	.bram_rd_col      (bram_rd_col),
+	.bram_rd_data_left (bram_rd_data_left),
+	.bram_rd_data_right(bram_rd_data_right)
 );
 
 mem_block_intf #(

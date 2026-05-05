@@ -1,5 +1,5 @@
 // =============================================================================
-// stereo_bram_bank  (split L/R, 3 rows per M10K)
+// stereo_bram_bank
 //
 // Striped BRAM. NUM_STRIPES leaf instances of stereo_stripe_bram, each holding
 // STRIPE_HEIGHT rows × FULL_ROW_WIDTH columns of pixel data. Each leaf is its

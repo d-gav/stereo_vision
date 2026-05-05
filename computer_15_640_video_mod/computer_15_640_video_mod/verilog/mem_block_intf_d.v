@@ -246,7 +246,7 @@ module mem_block_intf #(
                 if (ref_cnt < BLOCK_SIZE) begin
                     lb_rd_req  <= 1'b1;
                     lb_rd_bank <= 1'b0;
-                    lb_rd_col  <= ref_cnt[COL_W-1:0];
+                    lb_rd_col  <= COL_W'(ref_cnt);
                     prev_req   <= 1'b1;
                     prev_bank  <= 1'b0;
                     ref_cnt    <= ref_cnt + 1;

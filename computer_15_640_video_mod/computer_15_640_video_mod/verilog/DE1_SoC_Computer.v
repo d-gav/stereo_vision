@@ -386,7 +386,7 @@ localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320
 // equal to FRAME_HEIGHT/NUM_SAD_UNITS so the SAD engine's stripes line up
 // with the BRAM stripes.
 localparam NUM_SAD_UNITS    = 24;
-localparam STRIPE_HEIGHT    = 8;  // FRAME_HEIGHT / NUM_SAD_UNITS = 200/24 = 8 (rounded)
+localparam STRIPE_HEIGHT    = 6;  // FRAME_HEIGHT / NUM_SAD_UNITS = 200/24 = 8 (rounded)
 localparam NUM_STRIPES      = (FRAME_HEIGHT + STRIPE_HEIGHT - 1) / STRIPE_HEIGHT; // 25
 localparam STRIPE_W         = 5;  // $clog2(NUM_STRIPES) = $clog2(25) = 5
 localparam ROW_IN_STRIPE_W  = 3;  // $clog2(STRIPE_HEIGHT) = $clog2(8) = 3

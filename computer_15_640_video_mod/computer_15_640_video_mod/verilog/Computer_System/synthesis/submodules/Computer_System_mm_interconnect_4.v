@@ -7,19 +7,21 @@
 
 `timescale 1 ps / 1 ps
 module Computer_System_mm_interconnect_4 (
-		input  wire        System_PLL_sys_clk_clk,                                   //                                 System_PLL_sys_clk.clk
-		input  wire        Onchip_SRAM_reset1_reset_bridge_in_reset_reset,           //           Onchip_SRAM_reset1_reset_bridge_in_reset.reset
-		input  wire        Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, // Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
-		input  wire [31:0] Video_In_Subsystem_video_in_dma_master_address,           //             Video_In_Subsystem_video_in_dma_master.address
-		output wire        Video_In_Subsystem_video_in_dma_master_waitrequest,       //                                                   .waitrequest
-		input  wire        Video_In_Subsystem_video_in_dma_master_write,             //                                                   .write
-		input  wire [7:0]  Video_In_Subsystem_video_in_dma_master_writedata,         //                                                   .writedata
-		output wire [17:0] Onchip_SRAM_s1_address,                                   //                                     Onchip_SRAM_s1.address
-		output wire        Onchip_SRAM_s1_write,                                     //                                                   .write
-		input  wire [7:0]  Onchip_SRAM_s1_readdata,                                  //                                                   .readdata
-		output wire [7:0]  Onchip_SRAM_s1_writedata,                                 //                                                   .writedata
-		output wire        Onchip_SRAM_s1_chipselect,                                //                                                   .chipselect
-		output wire        Onchip_SRAM_s1_clken                                      //                                                   .clken
+		input  wire        System_PLL_sys_clk_clk,                                                              //                                                            System_PLL_sys_clk.clk
+		input  wire        Onchip_SRAM_reset_reset_bridge_in_reset_reset,                                       //                                       Onchip_SRAM_reset_reset_bridge_in_reset.reset
+		input  wire        Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset,                            //                            Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
+		input  wire        Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset_reset, // Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset.reset
+		input  wire [31:0] Video_In_Subsystem_video_in_dma_master_address,                                      //                                        Video_In_Subsystem_video_in_dma_master.address
+		output wire        Video_In_Subsystem_video_in_dma_master_waitrequest,                                  //                                                                              .waitrequest
+		input  wire        Video_In_Subsystem_video_in_dma_master_write,                                        //                                                                              .write
+		input  wire [7:0]  Video_In_Subsystem_video_in_dma_master_writedata,                                    //                                                                              .writedata
+		output wire [17:0] Onchip_SRAM_s1_address,                                                              //                                                                Onchip_SRAM_s1.address
+		output wire        Onchip_SRAM_s1_write,                                                                //                                                                              .write
+		output wire        Onchip_SRAM_s1_read,                                                                 //                                                                              .read
+		input  wire [7:0]  Onchip_SRAM_s1_readdata,                                                             //                                                                              .readdata
+		output wire [7:0]  Onchip_SRAM_s1_writedata,                                                            //                                                                              .writedata
+		output wire        Onchip_SRAM_s1_chipselect,                                                           //                                                                              .chipselect
+		output wire        Onchip_SRAM_s1_clken                                                                 //                                                                              .clken
 	);
 
 	wire         video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_waitrequest;   // Onchip_SRAM_s1_translator:uav_waitrequest -> Video_In_Subsystem_video_in_dma_master_translator:uav_waitrequest
@@ -60,7 +62,7 @@ module Computer_System_mm_interconnect_4 (
 		.AV_REGISTERINCOMINGSIGNALS  (0)
 	) video_in_subsystem_video_in_dma_master_translator (
 		.clk                    (System_PLL_sys_clk_clk),                                                                    //                       clk.clk
-		.reset                  (Onchip_SRAM_reset1_reset_bridge_in_reset_reset),                                            //                     reset.reset
+		.reset                  (Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset_reset),       //                     reset.reset
 		.uav_address            (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_address),       // avalon_universal_master_0.address
 		.uav_burstcount         (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_burstcount),    //                          .burstcount
 		.uav_read               (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_read),          //                          .read
@@ -110,7 +112,7 @@ module Computer_System_mm_interconnect_4 (
 		.USE_READRESPONSE               (0),
 		.USE_WRITERESPONSE              (0),
 		.AV_SYMBOLS_PER_WORD            (1),
-		.AV_ADDRESS_SYMBOLS             (0),
+		.AV_ADDRESS_SYMBOLS             (1),
 		.AV_BURSTCOUNT_SYMBOLS          (0),
 		.AV_CONSTANT_BURST_BEHAVIOR     (0),
 		.UAV_CONSTANT_BURST_BEHAVIOR    (0),
@@ -122,7 +124,7 @@ module Computer_System_mm_interconnect_4 (
 		.AV_DATA_HOLD_CYCLES            (0)
 	) onchip_sram_s1_translator (
 		.clk                    (System_PLL_sys_clk_clk),                                                                    //                      clk.clk
-		.reset                  (Onchip_SRAM_reset1_reset_bridge_in_reset_reset),                                            //                    reset.reset
+		.reset                  (Onchip_SRAM_reset_reset_bridge_in_reset_reset),                                             //                    reset.reset
 		.uav_address            (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_address),       // avalon_universal_slave_0.address
 		.uav_burstcount         (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_burstcount),    //                         .burstcount
 		.uav_read               (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_read),          //                         .read
@@ -136,11 +138,11 @@ module Computer_System_mm_interconnect_4 (
 		.uav_debugaccess        (video_in_subsystem_video_in_dma_master_translator_avalon_universal_master_0_debugaccess),   //                         .debugaccess
 		.av_address             (Onchip_SRAM_s1_address),                                                                    //      avalon_anti_slave_0.address
 		.av_write               (Onchip_SRAM_s1_write),                                                                      //                         .write
+		.av_read                (Onchip_SRAM_s1_read),                                                                       //                         .read
 		.av_readdata            (Onchip_SRAM_s1_readdata),                                                                   //                         .readdata
 		.av_writedata           (Onchip_SRAM_s1_writedata),                                                                  //                         .writedata
 		.av_chipselect          (Onchip_SRAM_s1_chipselect),                                                                 //                         .chipselect
 		.av_clken               (Onchip_SRAM_s1_clken),                                                                      //                         .clken
-		.av_read                (),                                                                                          //              (terminated)
 		.av_begintransfer       (),                                                                                          //              (terminated)
 		.av_beginbursttransfer  (),                                                                                          //              (terminated)
 		.av_burstcount          (),                                                                                          //              (terminated)

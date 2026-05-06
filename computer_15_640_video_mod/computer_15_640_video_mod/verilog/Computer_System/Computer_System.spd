@@ -16,7 +16,7 @@
    library="altera_common_sv_packages"
    systemVerilogPackageName="avalon_vip_avalon_mm_pkg" />
  <file
-   path="simulation/submodules/Computer_System_mm_interconnect_1_avalon_st_adapter_error_adapter_0.sv"
+   path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001_error_adapter_0.sv"
    type="SYSTEM_VERILOG"
    library="error_adapter_0" />
  <file
@@ -104,10 +104,6 @@
    type="SYSTEM_VERILOG"
    library="border" />
  <file
-   path="simulation/submodules/Computer_System_mm_interconnect_1_avalon_st_adapter.v"
-   type="VERILOG"
-   library="avalon_st_adapter" />
- <file
    path="simulation/submodules/Computer_System_mm_interconnect_1_rsp_mux.sv"
    type="SYSTEM_VERILOG"
    library="rsp_mux" />
@@ -140,6 +136,10 @@
    type="SYSTEM_VERILOG"
    library="router" />
  <file
+   path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001.v"
+   type="VERILOG"
+   library="avalon_st_adapter_001" />
+ <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter.v"
    type="VERILOG"
    library="avalon_st_adapter" />
@@ -166,15 +166,15 @@
  <file
    path="simulation/submodules/altera_merlin_width_adapter.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
  <file
    path="simulation/submodules/altera_merlin_address_alignment.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
  <file
    path="simulation/submodules/altera_merlin_burst_uncompressor.sv"
    type="SYSTEM_VERILOG"
-   library="ARM_A9_HPS_h2f_axi_master_wr_cmd_width_adapter" />
+   library="ARM_A9_HPS_h2f_axi_master_wr_to_SDRAM_s1_cmd_width_adapter" />
  <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_mux_003.sv"
    type="SYSTEM_VERILOG"
@@ -203,6 +203,10 @@
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux_002.sv"
    type="SYSTEM_VERILOG"
    library="rsp_demux_002" />
+ <file
+   path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux_001.sv"
+   type="SYSTEM_VERILOG"
+   library="rsp_demux_001" />
  <file
    path="simulation/submodules/Computer_System_mm_interconnect_0_rsp_demux.sv"
    type="SYSTEM_VERILOG"
@@ -608,8 +612,8 @@
    type="VERILOG"
    library="Pixel_DMA_Addr_Translation" />
  <file
-   path="simulation/submodules/Computer_System_Onchip_SRAM.v"
-   type="VERILOG"
+   path="simulation/submodules/stereo_onchip_ram.sv"
+   type="SYSTEM_VERILOG"
    library="Onchip_SRAM" />
  <file
    path="simulation/submodules/Computer_System_EBAB_video_in.v"
@@ -691,7 +695,4 @@
  <modelMap
    controllerPath="Computer_System.ARM_A9_HPS.hps_io"
    modelPath="Computer_System.ARM_A9_HPS.hps_io" />
- <modelMap
-   controllerPath="Computer_System.Onchip_SRAM"
-   modelPath="Computer_System.Onchip_SRAM" />
 </simPackage>

@@ -12,7 +12,7 @@
 # or its authorized distributors. Please refer to the applicable 
 # agreement for further details.
 
-# ACDS 18.1 625 win32 2026.05.05.18:00:14
+# ACDS 18.1 625 win32 2026.05.05.21:32:23
 
 # ----------------------------------------
 # vcs - auto-generated simulation script
@@ -94,12 +94,12 @@
 # within the Quartus project, and generate a unified
 # script which supports all the Altera IP within the design.
 # ----------------------------------------
-# ACDS 18.1 625 win32 2026.05.05.18:00:14
+# ACDS 18.1 625 win32 2026.05.05.21:32:23
 # ----------------------------------------
 # initialize variables
 TOP_LEVEL_NAME="Computer_System"
 QSYS_SIMDIR="./../../"
-QUARTUS_INSTALL_DIR="C:/programs/intelfpga/18.1/quartus/"
+QUARTUS_INSTALL_DIR="C:/intelfpga_lite/18.1/quartus/"
 SKIP_FILE_COPY=0
 SKIP_SIM=0
 USER_DEFINED_ELAB_OPTIONS=""
@@ -150,7 +150,7 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/verbosity_pkg.sv \
   $QSYS_SIMDIR/submodules/avalon_utilities_pkg.sv \
   $QSYS_SIMDIR/submodules/avalon_mm_pkg.sv \
-  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_avalon_st_adapter_error_adapter_0.sv \
+  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001_error_adapter_0.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_error_adapter_0.sv \
   $QSYS_SIMDIR/submodules/Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Video_Stream_Splitter.v \
   $QSYS_SIMDIR/submodules/Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Video_Stream_Merger.v \
@@ -172,7 +172,6 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_ARM_A9_HPS_hps_io_border_memory.sv \
   $QSYS_SIMDIR/submodules/Computer_System_ARM_A9_HPS_hps_io_border_hps_io.sv \
   $QSYS_SIMDIR/submodules/Computer_System_ARM_A9_HPS_hps_io_border.sv \
-  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_avalon_st_adapter.v \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_rsp_mux.sv \
   $QSYS_SIMDIR/submodules/altera_merlin_arbitrator.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_rsp_demux.sv \
@@ -180,6 +179,7 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_cmd_demux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_router_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_1_router.sv \
+  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter_001.v \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_avalon_st_adapter.v \
   $QSYS_SIMDIR/submodules/altera_avalon_st_handshake_clock_crosser.v \
   $QSYS_SIMDIR/submodules/altera_avalon_st_clock_crosser.v \
@@ -192,6 +192,7 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_mux_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_mux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux_002.sv \
+  $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux_001.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_rsp_demux.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_cmd_mux_002.sv \
   $QSYS_SIMDIR/submodules/Computer_System_mm_interconnect_0_cmd_mux_001.sv \
@@ -277,7 +278,7 @@ vcs -lca -timescale=1ps/1ps -sverilog +verilog2001ext+.v -ntb_opts dtm $ELAB_OPT
   $QSYS_SIMDIR/submodules/Computer_System_SDRAM.v \
   $QSYS_SIMDIR/submodules/Computer_System_SDRAM_test_component.v \
   $QSYS_SIMDIR/submodules/altera_up_avalon_video_dma_ctrl_addr_trans.v \
-  $QSYS_SIMDIR/submodules/Computer_System_Onchip_SRAM.v \
+  $QSYS_SIMDIR/submodules/stereo_onchip_ram.sv \
   $QSYS_SIMDIR/submodules/Computer_System_EBAB_video_in.v \
   $QSYS_SIMDIR/submodules/altera_up_av_config_serial_bus_controller.v \
   $QSYS_SIMDIR/submodules/altera_up_slow_clock_generator.v \

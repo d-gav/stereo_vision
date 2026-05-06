@@ -8,7 +8,8 @@
    <name preferredWidth="206" />
   </columns>
  </systemtable>
- <library expandedCategories="Library,Project/System,Project" />
+ <library
+   expandedCategories="Library,Project,Project/Memories and Memory Controllers,Project/Memories and Memory Controllers/On-Chip" />
  <window width="1920" height="1140" x="0" y="0" />
  <generation greybox="0" simulation="VERILOG" />
 </preferences>

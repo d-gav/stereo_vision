@@ -82,6 +82,8 @@
 		.memory_mem_dm                                (<connected-to-memory_mem_dm>),                                //                                  .mem_dm
 		.memory_oct_rzqin                             (<connected-to-memory_oct_rzqin>),                             //                                  .oct_rzqin
 		.pio_big_pen_external_connection_export       (<connected-to-pio_big_pen_external_connection_export>),       //   pio_big_pen_external_connection.export
+		.pio_max_disp_external_connection_export      (<connected-to-pio_max_disp_external_connection_export>),      //  pio_max_disp_external_connection.export
+		.pio_min_disp_external_connection_export      (<connected-to-pio_min_disp_external_connection_export>),      //  pio_min_disp_external_connection.export
 		.pio_small_pen_external_connection_export     (<connected-to-pio_small_pen_external_connection_export>),     // pio_small_pen_external_connection.export
 		.pio_test_test_export                         (<connected-to-pio_test_test_export>),                         //                     pio_test_test.export
 		.sdram_addr                                   (<connected-to-sdram_addr>),                                   //                             sdram.addr
@@ -113,7 +115,8 @@
 		.video_in_clk27_reset                         (<connected-to-video_in_clk27_reset>),                         //                                  .clk27_reset
 		.video_in_TD_RESET                            (<connected-to-video_in_TD_RESET>),                            //                                  .TD_RESET
 		.video_in_overflow_flag                       (<connected-to-video_in_overflow_flag>),                       //                                  .overflow_flag
-		.pio_max_disp_external_connection_export      (<connected-to-pio_max_disp_external_connection_export>),      //  pio_max_disp_external_connection.export
-		.pio_min_disp_external_connection_export      (<connected-to-pio_min_disp_external_connection_export>)       //  pio_min_disp_external_connection.export
+		.onchip_sram_1_sad_port_re                    (<connected-to-onchip_sram_1_sad_port_re>),                    //            onchip_sram_1_sad_port.re
+		.onchip_sram_1_sad_port_col                   (<connected-to-onchip_sram_1_sad_port_col>),                   //                                  .col
+		.onchip_sram_1_sad_port_rdata                 (<connected-to-onchip_sram_1_sad_port_rdata>)                  //                                  .rdata
 	);
 

@@ -775,7 +775,7 @@ module Computer_System_mm_interconnect_0 (
 		.UAV_BYTEENABLE_W               (4),
 		.UAV_ADDRESS_W                  (32),
 		.UAV_BURSTCOUNT_W               (3),
-		.AV_READLATENCY                 (1),
+		.AV_READLATENCY                 (2),
 		.USE_READDATAVALID              (0),
 		.USE_WAITREQUEST                (0),
 		.USE_UAV_CLKEN                  (0),
@@ -1437,7 +1437,7 @@ module Computer_System_mm_interconnect_0 (
 	altera_avalon_sc_fifo #(
 		.SYMBOLS_PER_BEAT    (1),
 		.BITS_PER_SYMBOL     (130),
-		.FIFO_DEPTH          (2),
+		.FIFO_DEPTH          (3),
 		.CHANNEL_WIDTH       (0),
 		.ERROR_WIDTH         (0),
 		.USE_PACKETS         (1),
@@ -1478,7 +1478,7 @@ module Computer_System_mm_interconnect_0 (
 	altera_avalon_sc_fifo #(
 		.SYMBOLS_PER_BEAT    (1),
 		.BITS_PER_SYMBOL     (34),
-		.FIFO_DEPTH          (2),
+		.FIFO_DEPTH          (3),
 		.CHANNEL_WIDTH       (0),
 		.ERROR_WIDTH         (0),
 		.USE_PACKETS         (0),

@@ -89,6 +89,7 @@ module Computer_System (
 		input  wire          onchip_sram_1_sad_port_re,                    //            onchip_sram_1_sad_port.re
 		input  wire [9:0]    onchip_sram_1_sad_port_col,                   //                                  .col
 		output wire [1599:0] onchip_sram_1_sad_port_rdata,                 //                                  .rdata
+		input  wire          onchip_sram_s1_lock_lock,                     //               onchip_sram_s1_lock.lock
 		output wire [31:0]   pio_big_pen_external_connection_export,       //   pio_big_pen_external_connection.export
 		output wire [31:0]   pio_max_disp_external_connection_export,      //  pio_max_disp_external_connection.export
 		output wire [31:0]   pio_min_disp_external_connection_export,      //  pio_min_disp_external_connection.export
@@ -588,7 +589,8 @@ module Computer_System (
 		.s2_readdata   (mm_interconnect_0_onchip_sram_s2_readdata),   //         .readdata
 		.sad_re        (onchip_sram_1_sad_port_re),                   // sad_port.re
 		.sad_col       (onchip_sram_1_sad_port_col),                  //         .col
-		.sad_rdata     (onchip_sram_1_sad_port_rdata)                 //         .rdata
+		.sad_rdata     (onchip_sram_1_sad_port_rdata),                //         .rdata
+		.s1_write_lock (onchip_sram_s1_lock_lock)                     //  s1_lock.lock
 	);
 
 	altera_up_avalon_video_dma_ctrl_addr_trans #(

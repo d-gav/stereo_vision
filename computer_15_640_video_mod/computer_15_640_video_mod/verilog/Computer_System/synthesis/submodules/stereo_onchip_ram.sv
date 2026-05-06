@@ -152,7 +152,18 @@ module stereo_onchip_ram #(
     // ---------------------------------------------------------------------
     input  wire                       sad_re,          // accepted for compat; M10Ks read every cycle
     input  wire [9:0]                 sad_col,
-    output reg  [N_ROWS-1:0][7:0]     sad_rdata
+    output reg  [N_ROWS-1:0][7:0]     sad_rdata,
+
+    // ---------------------------------------------------------------------
+    // Private control conduit: when high, s1 writes are silently dropped.
+    // Used by DE1_SoC_Computer.v to freeze the SRAM contents during the
+    // PHASE_DRAIN + PHASE_COMPUTE window so that the undistorted bytes
+    // committed by drain are not immediately overwritten by the autonomous
+    // Video-In DMA before SAD can read them. The DMA's address counter
+    // still advances normally; the dropped bytes show up as gaps that get
+    // refilled on the next FILL pass.
+    // ---------------------------------------------------------------------
+    input  wire                       s1_write_lock
 );
 
     // ---------------------------------------------------------------------
@@ -217,8 +228,11 @@ module stereo_onchip_ram #(
     // ---------------------------------------------------------------------
 
     // Global write inputs. s1 writes 1 byte per transaction; s2 writes a
-    // 32-bit word with its own byteenable.
-    wire        any_s1_w        = s1_chipselect & s1_write;
+    // 32-bit word with its own byteenable. s1_write_lock forces s1 writes
+    // to be ignored without affecting Avalon handshaking (no waitrequest),
+    // which is the lightweight way to freeze the SRAM during the drain +
+    // compute window without modifying Qsys or stalling the DMA upstream.
+    wire        any_s1_w        = s1_chipselect & s1_write & ~s1_write_lock;
     wire        any_s2_w        = s2_chipselect & s2_write;
     wire [3:0]  s1_be_oh_global = (4'b0001 << s1_byte_lane);
     wire [31:0] s1_wdata_x4     = {4{s1_writedata}};
@@ -274,15 +288,67 @@ module stereo_onchip_ram #(
     endgenerate
 
     // ---------------------------------------------------------------------
-    // s2 readdata: select the row whose port-B read this cycle was steered
-    // to s2_word_idx. (Per-row b_addr arbitration above guarantees that for
-    // the row selected by s2_row_idx_q, rowB_rdata holds the s2 read data.)
+    // s2 readdata: 2-stage pipelined 200:1 mux.
+    //
+    // The 200-way 32-bit fanout from rowB_rdata into a single combinational
+    // mux is the worst routing hot-spot in the design — Quartus's P&R
+    // either failed or took forever to converge with the original flat
+    // implementation. We break it into:
+    //
+    //   Stage 1 (combinational): for each group of GROUP_SIZE rows, do a
+    //                            small within-group select using the low
+    //                            4 bits of s2_row_idx_q.
+    //   Pipeline (1 cycle):      register the per-group outputs and the
+    //                            high 4 bits of s2_row_idx_q.
+    //   Stage 2 (combinational): select among groups using the registered
+    //                            high bits.
+    //
+    // Each stage's combinational path is short (16:1 or 13:1 max), and the
+    // 200 long M10K outputs only need to reach the local stage-1 mux of
+    // their own group. Routing complexity drops by ~10x at the cost of one
+    // extra cycle of s2 read latency. stereo_onchip_ram_hw.tcl now declares
+    // s2.readLatency = 2 to match.
     // ---------------------------------------------------------------------
-    integer i_s2;
+    localparam int GROUP_SIZE = 16;
+    localparam int N_GROUPS   = (N_ROWS + GROUP_SIZE - 1) / GROUP_SIZE;
+    localparam int GRP_SEL_W  = (N_GROUPS <= 1) ? 1 : $clog2(N_GROUPS);
+
+    reg [31:0]          grp_pick_comb [N_GROUPS-1:0];
+    reg [31:0]          grp_pick_q    [N_GROUPS-1:0];
+    reg [GRP_SEL_W-1:0] s2_grp_idx_qq;
+
+    // Stage 1: per-group within-group mux (combinational).
+    integer ig1, ir1;
+    always @(*) begin
+        for (ig1 = 0; ig1 < N_GROUPS; ig1 = ig1 + 1) begin
+            grp_pick_comb[ig1] = 32'h0;
+            for (ir1 = 0; ir1 < GROUP_SIZE; ir1 = ir1 + 1) begin
+                if (ig1 * GROUP_SIZE + ir1 < N_ROWS) begin
+                    if (ir1[3:0] == s2_row_idx_q[3:0]) begin
+                        grp_pick_comb[ig1] = rowB_rdata[ig1 * GROUP_SIZE + ir1];
+                    end
+                end
+            end
+        end
+    end
+
+    // Pipeline: register the group outputs and the high-bit selector.
+    integer ig2;
+    always @(posedge clk) begin
+        for (ig2 = 0; ig2 < N_GROUPS; ig2 = ig2 + 1) begin
+            grp_pick_q[ig2] <= grp_pick_comb[ig2];
+        end
+        s2_grp_idx_qq <= s2_row_idx_q[7:4];
+    end
+
+    // Stage 2: group select (combinational).
+    integer ig3;
     always @(*) begin
         s2_readdata = 32'h0;
-        for (i_s2 = 0; i_s2 < N_ROWS; i_s2 = i_s2 + 1) begin
-            if (i_s2[7:0] == s2_row_idx_q) s2_readdata = rowB_rdata[i_s2];
+        for (ig3 = 0; ig3 < N_GROUPS; ig3 = ig3 + 1) begin
+            if (ig3[GRP_SEL_W-1:0] == s2_grp_idx_qq) begin
+                s2_readdata = grp_pick_q[ig3];
+            end
         end
     end
 

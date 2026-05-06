@@ -81,6 +81,10 @@
 		.memory_mem_odt                               (<connected-to-memory_mem_odt>),                               //                                  .mem_odt
 		.memory_mem_dm                                (<connected-to-memory_mem_dm>),                                //                                  .mem_dm
 		.memory_oct_rzqin                             (<connected-to-memory_oct_rzqin>),                             //                                  .oct_rzqin
+		.onchip_sram_1_sad_port_re                    (<connected-to-onchip_sram_1_sad_port_re>),                    //            onchip_sram_1_sad_port.re
+		.onchip_sram_1_sad_port_col                   (<connected-to-onchip_sram_1_sad_port_col>),                   //                                  .col
+		.onchip_sram_1_sad_port_rdata                 (<connected-to-onchip_sram_1_sad_port_rdata>),                 //                                  .rdata
+		.onchip_sram_s1_lock_lock                     (<connected-to-onchip_sram_s1_lock_lock>),                     //               onchip_sram_s1_lock.lock
 		.pio_big_pen_external_connection_export       (<connected-to-pio_big_pen_external_connection_export>),       //   pio_big_pen_external_connection.export
 		.pio_max_disp_external_connection_export      (<connected-to-pio_max_disp_external_connection_export>),      //  pio_max_disp_external_connection.export
 		.pio_min_disp_external_connection_export      (<connected-to-pio_min_disp_external_connection_export>),      //  pio_min_disp_external_connection.export
@@ -114,9 +118,6 @@
 		.video_in_TD_VS                               (<connected-to-video_in_TD_VS>),                               //                                  .TD_VS
 		.video_in_clk27_reset                         (<connected-to-video_in_clk27_reset>),                         //                                  .clk27_reset
 		.video_in_TD_RESET                            (<connected-to-video_in_TD_RESET>),                            //                                  .TD_RESET
-		.video_in_overflow_flag                       (<connected-to-video_in_overflow_flag>),                       //                                  .overflow_flag
-		.onchip_sram_1_sad_port_re                    (<connected-to-onchip_sram_1_sad_port_re>),                    //            onchip_sram_1_sad_port.re
-		.onchip_sram_1_sad_port_col                   (<connected-to-onchip_sram_1_sad_port_col>),                   //                                  .col
-		.onchip_sram_1_sad_port_rdata                 (<connected-to-onchip_sram_1_sad_port_rdata>)                  //                                  .rdata
+		.video_in_overflow_flag                       (<connected-to-video_in_overflow_flag>)                        //                                  .overflow_flag
 	);
 

@@ -319,6 +319,11 @@
    type="conduit"
    dir="end" />
  <interface
+   name="onchip_sram_s1_lock"
+   internal="Onchip_SRAM.s1_lock"
+   type="conduit"
+   dir="end" />
+ <interface
    name="pio_big_pen_external_connection"
    internal="pio_big_pen.external_connection"
    type="conduit"

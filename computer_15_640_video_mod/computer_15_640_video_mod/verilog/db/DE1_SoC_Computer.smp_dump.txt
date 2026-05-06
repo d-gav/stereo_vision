@@ -20,6 +20,13 @@ state.ST_COMP_TRANS 1 0 0 1
 state.ST_UNCOMP_TRANS 1 0 1 0 
 state.ST_UNCOMP_WR_SUBBURST 1 1 0 0 
 
+State Machine - |DE1_SoC_Computer|mem_block_intf:u_mem_block_intf|curr_state
+Name curr_state.INCR_PHASE curr_state.INCR_X curr_state.INCR_DISP curr_state.IDLE 
+curr_state.IDLE 0 0 0 0 
+curr_state.INCR_DISP 0 0 1 1 
+curr_state.INCR_X 0 1 0 1 
+curr_state.INCR_PHASE 1 0 0 1 
+
 State Machine - |DE1_SoC_Computer|Computer_System:The_System|Computer_System_mm_interconnect_1:mm_interconnect_1|altera_merlin_burst_adapter:video_in_dma_addr_translation_slave_burst_adapter|altera_merlin_burst_adapter_13_1:altera_merlin_burst_adapter_13_1.burst_adapter|state
 Name state.ST_IDLE state.ST_UNCOMP_WR_SUBBURST state.ST_UNCOMP_TRANS state.ST_COMP_TRANS 
 state.ST_IDLE 0 0 0 0 
@@ -108,13 +115,6 @@ s_serial_protocol.STATE_2_RESTART_BIT 0 0 0 1 0 1
 s_serial_protocol.STATE_3_START_BIT 0 0 1 0 0 1 
 s_serial_protocol.STATE_4_TRANSFER 0 1 0 0 0 1 
 s_serial_protocol.STATE_5_STOP_BIT 1 0 0 0 0 1 
-
-State Machine - |DE1_SoC_Computer|mem_block_intf:u_mem_block_intf|curr_state
-Name curr_state.INCR_PHASE curr_state.INCR_X curr_state.INCR_DISP curr_state.IDLE 
-curr_state.IDLE 0 0 0 0 
-curr_state.INCR_DISP 0 0 1 1 
-curr_state.INCR_X 0 1 0 1 
-curr_state.INCR_PHASE 1 0 0 1 
 
 State Machine - |DE1_SoC_Computer|column_prefetch_parallel:u_col_prefetch|state
 Name state.S_IDLE state.S_DONE state.S_FETCH 

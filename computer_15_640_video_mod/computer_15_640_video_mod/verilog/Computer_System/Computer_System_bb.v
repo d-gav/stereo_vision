@@ -82,6 +82,10 @@ module Computer_System (
 	memory_mem_odt,
 	memory_mem_dm,
 	memory_oct_rzqin,
+	onchip_sram_1_sad_port_re,
+	onchip_sram_1_sad_port_col,
+	onchip_sram_1_sad_port_rdata,
+	onchip_sram_s1_lock_lock,
 	pio_big_pen_external_connection_export,
 	pio_max_disp_external_connection_export,
 	pio_min_disp_external_connection_export,
@@ -115,10 +119,7 @@ module Computer_System (
 	video_in_TD_VS,
 	video_in_clk27_reset,
 	video_in_TD_RESET,
-	video_in_overflow_flag,
-	onchip_sram_1_sad_port_re,
-	onchip_sram_1_sad_port_col,
-	onchip_sram_1_sad_port_rdata);	
+	video_in_overflow_flag);	
 
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
@@ -202,6 +203,10 @@ module Computer_System (
 	output		memory_mem_odt;
 	output	[3:0]	memory_mem_dm;
 	input		memory_oct_rzqin;
+	input		onchip_sram_1_sad_port_re;
+	input	[9:0]	onchip_sram_1_sad_port_col;
+	output	[1599:0]	onchip_sram_1_sad_port_rdata;
+	input		onchip_sram_s1_lock_lock;
 	output	[31:0]	pio_big_pen_external_connection_export;
 	output	[31:0]	pio_max_disp_external_connection_export;
 	output	[31:0]	pio_min_disp_external_connection_export;
@@ -236,7 +241,4 @@ module Computer_System (
 	input		video_in_clk27_reset;
 	output		video_in_TD_RESET;
 	output		video_in_overflow_flag;
-	input		onchip_sram_1_sad_port_re;
-	input	[9:0]	onchip_sram_1_sad_port_col;
-	output	[1599:0]	onchip_sram_1_sad_port_rdata;
 endmodule

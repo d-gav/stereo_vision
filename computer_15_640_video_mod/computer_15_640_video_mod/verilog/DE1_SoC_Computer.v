@@ -489,6 +489,11 @@ reg              mbi_disp_ack;
 wire [31:0] pio_small_pen_value;
 wire [31:0] pio_big_pen_value;
 
+// Disparity range driven by HPS via Avalon PIOs. Used both to bound the
+// SAD search and to drive the disparity-to-pixel colorization below.
+wire [31:0] pio_min_disp_value;
+wire [31:0] pio_max_disp_value;
+
 column_prefetch_parallel #(
 	.FRAME_HEIGHT      (FRAME_HEIGHT),
 	.RIGHT_BANK_OFFSET (RIGHT_OUTPUT_X_START),  // 319 — matches the side-by-side
@@ -526,9 +531,33 @@ mem_block_intf #(
 	.done(mbi_done)
 );
 
-// Scale disparity to pixel: disp=0->white(0xFF), disp>=85->black(0x00)
-wire [7:0] disp_pixel_color = (mbi_disp_value >= 85) ? 8'h00 :
-	(8'd255 - mbi_disp_value[6:0] * 8'd3);
+// Disparity-to-pixel colorization, parameterized by the runtime min/max
+// disparity PIOs.  Linear map:
+//   disp == pio_min_disp -> 0xFF (white, near)
+//   disp == pio_max_disp -> 0x00 (black, far)
+//   disp <  pio_min_disp -> clipped to 0xFF
+//   disp >  pio_max_disp -> clipped to 0x00
+//
+// pixel = 255 - (disp - min) * 255 / (max - min)
+//
+// The 16-by-8 unsigned divide sits in the combinational path from
+// mbi_disp_value into bus_write_data. At 100 MHz on Cyclone V it should
+// fit, but if the timing analyzer flags it later, register disp_pixel_color
+// (and pipeline mbi_disp_valid / mbi_disp_x / mbi_disp_y by the same number
+// of cycles) before the PHASE_COMPUTE state machine consumes it.
+wire [6:0] disp_min7  = pio_min_disp_value[6:0];
+wire [6:0] disp_max7  = pio_max_disp_value[6:0];
+wire [7:0] disp_range = (disp_max7 > disp_min7) ?
+	({1'b0, disp_max7} - {1'b0, disp_min7}) : 8'd1;          // /0 guard
+wire [7:0] disp_offset = (mbi_disp_value > disp_min7) ?
+	({1'b0, mbi_disp_value} - {1'b0, disp_min7}) : 8'd0;
+wire [15:0] disp_scaled = disp_offset * 8'd255;
+wire [7:0]  disp_grad   = disp_scaled / disp_range;
+
+wire [7:0] disp_pixel_color =
+	(mbi_disp_value <= disp_min7) ? 8'hFF :
+	(mbi_disp_value >= disp_max7) ? 8'h00 :
+	(8'd255 - disp_grad);
 
 // VGA address for streaming disparity: place right below raw video (row 200+)
 wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;
@@ -751,6 +780,10 @@ Computer_System The_System (
 	// SGM penalty PIOs (HPS -> FPGA, 32-bit each)
 	.pio_small_pen_external_connection_export (pio_small_pen_value),
 	.pio_big_pen_external_connection_export   (pio_big_pen_value),
+
+	// Disparity-range PIOs (HPS -> FPGA, 32-bit each)
+	.pio_min_disp_external_connection_export  (pio_min_disp_value),
+	.pio_max_disp_external_connection_export  (pio_max_disp_value),
 
 	.ebab_video_in_external_interface_address     (bus_addr),     // 
 	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable

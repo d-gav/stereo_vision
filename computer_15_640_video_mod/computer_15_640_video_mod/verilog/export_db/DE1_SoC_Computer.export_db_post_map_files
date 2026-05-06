@@ -13,6 +13,7 @@ DE1_SoC_Computer.map_bb.hdbx
 DE1_SoC_Computer.map_bb.sci
 DE1_SoC_Computer.map_bb.scidsc
 DE1_SoC_Computer.pre_map.hdbx
+DE1_SoC_Computer.ram0_DE1_SoC_Computer_67946d5e.hdl.mif
 DE1_SoC_Computer.rom0_altera_up_av_config_auto_init_ob_adv7180_32c11ca0.hdl.mif
 DE1_SoC_Computer.rom0_stereo_radial_mapper_q15_f2d7c38d.hdl.mif
 DE1_SoC_Computer.rom0_stereo_radial_mapper_q15_pipe_c486a0b6.hdl.mif

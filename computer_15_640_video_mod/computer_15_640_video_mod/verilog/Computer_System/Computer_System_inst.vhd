@@ -83,6 +83,8 @@
 			memory_mem_dm                                : out   std_logic_vector(3 downto 0);                     -- mem_dm
 			memory_oct_rzqin                             : in    std_logic                     := 'X';             -- oct_rzqin
 			pio_big_pen_external_connection_export       : out   std_logic_vector(31 downto 0);                    -- export
+			pio_max_disp_external_connection_export      : out   std_logic_vector(31 downto 0);                    -- export
+			pio_min_disp_external_connection_export      : out   std_logic_vector(31 downto 0);                    -- export
 			pio_small_pen_external_connection_export     : out   std_logic_vector(31 downto 0);                    -- export
 			pio_test_test_export                         : in    std_logic_vector(31 downto 0) := (others => 'X'); -- export
 			sdram_addr                                   : out   std_logic_vector(12 downto 0);                    -- addr
@@ -114,8 +116,7 @@
 			video_in_clk27_reset                         : in    std_logic                     := 'X';             -- clk27_reset
 			video_in_TD_RESET                            : out   std_logic;                                        -- TD_RESET
 			video_in_overflow_flag                       : out   std_logic;                                        -- overflow_flag
-			pio_max_disp_external_connection_export      : out   std_logic_vector(31 downto 0);                    -- export
-			pio_min_disp_external_connection_export      : out   std_logic_vector(31 downto 0)                     -- export
+			pio_y_trim_external_connection_export        : out   std_logic_vector(31 downto 0)                     -- export
 		);
 	end component Computer_System;
 
@@ -204,6 +205,8 @@
 			memory_mem_dm                                => CONNECTED_TO_memory_mem_dm,                                --                                  .mem_dm
 			memory_oct_rzqin                             => CONNECTED_TO_memory_oct_rzqin,                             --                                  .oct_rzqin
 			pio_big_pen_external_connection_export       => CONNECTED_TO_pio_big_pen_external_connection_export,       --   pio_big_pen_external_connection.export
+			pio_max_disp_external_connection_export      => CONNECTED_TO_pio_max_disp_external_connection_export,      --  pio_max_disp_external_connection.export
+			pio_min_disp_external_connection_export      => CONNECTED_TO_pio_min_disp_external_connection_export,      --  pio_min_disp_external_connection.export
 			pio_small_pen_external_connection_export     => CONNECTED_TO_pio_small_pen_external_connection_export,     -- pio_small_pen_external_connection.export
 			pio_test_test_export                         => CONNECTED_TO_pio_test_test_export,                         --                     pio_test_test.export
 			sdram_addr                                   => CONNECTED_TO_sdram_addr,                                   --                             sdram.addr
@@ -235,7 +238,6 @@
 			video_in_clk27_reset                         => CONNECTED_TO_video_in_clk27_reset,                         --                                  .clk27_reset
 			video_in_TD_RESET                            => CONNECTED_TO_video_in_TD_RESET,                            --                                  .TD_RESET
 			video_in_overflow_flag                       => CONNECTED_TO_video_in_overflow_flag,                       --                                  .overflow_flag
-			pio_max_disp_external_connection_export      => CONNECTED_TO_pio_max_disp_external_connection_export,      --  pio_max_disp_external_connection.export
-			pio_min_disp_external_connection_export      => CONNECTED_TO_pio_min_disp_external_connection_export       --  pio_min_disp_external_connection.export
+			pio_y_trim_external_connection_export        => CONNECTED_TO_pio_y_trim_external_connection_export         --    pio_y_trim_external_connection.export
 		);
 

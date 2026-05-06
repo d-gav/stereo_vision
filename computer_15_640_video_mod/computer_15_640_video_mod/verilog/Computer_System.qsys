@@ -275,6 +275,22 @@
          type = "String";
       }
    }
+   element pio_y_trim
+   {
+      datum _sortIndex
+      {
+         value = "16";
+         type = "int";
+      }
+   }
+   element pio_y_trim.s1
+   {
+      datum baseAddress
+      {
+         value = "80";
+         type = "String";
+      }
+   }
 }
 ]]></parameter>
  <parameter name="clockCrossingAdapter" value="HANDSHAKE" />
@@ -336,6 +352,11 @@
  <interface
    name="pio_test_test"
    internal="pio_0.external_connection"
+   type="conduit"
+   dir="end" />
+ <interface
+   name="pio_y_trim_external_connection"
+   internal="pio_y_trim.external_connection"
    type="conduit"
    dir="end" />
  <interface name="sdram" internal="SDRAM.wire" type="conduit" dir="end" />
@@ -1152,6 +1173,20 @@
   <parameter name="simDrivenValue" value="0" />
   <parameter name="width" value="32" />
  </module>
+ <module name="pio_y_trim" kind="altera_avalon_pio" version="18.1" enabled="1">
+  <parameter name="bitClearingEdgeCapReg" value="false" />
+  <parameter name="bitModifyingOutReg" value="false" />
+  <parameter name="captureEdge" value="false" />
+  <parameter name="clockRate" value="100000000" />
+  <parameter name="direction" value="Output" />
+  <parameter name="edgeType" value="RISING" />
+  <parameter name="generateIRQ" value="false" />
+  <parameter name="irqType" value="LEVEL" />
+  <parameter name="resetValue" value="0" />
+  <parameter name="simDoTestBenchWiring" value="false" />
+  <parameter name="simDrivenValue" value="0" />
+  <parameter name="width" value="32" />
+ </module>
  <connection
    kind="avalon"
    version="18.1"
@@ -1273,6 +1308,15 @@
    kind="avalon"
    version="18.1"
    start="ARM_A9_HPS.h2f_lw_axi_master"
+   end="pio_y_trim.s1">
+  <parameter name="arbitrationPriority" value="1" />
+  <parameter name="baseAddress" value="0x0050" />
+  <parameter name="defaultConnection" value="false" />
+ </connection>
+ <connection
+   kind="avalon"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_lw_axi_master"
    end="Pixel_DMA_Addr_Translation.slave">
   <parameter name="arbitrationPriority" value="1" />
   <parameter name="baseAddress" value="0x3020" />
@@ -1367,6 +1411,11 @@
    kind="clock"
    version="18.1"
    start="System_PLL.sys_clk"
+   end="pio_y_trim.clk" />
+ <connection
+   kind="clock"
+   version="18.1"
+   start="System_PLL.sys_clk"
    end="Onchip_SRAM.clk1" />
  <connection
    kind="clock"
@@ -1453,6 +1502,11 @@
    version="18.1"
    start="ARM_A9_HPS.h2f_reset"
    end="pio_min_disp.reset" />
+ <connection
+   kind="reset"
+   version="18.1"
+   start="ARM_A9_HPS.h2f_reset"
+   end="pio_y_trim.reset" />
  <connection
    kind="reset"
    version="18.1"

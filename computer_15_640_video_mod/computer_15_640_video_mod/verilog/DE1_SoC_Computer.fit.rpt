@@ -1,5 +1,5 @@
 Fitter report for DE1_SoC_Computer
-Tue May 05 17:52:58 2026
+Wed May 06 00:07:10 2026
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -70,7 +70,7 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Fitter Summary                                                                ;
 +---------------------------------+---------------------------------------------+
-; Fitter Status                   ; Successful - Tue May 05 17:52:58 2026       ;
+; Fitter Status                   ; Successful - Wed May 06 00:07:10 2026       ;
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; DE1_SoC_Computer                            ;
 ; Top-level Entity Name           ; DE1_SoC_Computer                            ;
@@ -161,26 +161,26 @@ refer to the applicable agreement for further details.
 ; Number detected on machine ; 28          ;
 ; Maximum allowed            ; 16          ;
 ;                            ;             ;
-; Average used               ; 1.47        ;
+; Average used               ; 1.54        ;
 ; Maximum used               ; 16          ;
 ;                            ;             ;
 ; Usage by Processor         ; % Time Used ;
 ;     Processor 1            ; 100.0%      ;
-;     Processor 2            ;   4.3%      ;
-;     Processor 3            ;   4.0%      ;
-;     Processor 4            ;   3.8%      ;
-;     Processor 5            ;   3.2%      ;
-;     Processor 6            ;   3.2%      ;
-;     Processor 7            ;   3.1%      ;
-;     Processor 8            ;   3.1%      ;
-;     Processor 9            ;   2.8%      ;
-;     Processor 10           ;   2.8%      ;
-;     Processor 11           ;   2.8%      ;
-;     Processor 12           ;   2.8%      ;
-;     Processor 13           ;   2.8%      ;
-;     Processor 14           ;   2.8%      ;
-;     Processor 15           ;   2.8%      ;
-;     Processor 16           ;   2.8%      ;
+;     Processor 2            ;   4.7%      ;
+;     Processor 3            ;   4.5%      ;
+;     Processor 4            ;   4.3%      ;
+;     Processor 5            ;   3.7%      ;
+;     Processor 6            ;   3.6%      ;
+;     Processor 7            ;   3.6%      ;
+;     Processor 8            ;   3.5%      ;
+;     Processor 9            ;   3.2%      ;
+;     Processor 10           ;   3.2%      ;
+;     Processor 11           ;   3.2%      ;
+;     Processor 12           ;   3.2%      ;
+;     Processor 13           ;   3.2%      ;
+;     Processor 14           ;   3.2%      ;
+;     Processor 15           ;   3.2%      ;
+;     Processor 16           ;   3.2%      ;
 +----------------------------+-------------+
 
 
@@ -9155,7 +9155,7 @@ Info (11191): Automatically promoted 4 clocks (4 global)
 Warning (16406): 1 global input pin(s) will use non-dedicated clock routing
     Warning (16407): Source REFCLK I/O is not placed onto a dedicated REFCLK input pin for global clock driver KEY[0]~inputCLKENA0, placed at CLKCTRL_G2
         Info (179012): Refclk input I/O pad KEY[0] is placed onto PIN_AA14
-Info (184021): Fitter periphery placement operations ending: elapsed time is 00:00:01
+Info (184021): Fitter periphery placement operations ending: elapsed time is 00:00:02
 Info (332164): Evaluating HDL-embedded SDC commands
     Info (332165): Entity dcfifo_73q1
         Info (332166): set_false_path -from *rdptr_g* -to *ws_dgrp|dffpipe_2v8:dffpipe16|dffe17a* 
@@ -9593,25 +9593,25 @@ Warning (15705): Ignored locations or region assignments to the following nodes
     Warning (15706): Node "USB_SCL" is assigned to location or region, but does not exist in design
     Warning (15706): Node "USB_SDA" is assigned to location or region, but does not exist in design
     Warning (15706): Node "USB_WR_N" is assigned to location or region, but does not exist in design
-Info (11798): Fitter preparation operations ending: elapsed time is 00:00:23
+Info (11798): Fitter preparation operations ending: elapsed time is 00:00:30
 Info (170189): Fitter placement preparation operations beginning
 Info (14951): The Fitter is using Advanced Physical Optimization.
-Info (170190): Fitter placement preparation operations ending: elapsed time is 00:02:26
+Info (170190): Fitter placement preparation operations ending: elapsed time is 00:03:02
 Info (170191): Fitter placement operations beginning
 Info (170137): Fitter placement was successful
-Info (170192): Fitter placement operations ending: elapsed time is 00:00:59
+Info (170192): Fitter placement operations ending: elapsed time is 00:00:50
 Info (170193): Fitter routing operations beginning
 Info (170195): Router estimated average interconnect usage is 24% of the available device resources
     Info (170196): Router estimated peak interconnect usage is 38% of the available device resources in the region that extends from location X45_Y46 to location X55_Y57
 Info (170199): The Fitter performed an Auto Fit compilation.  Optimizations were skipped to reduce compilation time.
     Info (170200): Optimizations that may affect the design's timing were skipped
-Info (170194): Fitter routing operations ending: elapsed time is 00:00:46
-Info (11888): Total time spent on timing analysis during the Fitter is 54.71 seconds.
+Info (170194): Fitter routing operations ending: elapsed time is 00:00:45
+Info (11888): Total time spent on timing analysis during the Fitter is 54.56 seconds.
 Info (334003): Started post-fitting delay annotation
 Info (334004): Delay annotation completed successfully
 Info (334003): Started post-fitting delay annotation
 Info (334004): Delay annotation completed successfully
-Info (11801): Fitter post-fit operations ending: elapsed time is 00:00:56
+Info (11801): Fitter post-fit operations ending: elapsed time is 00:00:54
 Warning (171167): Found invalid Fitter assignments. See the Ignored Assignments panel in the Fitter Compilation Report for more information.
 Warning (169064): Following 89 pins have no output enable or a GND or VCC output enable - later changes to this connectivity may change fitting results
     Info (169065): Pin GPIO_0[2] has a permanently enabled output enable File: C:/Users/er495/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
@@ -9786,10 +9786,10 @@ Info (169186): Following groups of pins have the same dynamic on-chip terminatio
         Info (169066): Type bi-directional pin HPS_DDR3_DQS_P[3] uses the Differential 1.5-V SSTL Class I I/O standard File: C:/Users/er495/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 291
 Info (144001): Generated suppressed messages file C:/Users/er495/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.fit.smsg
 Info: Quartus Prime Fitter was successful. 0 errors, 183 warnings
-    Info: Peak virtual memory: 9993 megabytes
-    Info: Processing ended: Tue May 05 17:53:09 2026
-    Info: Elapsed time: 00:11:15
-    Info: Total CPU time (on all processors): 01:08:01
+    Info: Peak virtual memory: 9987 megabytes
+    Info: Processing ended: Wed May 06 00:07:18 2026
+    Info: Elapsed time: 00:10:34
+    Info: Total CPU time (on all processors): 01:11:45
 
 
 +----------------------------+

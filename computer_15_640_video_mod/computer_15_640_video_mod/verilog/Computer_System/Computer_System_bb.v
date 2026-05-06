@@ -83,6 +83,8 @@ module Computer_System (
 	memory_mem_dm,
 	memory_oct_rzqin,
 	pio_big_pen_external_connection_export,
+	pio_max_disp_external_connection_export,
+	pio_min_disp_external_connection_export,
 	pio_small_pen_external_connection_export,
 	pio_test_test_export,
 	sdram_addr,
@@ -114,8 +116,7 @@ module Computer_System (
 	video_in_clk27_reset,
 	video_in_TD_RESET,
 	video_in_overflow_flag,
-	pio_max_disp_external_connection_export,
-	pio_min_disp_external_connection_export);	
+	pio_y_trim_external_connection_export);	
 
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
@@ -200,6 +201,8 @@ module Computer_System (
 	output	[3:0]	memory_mem_dm;
 	input		memory_oct_rzqin;
 	output	[31:0]	pio_big_pen_external_connection_export;
+	output	[31:0]	pio_max_disp_external_connection_export;
+	output	[31:0]	pio_min_disp_external_connection_export;
 	output	[31:0]	pio_small_pen_external_connection_export;
 	input	[31:0]	pio_test_test_export;
 	output	[12:0]	sdram_addr;
@@ -231,6 +234,5 @@ module Computer_System (
 	input		video_in_clk27_reset;
 	output		video_in_TD_RESET;
 	output		video_in_overflow_flag;
-	output	[31:0]	pio_max_disp_external_connection_export;
-	output	[31:0]	pio_min_disp_external_connection_export;
+	output	[31:0]	pio_y_trim_external_connection_export;
 endmodule

@@ -21,6 +21,14 @@ module mem_block_intf #(
 	input logic [31:0] sgm_p1,
 	input logic [31:0] sgm_p2,
 
+	// Runtime-configurable Y trim (signed) applied to the reference (left)
+	// bank's row index, used to compensate for slight vertical misalignment
+	// between the two cameras. Positive values shift the reference image
+	// down (compare against rows further down); negative shift it up.
+	// Width is 32 (signed) to match the PIO; only a few low bits are used in
+	// practice, and rows that fall outside [0, FRAME_HEIGHT-1] are zeroed.
+	input logic signed [31:0] y_trim,
+
 	output logic mem_req,
 	output logic mem_bank, // 0 = left, 1 = right
 	output logic [COL_W-1:0] mem_col,
@@ -464,10 +472,18 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new column to each compute unit's left block buffer
+						// write the new column to each compute unit's left block buffer.
+						// y_trim shifts the row sampled from the reference column up/down
+						// to compensate for vertical camera misalignment. Indices that
+						// fall outside [0, FRAME_HEIGHT-1] read as 0 (treated as black).
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								left_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
+								automatic int trimmed_row = g * STRIPE_HEIGHT + phase_result + rr + y_trim;
+								if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
+									left_col_buf[g][rr] <= mem_rdata[trimmed_row];
+								end else begin
+									left_col_buf[g][rr] <= '0;
+								end
 							end
 						end
 						slide_reference <= 1'b1; 
@@ -534,10 +550,18 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new column to each compute unit's left block buffer
+						// write the new column to each compute unit's left block buffer.
+						// y_trim shifts the row sampled from the reference column up/down
+						// to compensate for vertical camera misalignment. Indices that
+						// fall outside [0, FRAME_HEIGHT-1] read as 0 (treated as black).
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
 							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								left_col_buf[g][rr] <= mem_rdata[g * STRIPE_HEIGHT + phase_result + rr];
+								automatic int trimmed_row = g * STRIPE_HEIGHT + phase_result + rr + y_trim;
+								if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
+									left_col_buf[g][rr] <= mem_rdata[trimmed_row];
+								end else begin
+									left_col_buf[g][rr] <= '0;
+								end
 							end
 						end
 						slide_reference <= 1'b1; 

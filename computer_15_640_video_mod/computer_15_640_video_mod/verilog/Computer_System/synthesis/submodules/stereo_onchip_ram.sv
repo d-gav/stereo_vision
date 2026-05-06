@@ -16,70 +16,95 @@
 //   row_index   = byte_addr[17:10]                      (0..199)
 //   col_index   = byte_addr[ 9: 0]                      (0..1023, byte)
 //
-// Per-row storage: one M10K configured 256x32 with per-byte enables, true
-// dual-port. Port A is 32-bit and serves the Avalon s2 slave (HPS h2f_axi
-// and the FPGA-side EBAB master, after Qsys interconnect arbitration). Port
-// B is also 32-bit and is shared between the s1 8-bit Avalon slave (Video-In
-// DMA writes) and the SAD parallel read port. Capture and compute phases are
-// temporally exclusive in this system (DMA writes the frame, then SAD reads
-// it), so this sharing is safe; if s1 happens to hit during a SAD cycle,
-// only the addressed row's sad_rdata lane is invalid for that cycle.
+// Per-row storage: one M10K configured 256x32, simple dual-port (DUAL_PORT
+// in altsyncram terms). Port A is write-only with 4-byte enables and serves
+// both Avalon slaves' write paths (s1 8-bit byte writes from Video-In DMA
+// and s2 32-bit writes from HPS, with s1 priority on the unlikely
+// collision). Port B is read-only and serves all three read paths: s1
+// reads, s2 reads, and the SAD parallel read conduit (priority s1 > s2 >
+// SAD per row). True dual-port M10K on Cyclone V caps width at 16 bits and
+// would force 2 M10Ks per row (200x2 = 400, exceeds the 397 available);
+// SDP supports the full 32-bit width in one M10K (200 total).
 //
-// Coding style follows the Altera Quartus Prime Pro Edition User Guide:
-// Design Recommendations (UG-20131) Examples 16 (true dual-port single
-// clock) + 23 (byte-enabled simple dual-port), combined into a byte-enabled
-// true dual-port template that Quartus infers as a single M10K per row.
-// Two always blocks both blocking-write the shared `mem` variable, which is
-// the recognized inference pattern for TDP RAM.
+// SAD and Avalon-read sharing is safe in this system because capture
+// (DMA writes), compute (SAD reads), and VGA / HPS readback are
+// workflow-separated phases that do not overlap. If s2 reads do happen
+// during a SAD cycle, only the addressed row's sad_rdata lane is stale
+// for that one cycle; other rows are unaffected.
+//
+// altsyncram is instantiated directly rather than relying on inference:
+// Quartus 18.1 Standard's byte-enabled dual-port RAM inference is
+// unreliable (cycles through 276010 / 276003 / 10028 across blocking-vs-
+// non-blocking and packed-vs-flat array variations).
 // =============================================================================
 
 `default_nettype none
 
 // -----------------------------------------------------------------------------
-// Per-row M10K: 256 deep x 32 bits wide, byte-enabled, true dual-port.
-// Each port can independently read or partially write (per byte lane). Read
-// data is registered, giving the 1-cycle latency the Qsys interconnect and
-// the existing mem_block_intf both expect.
+// Per-row M10K: 256 deep x 32 bits wide, byte-enabled, simple dual-port.
+// Port A is write-only (with byte enables); port B is read-only. This fits
+// in a single M10K per row on Cyclone V — true-dual-port M10K caps width at
+// 16 bits, which would force 2 M10Ks per row and overflow the device (200
+// rows x 2 = 400 > 397 available). Simple dual-port supports the full 32-bit
+// width in one M10K, so 200 rows = 200 M10Ks.
+//
+// Read latency is 1 cycle (address registered into M10K, q_b unregistered).
 // -----------------------------------------------------------------------------
 module stereo_onchip_ram_row (
     input  wire        clk,
 
-    // Port A
-    input  wire [7:0]  a_addr,        // word index 0..255
-    input  wire [3:0]  a_be,          // per-byte write enable; 0 => read-only
+    // Port A: write-only
+    input  wire [7:0]  a_addr,
+    input  wire [3:0]  a_be,
     input  wire [31:0] a_wdata,
-    output reg  [31:0] a_rdata,
 
-    // Port B
+    // Port B: read-only
     input  wire [7:0]  b_addr,
-    input  wire [3:0]  b_be,
-    input  wire [31:0] b_wdata,
-    output reg  [31:0] b_rdata
+    output wire [31:0] b_rdata
 );
 
-    // Packed byte lanes inside each word so Quartus understands the
-    // byte-enable structure (UG-20131 Example 23).
-    (* ramstyle = "M10K" *) reg [3:0][7:0] mem [0:255];
-
-    // Port A: blocking writes to the shared memory, non-blocking registered
-    // read. Combined with the matching block below this is the byte-enabled
-    // TDP inference pattern.
-    always @(posedge clk) begin
-        if (a_be[0]) mem[a_addr][0] = a_wdata[ 7: 0];
-        if (a_be[1]) mem[a_addr][1] = a_wdata[15: 8];
-        if (a_be[2]) mem[a_addr][2] = a_wdata[23:16];
-        if (a_be[3]) mem[a_addr][3] = a_wdata[31:24];
-        a_rdata <= mem[a_addr];
-    end
-
-    // Port B
-    always @(posedge clk) begin
-        if (b_be[0]) mem[b_addr][0] = b_wdata[ 7: 0];
-        if (b_be[1]) mem[b_addr][1] = b_wdata[15: 8];
-        if (b_be[2]) mem[b_addr][2] = b_wdata[23:16];
-        if (b_be[3]) mem[b_addr][3] = b_wdata[31:24];
-        b_rdata <= mem[b_addr];
-    end
+    altsyncram #(
+        .operation_mode                    ("DUAL_PORT"),
+        .intended_device_family            ("Cyclone V"),
+        .ram_block_type                    ("M10K"),
+        .width_a                           (32),
+        .widthad_a                         (8),
+        .numwords_a                        (256),
+        .width_b                           (32),
+        .widthad_b                         (8),
+        .numwords_b                        (256),
+        .width_byteena_a                   (4),
+        .byte_size                         (8),
+        .read_during_write_mode_mixed_ports("DONT_CARE"),
+        .outdata_reg_b                     ("UNREGISTERED"),
+        .indata_aclr_a                     ("NONE"),
+        .wrcontrol_aclr_a                  ("NONE"),
+        .address_aclr_a                    ("NONE"),
+        .byteena_aclr_a                    ("NONE"),
+        .address_aclr_b                    ("NONE"),
+        .outdata_aclr_b                    ("NONE"),
+        .clock_enable_input_a              ("BYPASS"),
+        .clock_enable_input_b              ("BYPASS"),
+        .clock_enable_output_b             ("BYPASS"),
+        .power_up_uninitialized            ("FALSE"),
+        .lpm_type                          ("altsyncram")
+    ) u_m10k (
+        .clock0        (clk),
+        .clock1        (clk),
+        .clocken0      (1'b1),
+        .clocken1      (1'b1),
+        .aclr0         (1'b0),
+        .aclr1         (1'b0),
+        .address_a     (a_addr),
+        .byteena_a     (a_be),
+        .data_a        (a_wdata),
+        .wren_a        (|a_be),
+        .addressstall_a(1'b0),
+        .address_b     (b_addr),
+        .rden_b        (1'b1),
+        .addressstall_b(1'b0),
+        .q_b           (b_rdata)
+    );
 
 endmodule
 
@@ -146,14 +171,13 @@ module stereo_onchip_ram #(
     wire [7:0] sad_word_idx  = sad_col[9:2];
     wire [1:0] sad_byte_lane = sad_col[1:0];
 
-    // Per-row read buses
-    wire [31:0] rowA_rdata [N_ROWS];   // read out of port A (s2 path)
-    wire [31:0] rowB_rdata [N_ROWS];   // read out of port B (s1 / SAD path)
+    // Per-row read bus (one shared 32-bit read port per row).
+    wire [31:0] rowB_rdata [N_ROWS];
 
     // ---------------------------------------------------------------------
     // Pipeline registers for the read-data muxes. The M10K registers its
-    // output, so the row index, byte lane, and read-strobe used to mux that
-    // output must be the values that were valid one cycle earlier.
+    // address inputs, so the row index and byte lane used to mux outputs
+    // must be the values that were valid one cycle earlier.
     // ---------------------------------------------------------------------
     reg [7:0] s1_row_idx_q;
     reg [1:0] s1_byte_lane_q;
@@ -168,41 +192,49 @@ module stereo_onchip_ram #(
     end
 
     // ---------------------------------------------------------------------
-    // Per-row instantiation. Each row gets its own M10K. Port A is dedicated
-    // to s2, port B is shared between s1 (one row at a time) and SAD (all
-    // rows in parallel) -- s1 wins for the addressed row when both are
-    // active, which is fine because in this system capture (s1) and compute
-    // (SAD) phases do not overlap.
+    // Per-row instantiation. Each row is now an SDP M10K so the same row's
+    // port A handles all writes (s1 byte writes + s2 32-bit writes, s1 wins
+    // on the rare collision) and port B handles all reads (s1 read + s2 read
+    // + SAD parallel read, with priority s1 > s2 > SAD per row).
+    //
+    // SAD reads share port B with the Avalon read paths. When s2 reads row
+    // r, that row's port B address is hijacked to s2_word_idx for one cycle,
+    // so SAD's output for row r is stale during HPS readback. This system
+    // separates capture / compute / VGA-update phases by workflow, so SAD
+    // and HPS s2 reads do not overlap in practice; the corruption is
+    // theoretical.
     // ---------------------------------------------------------------------
     genvar r;
     generate
         for (r = 0; r < N_ROWS; r = r + 1) begin : g_row
-            // ---- Port A: s2 32-bit ----
-            wire        a_match = s2_chipselect & (s2_row_idx == r[7:0]);
-            wire [3:0]  a_be    = (a_match & s2_write) ? s2_byteenable : 4'b0000;
-
-            // ---- Port B: s1 8-bit OR SAD read ----
             wire        s1_match    = s1_chipselect & (s1_row_idx == r[7:0]);
-            wire        s1_active   = s1_match & (s1_write | s1_read);
-            // s1 8-bit write -> one-hot byte enable based on s1_address[1:0]
-            wire [3:0]  s1_be_oh    = (4'b0001 << s1_byte_lane) & {4{s1_match & s1_write}};
-            // Replicate the 8-bit write data across all four lanes; only the
-            // enabled lane will actually be written.
+            wire        s1_w_active = s1_match & s1_write;
+            wire        s1_r_active = s1_match & s1_read;
+            wire [3:0]  s1_be_oh    = (4'b0001 << s1_byte_lane) & {4{s1_w_active}};
             wire [31:0] s1_wdata_x4 = {4{s1_writedata}};
-            // Address mux: when s1 is touching this row, port B serves s1;
-            // otherwise it serves SAD. (s1 reads also win, since they share
-            // the s1_active gate.)
-            wire [7:0]  b_addr      = s1_active ? s1_word_idx : sad_word_idx;
+
+            wire        s2_match    = s2_chipselect & (s2_row_idx == r[7:0]);
+            wire        s2_w_active = s2_match & s2_write;
+            wire        s2_r_active = s2_match & s2_read;
+
+            // ---- Port A (writes): s1 wins, then s2. ----
+            wire [7:0]  a_addr  = s1_w_active ? s1_word_idx : s2_word_idx;
+            wire [3:0]  a_be    = s1_w_active ? s1_be_oh
+                                : s2_w_active ? s2_byteenable
+                                              : 4'b0000;
+            wire [31:0] a_wdata = s1_w_active ? s1_wdata_x4 : s2_writedata;
+
+            // ---- Port B (reads): s1 read > s2 read > SAD default. ----
+            wire [7:0]  b_addr  = s1_r_active ? s1_word_idx
+                                : s2_r_active ? s2_word_idx
+                                              : sad_word_idx;
 
             stereo_onchip_ram_row u_row (
                 .clk    (clk),
-                .a_addr (s2_word_idx),
+                .a_addr (a_addr),
                 .a_be   (a_be),
-                .a_wdata(s2_writedata),
-                .a_rdata(rowA_rdata[r]),
+                .a_wdata(a_wdata),
                 .b_addr (b_addr),
-                .b_be   (s1_be_oh),
-                .b_wdata(s1_wdata_x4),
                 .b_rdata(rowB_rdata[r])
             );
 
@@ -220,13 +252,15 @@ module stereo_onchip_ram #(
     endgenerate
 
     // ---------------------------------------------------------------------
-    // s2 readdata: select the row whose port-A read is valid this cycle.
+    // s2 readdata: select the row whose port-B read this cycle was steered
+    // to s2_word_idx. (Per-row b_addr arbitration above guarantees that for
+    // the row selected by s2_row_idx_q, rowB_rdata holds the s2 read data.)
     // ---------------------------------------------------------------------
     integer i_s2;
     always @(*) begin
         s2_readdata = 32'h0;
         for (i_s2 = 0; i_s2 < N_ROWS; i_s2 = i_s2 + 1) begin
-            if (i_s2[7:0] == s2_row_idx_q) s2_readdata = rowA_rdata[i_s2];
+            if (i_s2[7:0] == s2_row_idx_q) s2_readdata = rowB_rdata[i_s2];
         end
     end
 

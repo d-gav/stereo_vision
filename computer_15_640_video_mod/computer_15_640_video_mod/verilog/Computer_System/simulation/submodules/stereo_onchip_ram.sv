@@ -48,38 +48,85 @@ module stereo_onchip_ram_row (
     input  wire [7:0]  a_addr,        // word index 0..255
     input  wire [3:0]  a_be,          // per-byte write enable; 0 => read-only
     input  wire [31:0] a_wdata,
-    output reg  [31:0] a_rdata,
+    output wire [31:0] a_rdata,
 
     // Port B
     input  wire [7:0]  b_addr,
     input  wire [3:0]  b_be,
     input  wire [31:0] b_wdata,
-    output reg  [31:0] b_rdata
+    output wire [31:0] b_rdata
 );
 
-    // Packed byte lanes inside each word so Quartus understands the
-    // byte-enable structure (UG-20131 Example 23).
-    (* ramstyle = "M10K" *) reg [3:0][7:0] mem [0:255];
-
-    // Port A: blocking writes to the shared memory, non-blocking registered
-    // read. Combined with the matching block below this is the byte-enabled
-    // TDP inference pattern.
-    always @(posedge clk) begin
-        if (a_be[0]) mem[a_addr][0] = a_wdata[ 7: 0];
-        if (a_be[1]) mem[a_addr][1] = a_wdata[15: 8];
-        if (a_be[2]) mem[a_addr][2] = a_wdata[23:16];
-        if (a_be[3]) mem[a_addr][3] = a_wdata[31:24];
-        a_rdata <= mem[a_addr];
-    end
-
-    // Port B
-    always @(posedge clk) begin
-        if (b_be[0]) mem[b_addr][0] = b_wdata[ 7: 0];
-        if (b_be[1]) mem[b_addr][1] = b_wdata[15: 8];
-        if (b_be[2]) mem[b_addr][2] = b_wdata[23:16];
-        if (b_be[3]) mem[b_addr][3] = b_wdata[31:24];
-        b_rdata <= mem[b_addr];
-    end
+    // Direct altsyncram instantiation. Quartus 18.1 Standard's RAM inferencer
+    // refuses to merge two always blocks driving a byte-enabled TDP M10K (it
+    // either errors with 276010 "unsupported RDW with byte-enable" or, after
+    // a no_rw_check hint, falls through to elaboration where 10028 multiple-
+    // drivers fires). Instantiating altsyncram directly with operation_mode
+    // BIDIR_DUAL_PORT + read_during_write_mode_*("DONT_CARE") + ram_block_type
+    // ("M10K") is deterministic: one M10K per row, 1-cycle read latency
+    // (input-registered, output-unregistered).
+    //
+    // Capture (DMA writes via Avalon s1/s2) and compute (SAD reads) phases
+    // are temporally exclusive in this design, so DONT_CARE RDW semantics
+    // are safe.
+    altsyncram #(
+        .operation_mode                    ("BIDIR_DUAL_PORT"),
+        .ram_block_type                    ("M10K"),
+        .width_a                           (32),
+        .widthad_a                         (8),
+        .numwords_a                        (256),
+        .width_b                           (32),
+        .widthad_b                         (8),
+        .numwords_b                        (256),
+        .width_byteena_a                   (4),
+        .width_byteena_b                   (4),
+        .byte_size                         (8),
+        .read_during_write_mode_port_a     ("DONT_CARE"),
+        .read_during_write_mode_port_b     ("DONT_CARE"),
+        .read_during_write_mode_mixed_ports("DONT_CARE"),
+        .outdata_reg_a                     ("UNREGISTERED"),
+        .outdata_reg_b                     ("UNREGISTERED"),
+        .indata_aclr_a                     ("NONE"),
+        .indata_aclr_b                     ("NONE"),
+        .wrcontrol_aclr_a                  ("NONE"),
+        .wrcontrol_aclr_b                  ("NONE"),
+        .address_aclr_a                    ("NONE"),
+        .address_aclr_b                    ("NONE"),
+        .byteena_aclr_a                    ("NONE"),
+        .byteena_aclr_b                    ("NONE"),
+        .outdata_aclr_a                    ("NONE"),
+        .outdata_aclr_b                    ("NONE"),
+        .clock_enable_input_a              ("BYPASS"),
+        .clock_enable_input_b              ("BYPASS"),
+        .clock_enable_output_a             ("BYPASS"),
+        .clock_enable_output_b             ("BYPASS"),
+        .power_up_uninitialized            ("FALSE"),
+        .lpm_type                          ("altsyncram")
+    ) u_m10k (
+        .clock0        (clk),
+        .clock1        (1'b1),
+        .clocken0      (1'b1),
+        .clocken1      (1'b1),
+        .clocken2      (1'b1),
+        .clocken3      (1'b1),
+        .aclr0         (1'b0),
+        .aclr1         (1'b0),
+        .address_a     (a_addr),
+        .address_b     (b_addr),
+        .addressstall_a(1'b0),
+        .addressstall_b(1'b0),
+        .byteena_a     (a_be),
+        .byteena_b     (b_be),
+        .data_a        (a_wdata),
+        .data_b        (b_wdata),
+        .wren_a        (|a_be),
+        .wren_b        (|b_be),
+        .rden_a        (1'b1),
+        .rden_b        (1'b1),
+        .q_a           (a_rdata),
+        .q_b           (b_rdata),
+        .eccstatus     ()
+    );
 
 endmodule
 

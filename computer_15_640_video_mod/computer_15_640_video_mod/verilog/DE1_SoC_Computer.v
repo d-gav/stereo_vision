@@ -378,9 +378,6 @@ localparam Y_CROP_OFFSET = 44;
 localparam BLOCK_SIZE      = 5;
 localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
-localparam FULL_ROW_WIDTH  = FULL_FRAME_WIDTH;  // 640: left(0..319) + right(320..639)
-localparam BRAM_DEPTH      = FRAME_HEIGHT * FULL_ROW_WIDTH; // 200*640 = 128000
-localparam BRAM_ADDR_W     = 17;  // ceil(log2(128000))
 
 // Top-level phase
 localparam [1:0] PHASE_FILL      = 2'd0;
@@ -403,23 +400,15 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 //=======================================================
-// Combined BRAM for left+right camera images
-// Row layout: [left col 0..319][right col 0..319] = 640 bytes per row
-// Address = row * 640 + col (left) or row * 640 + 320 + col (right)
+// Direct sad_port conduit into stereo_onchip_ram (port B of every row's M10K).
+// SAD reads all FRAME_HEIGHT rows in parallel at one byte column per cycle;
+// the Video-In DMA continues to write into Onchip_SRAM through s1 in the
+// background, with the layout matching DE1_SoC_Computer.v's coordinate system
+// (left col 0..LEFT_LUT_WIDTH-1, gap, right col RIGHT_OUTPUT_X_START..).
 //=======================================================
-reg                    bram_wr_en;
-reg [BRAM_ADDR_W-1:0] bram_wr_addr;
-reg [7:0]              bram_wr_data;
-
-wire [BRAM_ADDR_W-1:0] bram_rd_addr;
-wire [7:0]              bram_rd_data;
-
-stereo_bram_bank #(.DEPTH(BRAM_DEPTH),.DATA_W(8),.ADDR_W(BRAM_ADDR_W)) stereo_bram (
-	.clk(CLOCK2_50),
-	.wr_en(bram_wr_en),
-	.wr_addr(bram_wr_addr), .wr_data(bram_wr_data),
-	.rd_addr(bram_rd_addr), .rd_data(bram_rd_data)
-);
+wire                              sad_re;
+wire [9:0]                        sad_col;
+wire [FRAME_HEIGHT*PIXEL_W-1:0]   sad_rdata_flat;
 
 //=======================================================
 // Bus controller for AVALON bus-master
@@ -500,16 +489,25 @@ reg              mbi_disp_ack;
 wire [31:0] pio_small_pen_value;
 wire [31:0] pio_big_pen_value;
 
-column_prefetch #(
-	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
-	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W),
-	.FULL_ROW_WIDTH(FULL_ROW_WIDTH), .ROW_W(8), .COL_W(9)
+column_prefetch_parallel #(
+	.FRAME_HEIGHT      (FRAME_HEIGHT),
+	.RIGHT_BANK_OFFSET (RIGHT_OUTPUT_X_START),  // 319 — matches the side-by-side
+	                                            // layout the Video-In DMA writes
+	                                            // (NOT HALF_FRAME_WIDTH=320)
+	.PIXEL_W           (PIXEL_W),
+	.COL_W             (9),
+	.SAD_COL_W         (10)
 ) u_col_prefetch (
-	.clk(CLOCK2_50), .rst(~KEY[0]),
-	.mbi_mem_req(mbi_mem_req), .mbi_mem_bank(mbi_mem_bank),
-	.mbi_mem_col(mbi_mem_col), .stall(mbi_stall),
-	.mem_rdata(mbi_mem_rdata),
-	.bram_rd_addr(bram_rd_addr), .bram_rd_data(bram_rd_data)
+	.clk           (CLOCK2_50),
+	.rst           (~KEY[0]),
+	.mbi_mem_req   (mbi_mem_req),
+	.mbi_mem_bank  (mbi_mem_bank),
+	.mbi_mem_col   (mbi_mem_col),
+	.stall         (mbi_stall),
+	.mem_rdata     (mbi_mem_rdata),
+	.sad_re        (sad_re),
+	.sad_col       (sad_col),
+	.sad_rdata_flat(sad_rdata_flat)
 );
 
 mem_block_intf #(
@@ -571,9 +569,6 @@ always @(posedge CLOCK2_50) begin
 		display_right_sel <= SW[2];
 		timer <= 0;
 		top_phase <= PHASE_FILL;
-		bram_wr_en <= 0;
-		bram_wr_addr <= 0;
-		bram_wr_data <= 0;
 		mbi_go <= 0; mbi_rst <= 1;
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
@@ -582,7 +577,6 @@ always @(posedge CLOCK2_50) begin
 	else begin
 		timer <= timer + 1;
 		read_video_start <= 1'b0;
-		bram_wr_en <= 1'b0;
 		mbi_go <= 1'b0;
 		mbi_disp_ack <= 1'b0;
 
@@ -628,16 +622,10 @@ always @(posedge CLOCK2_50) begin
 			end
 
 			if (state==4'd8) begin
-				// Write to combined BRAM
-				// Left: row*640 + col, Right: row*640 + 320 + col
-				bram_wr_en   <= 1'b1;
-				bram_wr_data <= current_pixel_color1;
-				if (right_read_side) begin
-					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + HALF_FRAME_WIDTH + right_cam_mem_x_cood;
-				end else begin
-					bram_wr_addr <= old_video_in_y_cood * FULL_ROW_WIDTH + old_video_in_x_cood;
-				end
-				// Write to VGA
+				// Stereo data is already in Onchip_SRAM (written there directly
+				// by the Video-In DMA). The SAD engine reads it through the
+				// sad_port conduit, so we no longer copy into stereo_bram_bank.
+				// We still write each pixel to the VGA buffer for live display.
 				state <= 4'd9;
 				bus_write <= 1'b1;
 				bus_addr <= vga_bus_addr;
@@ -749,6 +737,14 @@ Computer_System The_System (
 	.video_in_TD_RESET						(),
 	.video_in_overflow_flag					(),
 	
+	// Onchip_SRAM SAD parallel-read conduit (port B of every row's M10K).
+	// Exported by Qsys as onchip_sram_1_sad_port_{re,col,rdata}; sad_rdata
+	// is a flat 1600-bit bus (200 rows * 8 bits) consumed by
+	// column_prefetch_parallel which unflattens it row-by-row.
+	.onchip_sram_1_sad_port_re    (sad_re),
+	.onchip_sram_1_sad_port_col   (sad_col),
+	.onchip_sram_1_sad_port_rdata (sad_rdata_flat),
+
 	//PIO out
 	.pio_test_test_export(32'd5),
 

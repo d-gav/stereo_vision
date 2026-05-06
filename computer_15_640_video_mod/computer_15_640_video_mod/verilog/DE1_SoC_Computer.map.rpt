@@ -1,5 +1,5 @@
 Analysis & Synthesis report for DE1_SoC_Computer
-Wed May 06 02:00:16 2026
+Wed May 06 18:26:23 2026
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -1470,7 +1470,7 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Analysis & Synthesis Summary                                                  ;
 +---------------------------------+---------------------------------------------+
-; Analysis & Synthesis Status     ; Successful - Wed May 06 02:00:14 2026       ;
+; Analysis & Synthesis Status     ; Successful - Wed May 06 18:26:21 2026       ;
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; DE1_SoC_Computer                            ;
 ; Top-level Entity Name           ; DE1_SoC_Computer                            ;
@@ -1586,22 +1586,22 @@ refer to the applicable agreement for further details.
 ; Number detected on machine ; 12          ;
 ; Maximum allowed            ; 12          ;
 ;                            ;             ;
-; Average used               ; 4.13        ;
+; Average used               ; 3.36        ;
 ; Maximum used               ; 12          ;
 ;                            ;             ;
 ; Usage by Processor         ; % Time Used ;
 ;     Processor 1            ; 100.0%      ;
-;     Processor 2            ;  28.5%      ;
-;     Processor 3            ;  28.5%      ;
-;     Processor 4            ;  28.5%      ;
-;     Processor 5            ;  28.5%      ;
-;     Processor 6            ;  28.5%      ;
-;     Processor 7            ;  28.5%      ;
-;     Processor 8            ;  28.5%      ;
-;     Processor 9            ;  28.5%      ;
-;     Processor 10           ;  28.5%      ;
-;     Processor 11           ;  28.5%      ;
-;     Processor 12           ;  28.5%      ;
+;     Processor 2            ;  21.5%      ;
+;     Processor 3            ;  21.5%      ;
+;     Processor 4            ;  21.4%      ;
+;     Processor 5            ;  21.4%      ;
+;     Processor 6            ;  21.4%      ;
+;     Processor 7            ;  21.4%      ;
+;     Processor 8            ;  21.4%      ;
+;     Processor 9            ;  21.4%      ;
+;     Processor 10           ;  21.4%      ;
+;     Processor 11           ;  21.4%      ;
+;     Processor 12           ;  21.4%      ;
 +----------------------------+-------------+
 
 
@@ -42795,8 +42795,8 @@ Note: In order to hide this table in the UI and the text report file, please set
 +-------------------------------------------------+--------------+
 ; Partition Name                                  ; Elapsed Time ;
 +-------------------------------------------------+--------------+
-; Top                                             ; 00:01:09     ;
-; Computer_System_ARM_A9_HPS_hps_io_border:border ; 00:00:00     ;
+; Top                                             ; 00:01:17     ;
+; Computer_System_ARM_A9_HPS_hps_io_border:border ; 00:00:01     ;
 +-------------------------------------------------+--------------+
 
 
@@ -42806,7 +42806,7 @@ Note: In order to hide this table in the UI and the text report file, please set
 Info: *******************************************************************
 Info: Running Quartus Prime Analysis & Synthesis
     Info: Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
-    Info: Processing started: Wed May 06 01:55:02 2026
+    Info: Processing started: Wed May 06 18:20:21 2026
 Info: Command: quartus_map --read_settings_files=on --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
 Info (20030): Parallel compilation is enabled and will use 12 of the 12 processors detected
 Info (12021): Found 1 design units, including 1 entities, in source file computer_system/synthesis/computer_system.v
@@ -44403,12 +44403,12 @@ Info (12021): Found 1 design units, including 1 entities, in source file db/alt_
     Info (12023): Found entity 1: alt_u_div_20f File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/db/alt_u_div_20f.tdf Line: 22
 Warning (12241): 56 hierarchies have connectivity warnings - see the Connectivity Checks report folder
 Warning (13034): The following nodes have both tri-state and non-tri-state drivers
-    Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[2]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
-    Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[3]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
-Warning (13034): The following nodes have both tri-state and non-tri-state drivers
     Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[0]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
     Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[1]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
     Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[4]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
+Warning (13034): The following nodes have both tri-state and non-tri-state drivers
+    Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[2]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
+    Warning (13035): Inserted always-enabled tri-state buffer between "GPIO_0[3]" and its non-tri-state driver. File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 226
 Warning (13039): The following bidirectional pins have no drivers
     Warning (13040): bidirectional pin "ADC_CS_N" has no driver File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 195
     Warning (13040): bidirectional pin "AUD_ADCLRCK" has no driver File: C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/DE1_SoC_Computer.v Line: 202
@@ -44667,10 +44667,10 @@ Info (21057): Implemented 53307 device resources after synthesis - the final res
     Info (21066): Implemented 1 delay-locked loops
     Info (21062): Implemented 17 DSP elements
 Info: Quartus Prime Analysis & Synthesis was successful. 0 errors, 714 warnings
-    Info: Peak virtual memory: 5768 megabytes
-    Info: Processing ended: Wed May 06 02:00:16 2026
-    Info: Elapsed time: 00:05:14
-    Info: Total CPU time (on all processors): 00:08:57
+    Info: Peak virtual memory: 5849 megabytes
+    Info: Processing ended: Wed May 06 18:26:23 2026
+    Info: Elapsed time: 00:06:02
+    Info: Total CPU time (on all processors): 00:09:17
 
 
 +------------------------------------------+

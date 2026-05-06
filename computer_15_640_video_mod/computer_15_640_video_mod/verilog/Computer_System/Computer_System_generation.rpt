@@ -17,82 +17,10 @@ Progress: Parameterizing module SDRAM
 Progress: Adding System_PLL [altera_up_avalon_sys_sdram_pll 18.0]
 Progress: Parameterizing module System_PLL
 Progress: Adding VGA_Subsystem [VGA_Subsystem 1.0]
-Progress: Reading input file
-Progress: Adding Sys_Clk [clock_source 18.1]
-Progress: Parameterizing module Sys_Clk
-Progress: Adding VGA_Alpha_Blender [altera_up_avalon_video_alpha_blender 18.0]
-Progress: Parameterizing module VGA_Alpha_Blender
-Progress: Adding VGA_Char_Buffer [altera_up_avalon_video_character_buffer_with_dma 18.0]
-Progress: Parameterizing module VGA_Char_Buffer
-Progress: Adding VGA_Controller [altera_up_avalon_video_vga_controller 18.0]
-Progress: Parameterizing module VGA_Controller
-Progress: Adding VGA_Dual_Clock_FIFO [altera_up_avalon_video_dual_clock_buffer 18.0]
-Progress: Parameterizing module VGA_Dual_Clock_FIFO
-Progress: Adding VGA_PLL [altera_up_avalon_video_pll 18.0]
-Progress: Parameterizing module VGA_PLL
-Progress: Adding VGA_Pixel_DMA [altera_up_avalon_video_pixel_buffer_dma 18.0]
-Progress: Parameterizing module VGA_Pixel_DMA
-Progress: Adding VGA_Pixel_FIFO [altera_up_avalon_video_dual_clock_buffer 18.0]
-Progress: Parameterizing module VGA_Pixel_FIFO
-Progress: Adding VGA_Pixel_RGB_Resampler [altera_up_avalon_video_rgb_resampler 18.0]
-Progress: Parameterizing module VGA_Pixel_RGB_Resampler
-Progress: Building connections
-Progress: Parameterizing connections
-Progress: Validating
-Progress: Done reading input file
 Progress: Parameterizing module VGA_Subsystem
 Progress: Adding Video_In_DMA_Addr_Translation [altera_up_avalon_video_dma_ctrl_addr_trans 18.0]
 Progress: Parameterizing module Video_In_DMA_Addr_Translation
 Progress: Adding Video_In_Subsystem [Video_In_Subsystem 1.0]
-Progress: Reading input file
-Progress: Adding Edge_Detection_Subsystem [Edge_Detection_Subsystem 1.0]
-Progress: Reading input file
-Progress: Adding Chroma_Filter [altera_up_avalon_video_chroma_resampler 15.1]
-Warning: Chroma_Filter: Used altera_up_avalon_video_chroma_resampler 18.0 (instead of 15.1)
-Progress: Parameterizing module Chroma_Filter
-Progress: Adding Chroma_Upsampler [altera_up_avalon_video_chroma_resampler 15.1]
-Warning: Chroma_Upsampler: Used altera_up_avalon_video_chroma_resampler 18.0 (instead of 15.1)
-Progress: Parameterizing module Chroma_Upsampler
-Progress: Adding Edge_Detection [altera_up_avalon_video_edge_detection 15.1]
-Warning: Edge_Detection: Used altera_up_avalon_video_edge_detection 18.0 (instead of 15.1)
-Progress: Parameterizing module Edge_Detection
-Progress: Adding Edge_Detection_Router_Controller [altera_avalon_pio 15.1]
-Warning: Edge_Detection_Router_Controller: Used altera_avalon_pio 18.1 (instead of 15.1)
-Progress: Parameterizing module Edge_Detection_Router_Controller
-Progress: Adding Sys_Clk [clock_source 15.1]
-Warning: Sys_Clk: Used clock_source 18.1 (instead of 15.1)
-Progress: Parameterizing module Sys_Clk
-Progress: Adding Video_Stream_Merger [altera_up_avalon_video_stream_router 15.1]
-Warning: Video_Stream_Merger: Used altera_up_avalon_video_stream_router 18.0 (instead of 15.1)
-Progress: Parameterizing module Video_Stream_Merger
-Progress: Adding Video_Stream_Splitter [altera_up_avalon_video_stream_router 15.1]
-Warning: Video_Stream_Splitter: Used altera_up_avalon_video_stream_router 18.0 (instead of 15.1)
-Progress: Parameterizing module Video_Stream_Splitter
-Progress: Building connections
-Progress: Parameterizing connections
-Progress: Validating
-Progress: Done reading input file
-Progress: Parameterizing module Edge_Detection_Subsystem
-Progress: Adding Sys_Clk [clock_source 18.1]
-Progress: Parameterizing module Sys_Clk
-Progress: Adding Video_In [altera_up_avalon_video_decoder 18.0]
-Progress: Parameterizing module Video_In
-Progress: Adding Video_In_CSC [altera_up_avalon_video_csc 18.0]
-Progress: Parameterizing module Video_In_CSC
-Progress: Adding Video_In_Chroma_Resampler [altera_up_avalon_video_chroma_resampler 18.0]
-Progress: Parameterizing module Video_In_Chroma_Resampler
-Progress: Adding Video_In_Clipper [altera_up_avalon_video_clipper 18.0]
-Progress: Parameterizing module Video_In_Clipper
-Progress: Adding Video_In_DMA [altera_up_avalon_video_dma_controller 18.0]
-Progress: Parameterizing module Video_In_DMA
-Progress: Adding Video_In_RGB_Resampler [altera_up_avalon_video_rgb_resampler 18.0]
-Progress: Parameterizing module Video_In_RGB_Resampler
-Progress: Adding Video_In_Scaler [altera_up_avalon_video_scaler 18.0]
-Progress: Parameterizing module Video_In_Scaler
-Progress: Building connections
-Progress: Parameterizing connections
-Progress: Validating
-Progress: Done reading input file
 Progress: Parameterizing module Video_In_Subsystem
 Progress: Adding clock_bridge_0 [altera_clock_bridge 18.1]
 Progress: Parameterizing module clock_bridge_0
@@ -224,18 +152,18 @@ Info: EBAB_video_in: "Computer_System" instantiated altera_up_external_bus_to_av
 Info: Onchip_SRAM: "Computer_System" instantiated stereo_onchip_ram "Onchip_SRAM"
 Info: Pixel_DMA_Addr_Translation: "Computer_System" instantiated altera_up_avalon_video_dma_ctrl_addr_trans "Pixel_DMA_Addr_Translation"
 Info: SDRAM: Starting RTL generation for module 'Computer_System_SDRAM'
-Info: SDRAM:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller/generate_rtl.pl --name=Computer_System_SDRAM --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0006_SDRAM_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0006_SDRAM_gen//Computer_System_SDRAM_component_configuration.pl  --do_build_sim=0  ]
+Info: SDRAM:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_new_sdram_controller/generate_rtl.pl --name=Computer_System_SDRAM --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0006_SDRAM_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0006_SDRAM_gen//Computer_System_SDRAM_component_configuration.pl  --do_build_sim=0  ]
 Info: SDRAM: Done RTL generation for module 'Computer_System_SDRAM'
 Info: SDRAM: "Computer_System" instantiated altera_avalon_new_sdram_controller "SDRAM"
 Info: System_PLL: "Computer_System" instantiated altera_up_avalon_sys_sdram_pll "System_PLL"
 Info: VGA_Subsystem: "Computer_System" instantiated VGA_Subsystem "VGA_Subsystem"
 Info: Video_In_Subsystem: "Computer_System" instantiated Video_In_Subsystem "Video_In_Subsystem"
 Info: pio_0: Starting RTL generation for module 'Computer_System_pio_0'
-Info: pio_0:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_pio_0 --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0007_pio_0_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0007_pio_0_gen//Computer_System_pio_0_component_configuration.pl  --do_build_sim=0  ]
+Info: pio_0:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_pio_0 --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0007_pio_0_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0007_pio_0_gen//Computer_System_pio_0_component_configuration.pl  --do_build_sim=0  ]
 Info: pio_0: Done RTL generation for module 'Computer_System_pio_0'
 Info: pio_0: "Computer_System" instantiated altera_avalon_pio "pio_0"
 Info: pio_big_pen: Starting RTL generation for module 'Computer_System_pio_big_pen'
-Info: pio_big_pen:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_pio_big_pen --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0008_pio_big_pen_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0008_pio_big_pen_gen//Computer_System_pio_big_pen_component_configuration.pl  --do_build_sim=0  ]
+Info: pio_big_pen:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_pio_big_pen --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0008_pio_big_pen_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0008_pio_big_pen_gen//Computer_System_pio_big_pen_component_configuration.pl  --do_build_sim=0  ]
 Info: pio_big_pen: Done RTL generation for module 'Computer_System_pio_big_pen'
 Info: pio_big_pen: "Computer_System" instantiated altera_avalon_pio "pio_big_pen"
 Info: avalon_st_adapter: Inserting error_adapter: error_adapter_0
@@ -348,7 +276,7 @@ Info: Chroma_Upsampler: "Edge_Detection_Subsystem" instantiated altera_up_avalon
 Info: Edge_Detection: Starting Generation of Video In Edge Detection
 Info: Edge_Detection: "Edge_Detection_Subsystem" instantiated altera_up_avalon_video_edge_detection "Edge_Detection"
 Info: Edge_Detection_Router_Controller: Starting RTL generation for module 'Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller'
-Info: Edge_Detection_Router_Controller:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0066_Edge_Detection_Router_Controller_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_6282211109453376220.dir/0066_Edge_Detection_Router_Controller_gen//Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller_component_configuration.pl  --do_build_sim=0  ]
+Info: Edge_Detection_Router_Controller:   Generation command is [exec C:/intelfpga_lite/18.1/quartus/bin64/perl/bin/perl.exe -I C:/intelfpga_lite/18.1/quartus/bin64/perl/lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/europa -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin/perl_lib -I C:/intelfpga_lite/18.1/quartus/sopc_builder/bin -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/common -I C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio -- C:/intelfpga_lite/18.1/quartus/../ip/altera/sopc_builder_ip/altera_avalon_pio/generate_rtl.pl --name=Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller --dir=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0066_Edge_Detection_Router_Controller_gen/ --quartus_dir=C:/intelfpga_lite/18.1/quartus --verilog --config=C:/Users/ezrar/AppData/Local/Temp/alt0579_2425431004142676623.dir/0066_Edge_Detection_Router_Controller_gen//Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller_component_configuration.pl  --do_build_sim=0  ]
 Info: Edge_Detection_Router_Controller: Done RTL generation for module 'Computer_System_Video_In_Subsystem_Edge_Detection_Subsystem_Edge_Detection_Router_Controller'
 Info: Edge_Detection_Router_Controller: "Edge_Detection_Subsystem" instantiated altera_avalon_pio "Edge_Detection_Router_Controller"
 Info: Video_Stream_Merger: Starting Generation of Video In Stream Router

@@ -500,11 +500,6 @@ reg              mbi_disp_ack;
 wire [31:0] pio_small_pen_value;
 wire [31:0] pio_big_pen_value;
 
-// Reference-image Y trim (signed) driven by HPS via Avalon PIO
-// (pio_y_trim at LW offset 0x50). Used to nudge the reference image
-// up/down by a few rows to compensate for vertical camera misalignment.
-wire [31:0] pio_y_trim_value;
-
 column_prefetch #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.PIXEL_W(PIXEL_W), .ADDR_W(BRAM_ADDR_W),
@@ -520,12 +515,17 @@ column_prefetch #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(24)
+	.NUM_SAD_UNITS(1),
+	// Reference-side y-sweep: each block match also tries +/-Y_PM y-shifts of
+	// the reference window and keeps the smallest SAD. Y_TRIM is a compile-time
+	// signed bias added on top of the symmetric [-Y_PM, +Y_PM] sweep so the
+	// effective range is [Y_TRIM - Y_PM, Y_TRIM + Y_PM].
+	.Y_PM(2),
+	.Y_TRIM(0)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
 	.sgm_p1(pio_small_pen_value), .sgm_p2(pio_big_pen_value),
-	.y_trim(pio_y_trim_value),
 	.mem_req(mbi_mem_req), .mem_bank(mbi_mem_bank), .mem_col(mbi_mem_col),
 	.mem_rdata(mbi_mem_rdata),
 	.disp_valid(mbi_disp_valid), .disp_out_y(mbi_disp_y),
@@ -762,10 +762,11 @@ Computer_System The_System (
 	.pio_small_pen_external_connection_export (pio_small_pen_value),
 	.pio_big_pen_external_connection_export   (pio_big_pen_value),
 
-	// Reference-image Y trim PIO (HPS -> FPGA, 32-bit signed)
-	.pio_y_trim_external_connection_export    (pio_y_trim_value),
+	// pio_y_trim is still wired into Qsys at LW offset 0x50 but is unused
+	// (Y trim is now a compile-time parameter of mem_block_intf).
+	.pio_y_trim_external_connection_export    (),
 
-	.ebab_video_in_external_interface_address     (bus_addr),     // 
+	.ebab_video_in_external_interface_address     (bus_addr),     //
 	.ebab_video_in_external_interface_byte_enable (bus_byte_enable), //  .byte_enable
 	.ebab_video_in_external_interface_read        (bus_read),        //  .read
 	.ebab_video_in_external_interface_write       (bus_write),       //  .write

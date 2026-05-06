@@ -7,6 +7,16 @@ module mem_block_intf #(
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
 	parameter int NUM_SAD_UNITS    = 32,
+	// Y_PM: vertical pixel-margin for the reference-side y-sweep. For each
+	// (col_x, disp), we evaluate (2*Y_PM+1) SADs against y-shifted reference
+	// blocks (shift = -Y_PM .. +Y_PM, on top of the Y_TRIM bias) and use the
+	// minimum SAD as the cost. The emitted disparity is still the x
+	// difference; the winning y-offset is discarded. Set to 0 to disable.
+	parameter int Y_PM             = 0,
+	// Y_TRIM: signed compile-time bias added to the reference row index to
+	// compensate for vertical camera misalignment. The y-sweep range is
+	// [Y_TRIM - Y_PM, Y_TRIM + Y_PM].
+	parameter int Y_TRIM           = 0,
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -20,14 +30,6 @@ module mem_block_intf #(
 	// Width is 32 to match the PIO; only the low SAD_W+2 bits are used.
 	input logic [31:0] sgm_p1,
 	input logic [31:0] sgm_p2,
-
-	// Runtime-configurable Y trim (signed) applied to the reference (left)
-	// bank's row index, used to compensate for slight vertical misalignment
-	// between the two cameras. Positive values shift the reference image
-	// down (compare against rows further down); negative shift it up.
-	// Width is 32 (signed) to match the PIO; only a few low bits are used in
-	// practice, and rows that fall outside [0, FRAME_HEIGHT-1] are zeroed.
-	input logic signed [31:0] y_trim,
 
 	output logic mem_req,
 	output logic mem_bank, // 0 = left, 1 = right
@@ -50,6 +52,8 @@ module mem_block_intf #(
 	localparam int PHASE_W       = (STRIPE_HEIGHT <= 1) ? 1 : ($clog2(STRIPE_HEIGHT) + 1);
 	localparam int X_MIN         = 0;
 	localparam int X_MAX         = HALF_FRAME_WIDTH - 1;
+	localparam int Y_VARIANTS    = (Y_PM < 0) ? 1 : (2*Y_PM + 1);
+	localparam int ROW_IDX_W     = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT);
 
 	localparam logic [X_W-1:0]      X_MIN_L     = X_MIN;
 	localparam logic [X_W-1:0]      X_MAX_L     = X_MAX;
@@ -64,7 +68,10 @@ module mem_block_intf #(
 	logic [2:0] curr_state;
 	logic [2:0] next_state;
 
-	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
+	// Reference column buffer carries Y_VARIANTS y-shifted copies per stripe so
+	// each block_match_sad sees a vertically nudged reference window. Match
+	// (right) column is unchanged.
+	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:Y_VARIANTS-1][0:BLOCK_SIZE-1];
 	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
 
 
@@ -83,33 +90,24 @@ module mem_block_intf #(
 	logic slide_reference;
 	logic slide_matching;
 
+	// Per-stripe per-y-variant raw SAD outputs. sad_value[g] is the min over
+	// y-variants for stripe g; that's what feeds the existing penalty/argmin
+	// logic, so the rest of the FSM is unchanged.
+	logic [SAD_W-1:0] sad_value_yv [0:NUM_SAD_UNITS-1][0:Y_VARIANTS-1];
+
 	genvar g;
 	generate
 		for (g = 0; g < NUM_SAD_UNITS; g++) begin : GEN_UNIT
-			logic [BLOCK_SIZE*PIXEL_W-1:0] left_col_flat_g;
+			// Match (right) column: one window per stripe, shared across all
+			// y-variants of the reference.
 			logic [BLOCK_SIZE*PIXEL_W-1:0] right_col_flat_g;
-			logic [PIXEL_W-1:0] left_block_g  [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
 			logic [PIXEL_W-1:0] right_block_g [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
-			logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] left_block_flat_g;
 			logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] right_block_flat_g;
 
 			genvar rr;
-			for (rr = 0; rr < BLOCK_SIZE; rr++) begin : GEN_COL_WIRE
-				assign left_col_flat_g[(rr+1)*PIXEL_W-1 -: PIXEL_W] = left_col_buf[g][rr];
+			for (rr = 0; rr < BLOCK_SIZE; rr++) begin : GEN_RCOL_WIRE
 				assign right_col_flat_g[(rr+1)*PIXEL_W-1 -: PIXEL_W] = right_col_buf[g][rr];
 			end
-
-			sliding_window #(
-				.BLOCK_SIZE(BLOCK_SIZE),
-				.PIXEL_W(PIXEL_W)
-			) u_ref_window (
-				.clk(clk),
-				.rst(rst),
-				.valid_in(slide_reference),
-				.pixel_in_col_flat(left_col_flat_g),
-				.block_out(left_block_g),
-				.block_out_flat(left_block_flat_g)
-			);
 
 			sliding_window #(
 				.BLOCK_SIZE(BLOCK_SIZE),
@@ -123,15 +121,57 @@ module mem_block_intf #(
 				.block_out_flat(right_block_flat_g)
 			);
 
-			block_match_sad #(
-				.BLOCK_SIZE(BLOCK_SIZE),
-				.PIXEL_W(PIXEL_W),
-				.SAD_W(SAD_W)
-			) u_block_match_sad (
-				.left_block_flat(left_block_flat_g),
-				.right_block_flat(right_block_flat_g),
-				.sad(sad_value[g])
-			);
+			// Reference (left) column hardware: one sliding_window +
+			// block_match_sad per y-variant. They all share the same
+			// slide_reference pulse, so they slide in lock-step.
+			genvar yv;
+			for (yv = 0; yv < Y_VARIANTS; yv++) begin : GEN_YV
+				logic [BLOCK_SIZE*PIXEL_W-1:0] left_col_flat_yv;
+				logic [PIXEL_W-1:0] left_block_yv [0:BLOCK_SIZE-1][0:BLOCK_SIZE-1];
+				logic [BLOCK_SIZE*BLOCK_SIZE*PIXEL_W-1:0] left_block_flat_yv;
+
+				genvar rr_yv;
+				for (rr_yv = 0; rr_yv < BLOCK_SIZE; rr_yv++) begin : GEN_LCOL_WIRE_YV
+					assign left_col_flat_yv[(rr_yv+1)*PIXEL_W-1 -: PIXEL_W] =
+						left_col_buf[g][yv][rr_yv];
+				end
+
+				sliding_window #(
+					.BLOCK_SIZE(BLOCK_SIZE),
+					.PIXEL_W(PIXEL_W)
+				) u_ref_window (
+					.clk(clk),
+					.rst(rst),
+					.valid_in(slide_reference),
+					.pixel_in_col_flat(left_col_flat_yv),
+					.block_out(left_block_yv),
+					.block_out_flat(left_block_flat_yv)
+				);
+
+				block_match_sad #(
+					.BLOCK_SIZE(BLOCK_SIZE),
+					.PIXEL_W(PIXEL_W),
+					.SAD_W(SAD_W)
+				) u_block_match_sad (
+					.left_block_flat(left_block_flat_yv),
+					.right_block_flat(right_block_flat_g),
+					.sad(sad_value_yv[g][yv])
+				);
+			end
+
+			// Combinational min-reduce across the y-variants gives this
+			// stripe's effective SAD. The winning y-offset is dropped — only
+			// the cost matters for argmin-over-disparity downstream.
+			always_comb begin
+				logic [SAD_W-1:0] min_sad;
+				min_sad = sad_value_yv[g][0];
+				for (int j = 1; j < Y_VARIANTS; j++) begin
+					if (sad_value_yv[g][j] < min_sad) begin
+						min_sad = sad_value_yv[g][j];
+					end
+				end
+				sad_value[g] = min_sad;
+			end
 		end
 	endgenerate
 
@@ -240,8 +280,15 @@ module mem_block_intf #(
 
 
 	//counters to figure out state transitions
-	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt;
-	logic [$clog2(BLOCK_SIZE*2+2)-1:0] phase_cnt_next;
+	// Width must hold the value BLOCK_SIZE*2+2 itself (phase_complete fires when
+	// phase_cnt equals that value). $clog2(N) returns the bits needed to address
+	// N distinct elements, i.e. enough for 0..N-1, so we size for N+1 here. The
+	// previous $clog2(BLOCK_SIZE*2+2) form silently lost a bit whenever
+	// BLOCK_SIZE*2+2 was a power of two (BLOCK_SIZE = 3, 7, 15, ...), causing
+	// phase_cnt to wrap before reaching the terminal value and the FSM to spin
+	// in INCR_PHASE forever.
+	logic [$clog2(BLOCK_SIZE*2+3)-1:0] phase_cnt;
+	logic [$clog2(BLOCK_SIZE*2+3)-1:0] phase_cnt_next;
 	logic phase_complete; // the reference and matching blocks have shifted in enough rows to fill the block 
 	assign phase_complete = (phase_cnt == (BLOCK_SIZE)*2 + 2);
 	logic PHASE_match_read; // the cycles where we're still loading rows for the matching block (after we've loaded all rows for the reference block)
@@ -472,21 +519,26 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new column to each compute unit's left block buffer.
-						// y_trim shifts the row sampled from the reference column up/down
-						// to compensate for vertical camera misalignment. Indices that
-						// fall outside [0, FRAME_HEIGHT-1] read as 0 (treated as black).
+						// Write the new column into each stripe's left block buffer for
+						// every y-variant. Y_TRIM is a compile-time bias; on top of that
+						// we fan the row index out by (yv - Y_PM) so each variant samples
+						// a vertically offset reference. Indices outside [0, FRAME_HEIGHT-1]
+						// read as 0 (treated as black so they don't bias the min).
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								automatic int trimmed_row = g * STRIPE_HEIGHT + phase_result + rr + y_trim;
-								if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
-									left_col_buf[g][rr] <= mem_rdata[trimmed_row];
-								end else begin
-									left_col_buf[g][rr] <= '0;
+							for (int yv = 0; yv < Y_VARIANTS; yv++) begin
+								for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+									automatic int trimmed_row =
+										g * STRIPE_HEIGHT + phase_result + rr + Y_TRIM + (yv - Y_PM);
+									if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
+										left_col_buf[g][yv][rr] <=
+											mem_rdata[trimmed_row[ROW_IDX_W-1:0]];
+									end else begin
+										left_col_buf[g][yv][rr] <= '0;
+									end
 								end
 							end
 						end
-						slide_reference <= 1'b1; 
+						slide_reference <= 1'b1;
 
 						// Emit best disparity for the previous reference block position
 						emit_active <= 1'b1;
@@ -550,21 +602,22 @@ module mem_block_intf #(
 
 					// catch valid memory read for reference block and update left block buffer
 					if (valid_rd_result && to_ref_block_result) begin
-						// write the new column to each compute unit's left block buffer.
-						// y_trim shifts the row sampled from the reference column up/down
-						// to compensate for vertical camera misalignment. Indices that
-						// fall outside [0, FRAME_HEIGHT-1] read as 0 (treated as black).
+						// Same y-sweep + Y_TRIM load logic as the INCR_X path above.
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin
-							for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
-								automatic int trimmed_row = g * STRIPE_HEIGHT + phase_result + rr + y_trim;
-								if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
-									left_col_buf[g][rr] <= mem_rdata[trimmed_row];
-								end else begin
-									left_col_buf[g][rr] <= '0;
+							for (int yv = 0; yv < Y_VARIANTS; yv++) begin
+								for (int rr = 0; rr < BLOCK_SIZE; rr++) begin
+									automatic int trimmed_row =
+										g * STRIPE_HEIGHT + phase_result + rr + Y_TRIM + (yv - Y_PM);
+									if (trimmed_row >= 0 && trimmed_row < FRAME_HEIGHT) begin
+										left_col_buf[g][yv][rr] <=
+											mem_rdata[trimmed_row[ROW_IDX_W-1:0]];
+									end else begin
+										left_col_buf[g][yv][rr] <= '0;
+									end
 								end
 							end
 						end
-						slide_reference <= 1'b1; 
+						slide_reference <= 1'b1;
 					end else if (valid_rd_result && !to_ref_block_result) begin
 						// write the new column to each compute unit's right block buffer
 						for (int g = 0; g < NUM_SAD_UNITS; g++) begin

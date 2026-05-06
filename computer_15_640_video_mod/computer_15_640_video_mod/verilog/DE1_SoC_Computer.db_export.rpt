@@ -1,5 +1,5 @@
 Database Export report for DE1_SoC_Computer
-Wed May 06 00:09:18 2026
+Wed May 06 02:13:31 2026
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -34,7 +34,7 @@ refer to the applicable agreement for further details.
 +----------------------------------------------------------------+
 ; Database Export Summary                                        ;
 +------------------------+---------------------------------------+
-; Database Export Status ; Successful - Wed May 06 00:09:18 2026 ;
+; Database Export Status ; Successful - Wed May 06 02:13:31 2026 ;
 ; Revision Name          ; DE1_SoC_Computer                      ;
 ; Top-level Entity Name  ; DE1_SoC_Computer                      ;
 ; Family                 ; Cyclone V                             ;
@@ -48,15 +48,15 @@ refer to the applicable agreement for further details.
 Info: *******************************************************************
 Info: Running Quartus Prime Database Export
     Info: Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
-    Info: Processing started: Wed May 06 00:08:29 2026
+    Info: Processing started: Wed May 06 02:13:02 2026
 Info: Command: quartus_cdb DE1_SoC_Computer -c DE1_SoC_Computer --export_database=C:/Users/er495/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/export_db
 Info (39038): Successfully exported the post-synthesis black-box database
 Info (39038): Successfully exported the post-synthesis database
 Info (39038): Successfully exported the post-fitter database
 Info: Quartus Prime Database Export was successful. 0 errors, 0 warnings
-    Info: Peak virtual memory: 5477 megabytes
-    Info: Processing ended: Wed May 06 00:09:18 2026
-    Info: Elapsed time: 00:00:49
-    Info: Total CPU time (on all processors): 00:00:48
+    Info: Peak virtual memory: 5201 megabytes
+    Info: Processing ended: Wed May 06 02:13:31 2026
+    Info: Elapsed time: 00:00:29
+    Info: Total CPU time (on all processors): 00:00:28
 
 

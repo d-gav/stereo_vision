@@ -381,8 +381,18 @@ localparam MAX_DISP        = 85;
 
 // Top-level phase
 localparam [1:0] PHASE_FILL      = 2'd0;
+localparam [1:0] PHASE_DRAIN     = 2'd2;   // tail-drain after FILL completes
 localparam [1:0] PHASE_COMPUTE   = 2'd1;
 reg [1:0] top_phase;
+
+// Undistortion staging ring buffer. PHASE_FILL produces undistorted pixels at
+// destination coordinates and stages them into the ring; older rows are
+// committed back to stereo_onchip_ram in place via Avalon writes (mid-frame
+// drains during FILL, plus PHASE_DRAIN at the end). RING_DEPTH must be at
+// least 1 + max |src_y - dst_y| of the radial mapper to avoid overwriting
+// raw rows still needed as sources by later destinations.
+localparam int RING_DEPTH = 13;            // K = RING_DEPTH - 1 = 12
+localparam int DRAIN_K    = RING_DEPTH - 1;
 
 wire [15:0] hex3_hex0;
 assign HEX4 = 7'b1111111;
@@ -467,6 +477,36 @@ wire [9:0] right_cam_mem_x_cood = old_video_in_x_cood - RIGHT_OUTPUT_X_START;
 // Track whether the full frame has been read
 reg frame_filled;
 
+// Undistortion ring-buffer drain controller state. cur_write_slot tracks
+// (old_video_in_y_cood mod RING_DEPTH) for ring writes during FILL; drain_y/
+// drain_word/drain_slot drive the per-row writeback into stereo_onchip_ram.
+reg [3:0] cur_write_slot;
+reg [9:0] drain_y;            // 0..FRAME_HEIGHT  (== FRAME_HEIGHT means done)
+reg [7:0] drain_word;         // 0..255
+reg [3:0] drain_slot;         // (drain_y mod RING_DEPTH)
+wire [31:0] ring_rd_data;
+wire [31:0] drain_bus_addr =
+    video_in_base_address
+    + ({22'b0, drain_y}    << 10)   // row stride = 1024 bytes
+    + ({22'b0, drain_word} <<  2);  // word stride = 4 bytes
+
+// Ring write enable: pulse for one cycle per produced pixel. State 4'd8 is
+// where current_pixel_color1 is valid and the FILL FSM is queueing the VGA
+// write; same cycle is the natural place to also commit the pixel into the
+// staging ring.
+wire ring_wr_en_pulse = (top_phase == PHASE_FILL) && (state == 4'd8);
+
+undistort_ring #(.RING_DEPTH(RING_DEPTH)) u_undistort_ring (
+    .clk         (CLOCK2_50),
+    .wr_slot     (cur_write_slot),
+    .wr_byte_col (old_video_in_x_cood),
+    .wr_en       (ring_wr_en_pulse),
+    .wr_data     (current_pixel_color1),
+    .rd_slot     (drain_slot),
+    .rd_word     (drain_word),
+    .rd_data     (ring_rd_data)
+);
+
 //=======================================================
 // Stereo engine: mem_block_intf + column prefetch
 //=======================================================
@@ -518,7 +558,7 @@ column_prefetch_parallel #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(8)
+	.NUM_SAD_UNITS(4)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
@@ -602,6 +642,10 @@ always @(posedge CLOCK2_50) begin
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
 		mbi_disp_ack <= 0;
+		cur_write_slot <= 4'd0;
+		drain_y <= 10'd0;
+		drain_word <= 8'd0;
+		drain_slot <= 4'd0;
 	end
 	else begin
 		timer <= timer + 1;
@@ -664,17 +708,113 @@ always @(posedge CLOCK2_50) begin
 
 			if (state==4'd9 && bus_ack) begin
 				bus_write <= 1'b0;
-				// Check if frame complete
-				if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1) &&
-				    old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
-					if (stereo_enabled) begin
-						top_phase <= PHASE_COMPUTE;
+				if (old_video_in_x_cood == (FULL_FRAME_WIDTH-1)) begin
+					// End of a destination row. Advance the ring write slot
+					// for the next row and remember whether the frame just
+					// finished (last drain triggers the PHASE_DRAIN tail).
+					cur_write_slot <= (cur_write_slot == RING_DEPTH-1) ? 4'd0
+					                                                   : cur_write_slot + 4'd1;
+					if (old_video_in_y_cood == (FRAME_HEIGHT-1)) begin
+						frame_filled <= 1'b1;
 					end
-					// else stay in PHASE_FILL, keep looping
-					state <= 4'd0;
-					frame_filled <= 1'b1;
+					// Mid-frame drain: row (old_y - K) has now had K rows of
+					// destinations produced after it, so its raw data is no
+					// longer needed by anyone — safe to commit the staged
+					// undistorted version back into stereo_onchip_ram.
+					if (old_video_in_y_cood >= DRAIN_K) begin
+						drain_word <= 8'd0;
+						state <= 4'd2;
+					end else begin
+						state <= 4'd0;
+					end
 				end else begin
 					state <= 4'd0;
+				end
+			end
+
+			// ---- Drain mini-FSM (states 2/3/4) -----------------------------
+			// Pumps one staged row out of the ring buffer back into the main
+			// SRAM via Avalon writes. Shared across PHASE_FILL (mid-frame
+			// drains) and PHASE_DRAIN (tail drains).
+			if (state == 4'd2) begin
+				// Setup. ring_rd_data will be valid one cycle later because
+				// the ring is M10K-backed (1-cycle read latency).
+				bus_addr <= drain_bus_addr;
+				bus_byte_enable <= 4'b1111;
+				state <= 4'd3;
+			end
+			if (state == 4'd3) begin
+				bus_write <= 1'b1;
+				bus_write_data <= ring_rd_data;
+				state <= 4'd4;
+			end
+			if (state == 4'd4 && bus_ack) begin
+				bus_write <= 1'b0;
+				if (drain_word == 8'd255) begin
+					// Row drain complete. Advance to next row.
+					drain_y    <= drain_y + 10'd1;
+					drain_slot <= (drain_slot == RING_DEPTH-1) ? 4'd0
+					                                           : drain_slot + 4'd1;
+					if (frame_filled && top_phase == PHASE_FILL) begin
+						// Last mid-frame drain just finished; switch into
+						// the tail-drain phase to flush the K rows still
+						// in the ring.
+						top_phase <= PHASE_DRAIN;
+					end
+					state <= 4'd0;
+				end else begin
+					drain_word <= drain_word + 8'd1;
+					state      <= 4'd2;
+				end
+			end
+		end
+
+		// ============ PHASE_DRAIN ============
+		// Flushes the trailing K rows that were still in the ring buffer
+		// when PHASE_FILL finished. Drives the same drain mini-FSM (states
+		// 2/3/4) one row at a time until drain_y reaches FRAME_HEIGHT.
+		PHASE_DRAIN: begin
+			mbi_rst <= 1'b1;
+			if (state == 4'd0) begin
+				if (drain_y >= FRAME_HEIGHT) begin
+					// All rows committed.
+					if (stereo_enabled) begin
+						top_phase <= PHASE_COMPUTE;
+					end else begin
+						// Reset for the next FILL pass.
+						top_phase      <= PHASE_FILL;
+						frame_filled   <= 1'b0;
+						drain_y        <= 10'd0;
+						drain_slot     <= 4'd0;
+						cur_write_slot <= 4'd0;
+					end
+				end else begin
+					drain_word <= 8'd0;
+					state      <= 4'd2;
+				end
+			end
+
+			// Same drain mini-FSM body as in PHASE_FILL.
+			if (state == 4'd2) begin
+				bus_addr <= drain_bus_addr;
+				bus_byte_enable <= 4'b1111;
+				state <= 4'd3;
+			end
+			if (state == 4'd3) begin
+				bus_write <= 1'b1;
+				bus_write_data <= ring_rd_data;
+				state <= 4'd4;
+			end
+			if (state == 4'd4 && bus_ack) begin
+				bus_write <= 1'b0;
+				if (drain_word == 8'd255) begin
+					drain_y    <= drain_y + 10'd1;
+					drain_slot <= (drain_slot == RING_DEPTH-1) ? 4'd0
+					                                           : drain_slot + 4'd1;
+					state <= 4'd0;
+				end else begin
+					drain_word <= drain_word + 8'd1;
+					state      <= 4'd2;
 				end
 			end
 		end
@@ -712,9 +852,12 @@ always @(posedge CLOCK2_50) begin
 
 			// Done with entire computation
 			if (mbi_done) begin
-				top_phase <= PHASE_FILL;
-				state <= 4'd0;
-				frame_filled <= 0;
+				top_phase      <= PHASE_FILL;
+				state          <= 4'd0;
+				frame_filled   <= 0;
+				drain_y        <= 10'd0;
+				drain_slot     <= 4'd0;
+				cur_write_slot <= 4'd0;
 			end
 		end
 

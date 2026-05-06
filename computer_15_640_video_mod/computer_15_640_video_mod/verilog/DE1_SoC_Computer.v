@@ -420,6 +420,12 @@ wire                              sad_re;
 wire [9:0]                        sad_col;
 wire [FRAME_HEIGHT*PIXEL_W-1:0]   sad_rdata_flat;
 
+// stereo_onchip_ram s1 write-lock. Held high during PHASE_DRAIN +
+// PHASE_COMPUTE so the autonomous Video_In_DMA can't overwrite the
+// undistorted SRAM contents that drain just committed.
+wire sram_s1_write_lock = (top_phase == PHASE_DRAIN) ||
+                          (top_phase == PHASE_COMPUTE);
+
 //=======================================================
 // Bus controller for AVALON bus-master
 //=======================================================
@@ -558,7 +564,7 @@ column_prefetch_parallel #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(4)
+	.NUM_SAD_UNITS(16)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
@@ -916,6 +922,12 @@ Computer_System The_System (
 	.onchip_sram_1_sad_port_re    (sad_re),
 	.onchip_sram_1_sad_port_col   (sad_col),
 	.onchip_sram_1_sad_port_rdata (sad_rdata_flat),
+
+	// s1 write-lock conduit. Held high during PHASE_DRAIN + PHASE_COMPUTE
+	// so the autonomous Video_In_DMA can't overwrite the undistorted SRAM
+	// contents before SAD reads them. Released during PHASE_FILL so the
+	// DMA refreshes the raw frame normally.
+	.onchip_sram_1_s1_lock_lock   (sram_s1_write_lock),
 
 	//PIO out
 	.pio_test_test_export(32'd5),

@@ -192,48 +192,70 @@ module stereo_onchip_ram #(
     end
 
     // ---------------------------------------------------------------------
-    // Per-row instantiation. Each row is now an SDP M10K so the same row's
-    // port A handles all writes (s1 byte writes + s2 32-bit writes, s1 wins
-    // on the rare collision) and port B handles all reads (s1 read + s2 read
-    // + SAD parallel read, with priority s1 > s2 > SAD per row).
+    // Per-row instantiation. Each row is an SDP M10K. Port A is write-only,
+    // shared between s1 (Video-In DMA byte writes) and s2 (PHASE_DRAIN
+    // 32-bit writes). Port B is read-only, shared between s1 reads, s2 reads,
+    // and the SAD parallel read conduit (priority s1 > s2 > SAD per row).
     //
-    // SAD reads share port B with the Avalon read paths. When s2 reads row
-    // r, that row's port B address is hijacked to s2_word_idx for one cycle,
-    // so SAD's output for row r is stale during HPS readback. This system
-    // separates capture / compute / VGA-update phases by workflow, so SAD
-    // and HPS s2 reads do not overlap in practice; the corruption is
-    // theoretical.
+    // Write-port arbitration is GLOBAL, not per-row, to save ~3.2k ALMs that
+    // would otherwise go into a 32-bit a_wdata mux replicated 200 times.
+    // Instead, a single global arbiter computes the winning master's
+    // (a_addr, a_wdata, a_be), broadcasts to all rows, and per-row logic
+    // just gates `a_be` by a 1-bit `row_active`. The trade-off is that if
+    // s1 and s2 fire writes on the same cycle to *different* rows, only
+    // the priority winner's row gets written; the other write is dropped.
+    // Priority is s2-wins because in this system s2 writes only happen
+    // during PHASE_DRAIN (a tight ~3 ms window) and dropping drain writes
+    // would corrupt the undistorted SRAM directly, whereas dropping a few
+    // s1 (DMA) bytes during that window only adds a small noise floor to
+    // the next captured frame's input.
+    //
+    // SAD/Avalon read sharing on port B is unchanged: when s2 reads row r,
+    // that row's b_addr is hijacked to s2_word_idx for one cycle and SAD's
+    // output for row r is stale; safe because workflow phases (capture /
+    // compute / readback) don't overlap.
     // ---------------------------------------------------------------------
+
+    // Global write inputs. s1 writes 1 byte per transaction; s2 writes a
+    // 32-bit word with its own byteenable.
+    wire        any_s1_w        = s1_chipselect & s1_write;
+    wire        any_s2_w        = s2_chipselect & s2_write;
+    wire [3:0]  s1_be_oh_global = (4'b0001 << s1_byte_lane);
+    wire [31:0] s1_wdata_x4     = {4{s1_writedata}};
+
+    wire [7:0]  global_a_addr   = any_s2_w ? s2_word_idx  : s1_word_idx;
+    wire [31:0] global_a_wdata  = any_s2_w ? s2_writedata : s1_wdata_x4;
+    wire [3:0]  global_a_be_in  = any_s2_w ? s2_byteenable : s1_be_oh_global;
+
     genvar r;
     generate
         for (r = 0; r < N_ROWS; r = r + 1) begin : g_row
-            wire        s1_match    = s1_chipselect & (s1_row_idx == r[7:0]);
-            wire        s1_w_active = s1_match & s1_write;
-            wire        s1_r_active = s1_match & s1_read;
-            wire [3:0]  s1_be_oh    = (4'b0001 << s1_byte_lane) & {4{s1_w_active}};
-            wire [31:0] s1_wdata_x4 = {4{s1_writedata}};
+            // Per-row row index match for whichever master is winning the
+            // write arbitration this cycle. Reads keep their independent
+            // matches so SAD continues reading even when only one Avalon
+            // master is active.
+            wire s1_match   = s1_chipselect & (s1_row_idx == r[7:0]);
+            wire s2_match   = s2_chipselect & (s2_row_idx == r[7:0]);
+            wire s1_r_active = s1_match & s1_read;
+            wire s2_r_active = s2_match & s2_read;
 
-            wire        s2_match    = s2_chipselect & (s2_row_idx == r[7:0]);
-            wire        s2_w_active = s2_match & s2_write;
-            wire        s2_r_active = s2_match & s2_read;
-
-            // ---- Port A (writes): s1 wins, then s2. ----
-            wire [7:0]  a_addr  = s1_w_active ? s1_word_idx : s2_word_idx;
-            wire [3:0]  a_be    = s1_w_active ? s1_be_oh
-                                : s2_w_active ? s2_byteenable
-                                              : 4'b0000;
-            wire [31:0] a_wdata = s1_w_active ? s1_wdata_x4 : s2_writedata;
+            // Row receives the global write only if it is the addressed row
+            // of the priority-winning master.
+            wire row_active = any_s2_w ? s2_match
+                            : any_s1_w ? s1_match
+                                       : 1'b0;
+            wire [3:0] a_be = global_a_be_in & {4{row_active}};
 
             // ---- Port B (reads): s1 read > s2 read > SAD default. ----
-            wire [7:0]  b_addr  = s1_r_active ? s1_word_idx
-                                : s2_r_active ? s2_word_idx
-                                              : sad_word_idx;
+            wire [7:0] b_addr = s1_r_active ? s1_word_idx
+                              : s2_r_active ? s2_word_idx
+                                            : sad_word_idx;
 
             stereo_onchip_ram_row u_row (
                 .clk    (clk),
-                .a_addr (a_addr),
+                .a_addr (global_a_addr),
                 .a_be   (a_be),
-                .a_wdata(a_wdata),
+                .a_wdata(global_a_wdata),
                 .b_addr (b_addr),
                 .b_rdata(rowB_rdata[r])
             );

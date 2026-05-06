@@ -165,7 +165,7 @@ proc elaborate {} {
     set_interface_property    s2     linewrapBursts                     false
     set_interface_property    s2     maximumPendingReadTransactions     0
     set_interface_property    s2     maximumPendingWriteTransactions    0
-    set_interface_property    s2     readLatency                        1
+    set_interface_property    s2     readLatency                        2
     set_interface_property    s2     readWaitTime                       0
     set_interface_property    s2     setupTime                          0
     set_interface_property    s2     timingUnits                        Cycles
@@ -198,4 +198,19 @@ proc elaborate {} {
     add_interface_port        sad_port  sad_re      re      Input  1
     add_interface_port        sad_port  sad_col     col     Input  $sad_col_w
     add_interface_port        sad_port  sad_rdata   rdata   Output $sad_data_w
+
+    # -------------------------------------------------------------------------
+    # Conduit  s1_lock  : private control signal to silently drop s1 writes
+    #
+    # Driven by the FSM in DE1_SoC_Computer.v: held high during PHASE_DRAIN
+    # and PHASE_COMPUTE so that the autonomous Video_In_DMA cannot overwrite
+    # the undistorted SRAM contents before SAD has read them. Held low
+    # during PHASE_FILL so the DMA can refresh the raw frame normally.
+    # Exported by the parent Qsys system as onchip_sram_1_s1_lock_lock.
+    # -------------------------------------------------------------------------
+    add_interface             s1_lock  conduit  end
+    set_interface_property    s1_lock  associatedClock  clk
+    set_interface_property    s1_lock  associatedReset  reset
+    set_interface_property    s1_lock  ENABLED          true
+    add_interface_port        s1_lock  s1_write_lock   lock   Input  1
 }

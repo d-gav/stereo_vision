@@ -1,5 +1,5 @@
 Flow report for DE1_SoC_Computer
-Tue May 05 23:17:01 2026
+Wed May 06 00:00:48 2026
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -40,19 +40,19 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Flow Summary                                                                  ;
 +---------------------------------+---------------------------------------------+
-; Flow Status                     ; Flow Failed - Tue May 05 23:17:01 2026      ;
+; Flow Status                     ; Successful - Wed May 06 00:00:48 2026       ;
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; DE1_SoC_Computer                            ;
 ; Top-level Entity Name           ; DE1_SoC_Computer                            ;
 ; Family                          ; Cyclone V                                   ;
 ; Device                          ; 5CSEMA5F31C6                                ;
 ; Timing Models                   ; Final                                       ;
-; Logic utilization (in ALMs)     ; 35,601 / 32,070 ( 111 % )                   ;
-; Total registers                 ; 19455                                       ;
+; Logic utilization (in ALMs)     ; 29,962 / 32,070 ( 93 % )                    ;
+; Total registers                 ; 13675                                       ;
 ; Total pins                      ; 368 / 457 ( 81 % )                          ;
 ; Total virtual pins              ; 0                                           ;
 ; Total block memory bits         ; 1,775,064 / 4,065,280 ( 44 % )              ;
-; Total DSP Blocks                ; 17 / 87 ( 20 % )                            ;
+; Total DSP Blocks                ; 18 / 87 ( 21 % )                            ;
 ; Total HSSI RX PCSs              ; 0                                           ;
 ; Total HSSI PMA RX Deserializers ; 0                                           ;
 ; Total HSSI TX PCSs              ; 0                                           ;
@@ -67,7 +67,7 @@ refer to the applicable agreement for further details.
 +-------------------+---------------------+
 ; Option            ; Setting             ;
 +-------------------+---------------------+
-; Start date & time ; 05/05/2026 23:09:12 ;
+; Start date & time ; 05/05/2026 23:30:05 ;
 ; Main task         ; Compilation         ;
 ; Revision Name     ; DE1_SoC_Computer    ;
 +-------------------+---------------------+
@@ -79,7 +79,7 @@ refer to the applicable agreement for further details.
 ; Assignment Name                     ; Value                                                                         ; Default Value                        ; Entity Name                              ; Section Id ;
 +-------------------------------------+-------------------------------------------------------------------------------+--------------------------------------+------------------------------------------+------------+
 ; AUTO_EXPORT_VER_COMPATIBLE_DB       ; On                                                                            ; Off                                  ; --                                       ; --         ;
-; COMPILER_SIGNATURE_ID               ; 91763709607.177803694724052                                                   ; --                                   ; --                                       ; --         ;
+; COMPILER_SIGNATURE_ID               ; 91763709607.177803820000684                                                   ; --                                   ; --                                       ; --         ;
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/alt_types.pre.h                ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/emif.pre.xml                   ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/sdram_io.pre.h                 ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
@@ -134,9 +134,12 @@ refer to the applicable agreement for further details.
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 ; Module Name          ; Elapsed Time ; Average Processors Used ; Peak Virtual Memory ; Total CPU Time (on all processors) ;
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
-; Analysis & Synthesis ; 00:02:26     ; 4.2                     ; 6112 MB             ; 00:06:20                           ;
-; Fitter               ; 00:02:31     ; 1.2                     ; 7905 MB             ; 00:02:49                           ;
-; Total                ; 00:04:57     ; --                      ; --                  ; 00:09:09                           ;
+; Analysis & Synthesis ; 00:02:12     ; 4.6                     ; 5925 MB             ; 00:06:07                           ;
+; Fitter               ; 00:21:54     ; 1.6                     ; 9934 MB             ; 01:17:51                           ;
+; Assembler            ; 00:00:30     ; 1.0                     ; 5373 MB             ; 00:00:27                           ;
+; Timing Analyzer      ; 00:01:20     ; 4.6                     ; 6636 MB             ; 00:04:43                           ;
+; Database Export      ; 00:01:14     ; 1.0                     ; 5501 MB             ; 00:01:13                           ;
+; Total                ; 00:27:10     ; --                      ; --                  ; 01:30:21                           ;
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 
 
@@ -147,6 +150,9 @@ refer to the applicable agreement for further details.
 +----------------------+------------------+------------+------------+----------------+
 ; Analysis & Synthesis ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
 ; Fitter               ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
+; Assembler            ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
+; Timing Analyzer      ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
+; Database Export      ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
 +----------------------+------------------+------------+------------+----------------+
 
 
@@ -155,6 +161,9 @@ refer to the applicable agreement for further details.
 ------------
 quartus_map --read_settings_files=on --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
 quartus_fit --read_settings_files=off --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
+quartus_asm --read_settings_files=off --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
+quartus_sta DE1_SoC_Computer -c DE1_SoC_Computer
+quartus_cdb DE1_SoC_Computer -c DE1_SoC_Computer --export_database="C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/export_db"
 
 
 

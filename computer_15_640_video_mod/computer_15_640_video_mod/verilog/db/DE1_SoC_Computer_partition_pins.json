@@ -288,15 +288,15 @@
 					"strict" : false
 				},
 				{
-					"name" : "SW[0]",
-					"strict" : false
-				},
-				{
 					"name" : "TD_DATA[6]",
 					"strict" : false
 				},
 				{
 					"name" : "TD_CLK27",
+					"strict" : false
+				},
+				{
+					"name" : "SW[0]",
 					"strict" : false
 				},
 				{

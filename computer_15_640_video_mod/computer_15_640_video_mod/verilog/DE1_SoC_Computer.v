@@ -518,7 +518,7 @@ column_prefetch_parallel #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(24)
+	.NUM_SAD_UNITS(8)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),

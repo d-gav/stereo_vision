@@ -409,6 +409,21 @@ assign GPIO_0[2] = TD_DATA[6];
 assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
+// ---- LED diagnostic for SRAM lock and FSM phase ----
+// LEDR[0] = sram_s1_write_lock (dim flicker if pulsing each frame, steady
+//                               on if FSM stuck in DRAIN/COMPUTE, off if
+//                               stuck in FILL or signal not reaching gate)
+// LEDR[1] = top_phase == PHASE_FILL    (most of the time; flickers off briefly each frame)
+// LEDR[2] = top_phase == PHASE_DRAIN   (brief ~3 ms pulse per frame)
+// LEDR[3] = top_phase == PHASE_COMPUTE (longer pulse per frame)
+// LEDR[4] = frame_filled               (high from last pixel until mbi_done resets)
+assign LEDR[0] = sram_s1_write_lock;
+assign LEDR[1] = (top_phase == PHASE_FILL);
+assign LEDR[2] = (top_phase == PHASE_DRAIN);
+assign LEDR[3] = (top_phase == PHASE_COMPUTE);
+assign LEDR[4] = frame_filled;
+assign LEDR[9:5] = 5'b0;
+
 //=======================================================
 // Direct sad_port conduit into stereo_onchip_ram (port B of every row's M10K).
 // SAD reads all FRAME_HEIGHT rows in parallel at one byte column per cycle;
@@ -420,11 +435,21 @@ wire                              sad_re;
 wire [9:0]                        sad_col;
 wire [FRAME_HEIGHT*PIXEL_W-1:0]   sad_rdata_flat;
 
-// stereo_onchip_ram s1 write-lock. Held high during PHASE_DRAIN +
-// PHASE_COMPUTE so the autonomous Video_In_DMA can't overwrite the
-// undistorted SRAM contents that drain just committed.
-wire sram_s1_write_lock = (top_phase == PHASE_DRAIN) ||
-                          (top_phase == PHASE_COMPUTE);
+// stereo_onchip_ram s1 write-lock. Held high from the moment the last
+// pixel of FILL has been processed (frame_filled latches) all the way
+// through PHASE_DRAIN and PHASE_COMPUTE. Including frame_filled in the
+// expression closes the small window between the last mid-frame drain
+// ack and the formal top_phase transition — DMA can't sneak a write in
+// during that handshake. We also register the lock so the s1 gate sees
+// a clean edge with no combinational glitch on top_phase transitions.
+reg sram_s1_write_lock;
+wire sram_s1_write_lock_next = frame_filled
+                            || (top_phase == PHASE_DRAIN)
+                            || (top_phase == PHASE_COMPUTE);
+always @(posedge CLOCK2_50) begin
+    if (~KEY[0]) sram_s1_write_lock <= 1'b0;
+    else         sram_s1_write_lock <= sram_s1_write_lock_next;
+end
 
 //=======================================================
 // Bus controller for AVALON bus-master
@@ -751,7 +776,25 @@ always @(posedge CLOCK2_50) begin
 			end
 			if (state == 4'd3) begin
 				bus_write <= 1'b1;
-				bus_write_data <= ring_rd_data;
+				// DIAGNOSTIC: instead of ring_rd_data, write the row index
+				// replicated 4x. After PHASE_DRAIN every SRAM row r contains
+				// byte == r in every column. LEFT and RIGHT halves are then
+				// IDENTICAL row-constants, so |L - R| = 0 for every disparity,
+				// and SAD picks disparity 0 (or whatever the tiebreaker is)
+				// uniformly across the entire output. Expected: the disparity
+				// region of the VGA goes to a SOLID FLAT COLOR (one shade
+				// across the whole rectangle, not a scene). The exact shade
+				// is whatever pio_min/max_disp colorize disparity-0 to.
+				//
+				//   - If you see a solid flat color: drain reaches SAD.
+				//     The bug is in what's stored in the ring buffer or
+				//     in the staleness of the read pipeline — restore the
+				//     line below and dig into the FILL→ring data path.
+				//   - If disparity still looks like a scene: drain is NOT
+				//     reaching SAD. Plumbing bug somewhere in stereo_onchip_ram
+				//     or its sad_port read path.
+				bus_write_data <= {4{drain_y[7:0]}};
+				// bus_write_data <= ring_rd_data;     // <-- restore after test
 				state <= 4'd4;
 			end
 			if (state == 4'd4 && bus_ack) begin
@@ -808,7 +851,25 @@ always @(posedge CLOCK2_50) begin
 			end
 			if (state == 4'd3) begin
 				bus_write <= 1'b1;
-				bus_write_data <= ring_rd_data;
+				// DIAGNOSTIC: instead of ring_rd_data, write the row index
+				// replicated 4x. After PHASE_DRAIN every SRAM row r contains
+				// byte == r in every column. LEFT and RIGHT halves are then
+				// IDENTICAL row-constants, so |L - R| = 0 for every disparity,
+				// and SAD picks disparity 0 (or whatever the tiebreaker is)
+				// uniformly across the entire output. Expected: the disparity
+				// region of the VGA goes to a SOLID FLAT COLOR (one shade
+				// across the whole rectangle, not a scene). The exact shade
+				// is whatever pio_min/max_disp colorize disparity-0 to.
+				//
+				//   - If you see a solid flat color: drain reaches SAD.
+				//     The bug is in what's stored in the ring buffer or
+				//     in the staleness of the read pipeline — restore the
+				//     line below and dig into the FILL→ring data path.
+				//   - If disparity still looks like a scene: drain is NOT
+				//     reaching SAD. Plumbing bug somewhere in stereo_onchip_ram
+				//     or its sad_port read path.
+				bus_write_data <= {4{drain_y[7:0]}};
+				// bus_write_data <= ring_rd_data;     // <-- restore after test
 				state <= 4'd4;
 			end
 			if (state == 4'd4 && bus_ack) begin

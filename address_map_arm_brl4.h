@@ -18,6 +18,17 @@
 /* Offset from HW_REGS_BASE to Video-In DMA slave (see address_map_arm.h: 0xFF203060) */
 #define VIDEO_IN_BASE  0x00003060u
 
+/* PIO offsets from HW_REGS_BASE. Match Computer_System.qsys baseAddress fields:
+ *   pio_small_pen.s1 = 0x0010   (SGM P1, drives mem_block_intf.sgm_p1)
+ *   pio_big_pen.s1   = 0x0020   (SGM P2, drives mem_block_intf.sgm_p2)
+ *   pio_max_disp.s1  = 0x0030   (max disparity)
+ *   pio_min_disp.s1  = 0x0040   (min disparity / dark cutoff)
+ * All four are 32-bit Output PIOs. */
+#define PIO_SMALL_PEN_BASE 0x00000010u
+#define PIO_BIG_PEN_BASE   0x00000020u
+#define PIO_MAX_DISP_BASE  0x00000030u
+#define PIO_MIN_DISP_BASE  0x00000040u
+
 /* On-chip and SDRAM frame buffers (VGA + video-in pixel DMA targets) */
 #define SDRAM_BASE         0xC0000000u
 #define FPGA_ONCHIP_BASE   0xC8000000u

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -40,6 +41,22 @@ volatile unsigned int *h2p_lw_video_in_resolution_addr=NULL;
 
 volatile unsigned int *h2p_lw_video_edge_control_addr=NULL;
 volatile unsigned int *h2p_lw_test_pio=NULL;
+
+// FPGA-side stereo knobs (PIOs on the Lightweight bridge). Writes update
+// the FPGA-side mem_block_intf parameters live, no recompile required.
+volatile unsigned int *h2p_lw_pio_small_pen=NULL;   // SGM P1
+volatile unsigned int *h2p_lw_pio_big_pen=NULL;     // SGM P2
+volatile unsigned int *h2p_lw_pio_max_disp=NULL;
+volatile unsigned int *h2p_lw_pio_min_disp=NULL;
+
+// Mirrored knob state so the REPL prompt and `show` command can print what
+// the FPGA was last told. Output PIOs are write-only effectively, so we
+// must remember locally.
+static unsigned int knob_small_pen = 0u;
+static unsigned int knob_big_pen   = 0u;
+static unsigned int knob_max_disp  = 32u;
+static unsigned int knob_min_disp  = 0u;
+static unsigned int knob_edge      = 0u;
 
 // pixel buffer
 volatile unsigned int * vga_pixel_ptr = NULL ;
@@ -193,36 +210,11 @@ static void build_capture_filename(char *filename, size_t filename_size)
 	capture_count++;
 }
 
-static int configure_terminal_raw(struct termios *saved_terminal)
-{
-	struct termios raw_terminal;
-
-	if (tcgetattr(STDIN_FILENO, saved_terminal) != 0) {
-		return -1;
-	}
-
-	raw_terminal = *saved_terminal;
-	raw_terminal.c_lflag &= (tcflag_t)~(ICANON | ECHO);
-	raw_terminal.c_cc[VMIN] = 0;
-	raw_terminal.c_cc[VTIME] = 0;
-
-	return tcsetattr(STDIN_FILENO, TCSANOW, &raw_terminal);
-}
-
-static void restore_terminal(const struct termios *saved_terminal)
-{
-	tcsetattr(STDIN_FILENO, TCSANOW, saved_terminal);
-}
-	
 int main(void)
 {
 	delay_time.tv_nsec = 10 ;
 	delay_time.tv_sec = 0 ;
-	char key;
-	ssize_t bytes_read;
 	char png_filename[128];
-	struct termios saved_terminal;
-	int raw_terminal_enabled = 0;
 	unsigned int video_in_resolution;
 
 	// Declare volatile pointers to I/O registers (volatile 	// means that IO load and store instructions will be used 	// to access these pointer locations, 
@@ -263,8 +255,18 @@ int main(void)
 			(unsigned int)FPGA_ONCHIP_SPAN);
 	}
 	h2p_lw_video_edge_control_addr=(volatile unsigned int *)(h2p_lw_virtual_base+VIDEO_IN_BASE+0x10);
-	*h2p_lw_video_edge_control_addr = 0x01 ; // 1 means edges
-	*h2p_lw_video_edge_control_addr = 0x00 ; // 1 means edges
+	*h2p_lw_video_edge_control_addr = knob_edge; // start with edge detection per knob default
+
+	// Stereo-knob PIOs (Output, 32-bit). Push the local default state out so
+	// the FPGA isn't running on whatever the previous program left behind.
+	h2p_lw_pio_small_pen = (volatile unsigned int *)(h2p_lw_virtual_base + PIO_SMALL_PEN_BASE);
+	h2p_lw_pio_big_pen   = (volatile unsigned int *)(h2p_lw_virtual_base + PIO_BIG_PEN_BASE);
+	h2p_lw_pio_max_disp  = (volatile unsigned int *)(h2p_lw_virtual_base + PIO_MAX_DISP_BASE);
+	h2p_lw_pio_min_disp  = (volatile unsigned int *)(h2p_lw_virtual_base + PIO_MIN_DISP_BASE);
+	*h2p_lw_pio_small_pen = knob_small_pen;
+	*h2p_lw_pio_big_pen   = knob_big_pen;
+	*h2p_lw_pio_max_disp  = knob_max_disp;
+	*h2p_lw_pio_min_disp  = knob_min_disp;
 	
 	// === get VGA char addr =====================
 	// get virtual addr that maps to physical
@@ -308,39 +310,104 @@ int main(void)
 	// start timer
     //gettimeofday(&t1, NULL);
 
-	printf("Press C to capture the VGA screen to a PNG file. Press Q to quit.\n");
-
-	if (configure_terminal_raw(&saved_terminal) == 0) {
-		raw_terminal_enabled = 1;
-	} else {
-		printf("Warning: raw terminal mode unavailable, input may require Enter.\n");
-	}
-
-	printf("value read from h2p lw bus: %d", *h2p_lw_test_pio); 
+	printf("value read from h2p lw bus: %d\n", *h2p_lw_test_pio);
+	printf("\n");
+	printf("Stereo REPL. Commands (line-based, press Enter):\n");
+	printf("  maxd N   set max disparity   (writes pio_max_disp)\n");
+	printf("  mind N   set min disparity   (writes pio_min_disp)\n");
+	printf("  p1   N   set SGM P1          (writes pio_small_pen)\n");
+	printf("  p2   N   set SGM P2          (writes pio_big_pen)\n");
+	printf("  edge [N] toggle, or set edge-detect register (0/1)\n");
+	printf("  show     print current knob values\n");
+	printf("  c        capture VGA to PNG\n");
+	printf("  help     show this help\n");
+	printf("  q        quit\n");
+	printf("\n");
 
 	while (1) {
-		bytes_read = read(STDIN_FILENO, &key, 1);
-		if (bytes_read == 1) {
-			if (key == 'c' || key == 'C') {
-				build_capture_filename(png_filename, sizeof(png_filename));
-				if (save_vga_png(png_filename) == 0) {
-					printf("Saved VGA snapshot to %s\n", png_filename);
-				} else {
-					printf("Failed to save VGA snapshot to %s\n", png_filename);
-				}
-			} else if (key == 'q' || key == 'Q') {
-				break;
-			}
-		} else if (bytes_read < 0 && errno != EAGAIN && errno != EINTR) {
-			printf("Read error on stdin\n");
+		char line[128];
+		char cmd[32];
+		long arg = 0;
+		int n_tokens;
+		int dirty = 0;
+		size_t len;
+		size_t i;
+
+		printf("stereo> ");
+		fflush(stdout);
+
+		if (fgets(line, sizeof(line), stdin) == NULL) {
+			// EOF on stdin -- treat as quit so the program exits cleanly
+			// when run from a script or under a closing SSH session.
+			printf("\n");
 			break;
 		}
 
-		usleep(10000);
-	}
+		// fgets keeps the trailing newline; strip it (and any \r from CRLF).
+		len = strlen(line);
+		while (len > 0 && (line[len-1] == '\n' || line[len-1] == '\r')) {
+			line[--len] = '\0';
+		}
 
-	if (raw_terminal_enabled) {
-		restore_terminal(&saved_terminal);
+		// Tokenise: command word + optional integer argument.
+		cmd[0] = '\0';
+		n_tokens = sscanf(line, "%31s %ld", cmd, &arg);
+		if (n_tokens < 1) {
+			// Empty line: just refresh prompt.
+			continue;
+		}
+
+		// Lowercase the command for forgiving parsing.
+		for (i = 0; cmd[i]; ++i) cmd[i] = (char)tolower((unsigned char)cmd[i]);
+
+		if (strcmp(cmd, "q") == 0 || strcmp(cmd, "quit") == 0 || strcmp(cmd, "exit") == 0) {
+			break;
+		} else if (strcmp(cmd, "help") == 0 || strcmp(cmd, "?") == 0 || strcmp(cmd, "h") == 0) {
+			printf("Commands: maxd N | mind N | p1 N | p2 N | edge [N] | show | c | q\n");
+		} else if (strcmp(cmd, "show") == 0) {
+			printf("  maxd=%u  mind=%u  p1=%u  p2=%u  edge=%u\n",
+				knob_max_disp, knob_min_disp, knob_small_pen,
+				knob_big_pen, knob_edge);
+		} else if (strcmp(cmd, "maxd") == 0 && n_tokens == 2) {
+			knob_max_disp = (unsigned int)(arg < 0 ? 0 : arg);
+			*h2p_lw_pio_max_disp = knob_max_disp;
+			dirty = 1;
+		} else if (strcmp(cmd, "mind") == 0 && n_tokens == 2) {
+			knob_min_disp = (unsigned int)(arg < 0 ? 0 : arg);
+			*h2p_lw_pio_min_disp = knob_min_disp;
+			dirty = 1;
+		} else if (strcmp(cmd, "p1") == 0 && n_tokens == 2) {
+			knob_small_pen = (unsigned int)(arg < 0 ? 0 : arg);
+			*h2p_lw_pio_small_pen = knob_small_pen;
+			dirty = 1;
+		} else if (strcmp(cmd, "p2") == 0 && n_tokens == 2) {
+			knob_big_pen = (unsigned int)(arg < 0 ? 0 : arg);
+			*h2p_lw_pio_big_pen = knob_big_pen;
+			dirty = 1;
+		} else if (strcmp(cmd, "edge") == 0) {
+			if (n_tokens == 2) {
+				knob_edge = (unsigned int)(arg ? 1 : 0);
+			} else {
+				knob_edge = knob_edge ? 0u : 1u;
+			}
+			*h2p_lw_video_edge_control_addr = knob_edge;
+			dirty = 1;
+		} else if (strcmp(cmd, "c") == 0 || strcmp(cmd, "cap") == 0 || strcmp(cmd, "capture") == 0) {
+			build_capture_filename(png_filename, sizeof(png_filename));
+			if (save_vga_png(png_filename) == 0) {
+				printf("Saved VGA snapshot to %s\n", png_filename);
+			} else {
+				printf("Failed to save VGA snapshot to %s\n", png_filename);
+			}
+		} else {
+			printf("Unknown command '%s'. Type 'help' for the list.\n", cmd);
+		}
+
+		if (dirty) {
+			printf("  -> maxd=%u mind=%u p1=%u p2=%u edge=%u\n",
+				knob_max_disp, knob_min_disp, knob_small_pen,
+				knob_big_pen, knob_edge);
+		}
 	}
 
 	if (video_in_virtual_base != NULL && video_in_virtual_base != MAP_FAILED) {

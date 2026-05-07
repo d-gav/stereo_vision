@@ -4,9 +4,15 @@ module mem_block_intf #(
 	parameter int BLOCK_SIZE       = 5,
 	parameter int PIXEL_W          = 8,
 	parameter int MAX_DISP         = 63,
+	parameter logic [PIXEL_W-1:0] EDGE_PIXEL_MIN     = 8'd1,
+	parameter int                 FILL_MAX_GAP       = 24,
+	parameter logic [7:0]         FILL_MAX_DISP_JUMP = 8'd8,
+	parameter logic [7:0]         INVALID_DISP_VALUE = 8'h00,
 	parameter int SAD_W            = PIXEL_W + $clog2(BLOCK_SIZE * BLOCK_SIZE),
 	parameter int DISP_W           = (MAX_DISP < 1) ? 1 : $clog2(MAX_DISP + 1),
 	parameter int NUM_SAD_UNITS    = FRAME_HEIGHT / BLOCK_SIZE,
+	parameter int STRIPE_HEIGHT    = FRAME_HEIGHT / NUM_SAD_UNITS,
+	parameter int PHASE_W          = (STRIPE_HEIGHT <= 1) ? 1 : ($clog2(STRIPE_HEIGHT) + 1),
 	parameter int ROW_W            = (FRAME_HEIGHT <= 1) ? 1 : $clog2(FRAME_HEIGHT),
 	parameter int COL_W            = (HALF_FRAME_WIDTH <= 1) ? 1 : $clog2(HALF_FRAME_WIDTH)
 ) (
@@ -30,9 +36,7 @@ module mem_block_intf #(
 );
 
 	localparam int HALF_BLOCK    = BLOCK_SIZE / 2;
-	localparam int STRIPE_HEIGHT = FRAME_HEIGHT / NUM_SAD_UNITS;
 	localparam int X_W           = COL_W;
-	localparam int PHASE_W       = (STRIPE_HEIGHT <= 1) ? 1 : ($clog2(STRIPE_HEIGHT) + 1);
 	localparam int X_MIN         = 0;
 	localparam int X_MAX         = HALF_FRAME_WIDTH - 1;
 
@@ -45,12 +49,17 @@ module mem_block_intf #(
 	localparam [2:0] INCR_DISP  = 3'd1;  // Inner loop: shift matching block to the right, load single column
 	localparam [2:0] INCR_X     = 3'd2;  // Mid loop: shift reference block to the right, write out best disparity for previous x position, load 5 new columns in reference
 	localparam [2:0] INCR_PHASE = 3'd3;  // Outer loop: shift both blocks down by one row
+	localparam [2:0] FILL_SCAN  = 3'd4;  // Scan each row and detect bounded holes between valid edge disparities
+	localparam [2:0] FILL_APPLY = 3'd5;  // Fill one bounded hole sequentially
 
 	logic [2:0] curr_state;
 	logic [2:0] next_state;
 
 	logic [PIXEL_W-1:0] left_col_buf  [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
 	logic [PIXEL_W-1:0] right_col_buf [0:NUM_SAD_UNITS-1][0:BLOCK_SIZE-1];
+	logic [PIXEL_W-1:0] ref_center_pix [0:NUM_SAD_UNITS-1];
+	logic ref_edge_valid [0:NUM_SAD_UNITS-1];
+	logic disp_valid_map [0:FRAME_HEIGHT-1][0:HALF_FRAME_WIDTH-1];
 
 
 	logic [SAD_W-1:0] sad_value [0:NUM_SAD_UNITS-1];
@@ -110,6 +119,8 @@ module mem_block_intf #(
 				.right_block_flat(right_block_flat_g),
 				.sad(sad_value[g])
 			);
+
+			assign ref_center_pix[g] = left_block_g[HALF_BLOCK][HALF_BLOCK];
 		end
 	endgenerate
 
@@ -121,6 +132,16 @@ module mem_block_intf #(
 				if (k < DISP_W) begin
 					disp_to_u8[k] = d[k];
 				end
+			end
+		end
+	endfunction
+
+	function automatic logic [7:0] abs_diff_u8(input logic [7:0] a, input logic [7:0] b);
+		begin
+			if (a >= b) begin
+				abs_diff_u8 = a - b;
+			end else begin
+				abs_diff_u8 = b - a;
 			end
 		end
 	endfunction
@@ -206,6 +227,38 @@ module mem_block_intf #(
 		&& ((reg_disp + $signed({1'b0, reg_col_x})) < $signed({1'b0, X_MAX_L}));
 	logic [1:0] disp_out_bounds_cnt;
 
+	logic [ROW_W-1:0] fill_row;
+	logic [COL_W-1:0] fill_scan_col;
+	logic fill_have_left;
+	logic [COL_W-1:0] fill_left_col;
+	logic [7:0] fill_left_disp;
+	logic [COL_W-1:0] fill_right_col;
+	logic [7:0] fill_right_disp;
+	logic [COL_W-1:0] fill_resume_col;
+	logic [COL_W-1:0] fill_write_col;
+	logic [COL_W-1:0] fill_seg_left_col;
+	logic [7:0] fill_seg_left_disp;
+
+	logic fill_scan_valid;
+	logic fill_gap_present;
+	logic [COL_W:0] fill_gap_len;
+	logic fill_gap_len_ok;
+	logic [7:0] fill_gap_jump;
+	logic fill_gap_jump_ok;
+	logic fill_start_apply;
+
+	assign fill_scan_valid = (fill_row < FRAME_HEIGHT && fill_scan_col < HALF_FRAME_WIDTH)
+		? disp_valid_map[fill_row][fill_scan_col]
+		: 1'b0;
+	assign fill_gap_present = fill_have_left && (fill_scan_col > (fill_left_col + 1'b1));
+	assign fill_gap_len = fill_gap_present ? (fill_scan_col - fill_left_col - 1'b1) : '0;
+	assign fill_gap_len_ok = (fill_gap_len <= FILL_MAX_GAP);
+	assign fill_gap_jump = (fill_row < FRAME_HEIGHT && fill_scan_col < HALF_FRAME_WIDTH)
+		? abs_diff_u8(fill_left_disp, disp_map[fill_row][fill_scan_col])
+		: 8'hFF;
+	assign fill_gap_jump_ok = (fill_gap_jump <= FILL_MAX_DISP_JUMP);
+	assign fill_start_apply = fill_scan_valid && fill_gap_present && fill_gap_len_ok && fill_gap_jump_ok;
+
 	integer init_r, init_c;
 	always_ff @(posedge clk) begin
 		if (rst) begin
@@ -220,9 +273,26 @@ module mem_block_intf #(
 
 			for (init_r = 0; init_r < FRAME_HEIGHT; init_r++) begin
 				for (init_c = 0; init_c < HALF_FRAME_WIDTH; init_c++) begin
-					disp_map[init_r][init_c] <= 8'h00;
+					disp_map[init_r][init_c] <= INVALID_DISP_VALUE;
+					disp_valid_map[init_r][init_c] <= 1'b0;
 				end
 			end
+
+			for (int i = 0; i < NUM_SAD_UNITS; i++) begin
+				ref_edge_valid[i] <= 1'b0;
+			end
+
+			fill_row <= '0;
+			fill_scan_col <= '0;
+			fill_have_left <= 1'b0;
+			fill_left_col <= '0;
+			fill_left_disp <= '0;
+			fill_right_col <= '0;
+			fill_right_disp <= '0;
+			fill_resume_col <= '0;
+			fill_write_col <= '0;
+			fill_seg_left_col <= '0;
+			fill_seg_left_disp <= '0;
 
 			phase_pipeline[0] <= '0;
 			col_x_pipeline[0] <= '0;
@@ -277,13 +347,26 @@ module mem_block_intf #(
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
 					best_sad[i] <= {SAD_W{1'b1}};
 					best_disp[i] <= '0;
+					ref_edge_valid[i] <= (ref_center_pix[i] >= EDGE_PIXEL_MIN);
 				end
+			end
+
+			if (curr_state == IDLE && next_state == INCR_PHASE) begin
+				fill_row <= '0;
+				fill_scan_col <= '0;
+				fill_have_left <= 1'b0;
 			end
 
 			// Write last column's disparity when transitioning from INCR_X to INCR_PHASE
 			if (curr_state == INCR_X && next_state == INCR_PHASE) begin
 				for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-					disp_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= disp_to_u8(best_disp[i]);
+					if (ref_edge_valid[i]) begin
+						disp_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= disp_to_u8(best_disp[i]);
+						disp_valid_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= 1'b1;
+					end else begin
+						disp_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= INVALID_DISP_VALUE;
+						disp_valid_map[i * STRIPE_HEIGHT + reg_phase][reg_col_x] <= 1'b0;
+					end
 				end
 			end
 
@@ -386,7 +469,13 @@ module mem_block_intf #(
 
 						// update disparity map with best disparity at (x, y) for the previous reference block position
 						for (int i = 0; i < NUM_SAD_UNITS; i++) begin
-							disp_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= disp_to_u8(best_disp[i]);
+							if (ref_edge_valid[i]) begin
+								disp_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= disp_to_u8(best_disp[i]);
+								disp_valid_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= 1'b1;
+							end else begin
+								disp_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= INVALID_DISP_VALUE;
+								disp_valid_map[i * STRIPE_HEIGHT + phase_result][col_x_result] <= 1'b0;
+							end
 						end
 
 					end else if (valid_rd_result && !to_ref_block_result) begin
@@ -457,6 +546,49 @@ module mem_block_intf #(
 						slide_matching <= 1'b1; 
 					end
 
+				end
+
+				FILL_SCAN: begin
+					if (fill_row < FRAME_HEIGHT) begin
+						if (fill_scan_col >= HALF_FRAME_WIDTH) begin
+							fill_row <= fill_row + 1'b1;
+							fill_scan_col <= '0;
+							fill_have_left <= 1'b0;
+						end else if (fill_scan_valid) begin
+							if (fill_start_apply) begin
+								fill_right_col <= fill_scan_col;
+								fill_right_disp <= disp_map[fill_row][fill_scan_col];
+								fill_seg_left_col <= fill_left_col;
+								fill_seg_left_disp <= fill_left_disp;
+								fill_write_col <= fill_left_col + 1'b1;
+								fill_resume_col <= fill_scan_col + 1'b1;
+							end else begin
+								fill_left_col <= fill_scan_col;
+								fill_left_disp <= disp_map[fill_row][fill_scan_col];
+								fill_have_left <= 1'b1;
+								fill_scan_col <= fill_scan_col + 1'b1;
+							end
+						end else begin
+							fill_scan_col <= fill_scan_col + 1'b1;
+						end
+					end
+				end
+
+				FILL_APPLY: begin
+					if (fill_write_col < fill_right_col) begin
+						if ((fill_write_col - fill_seg_left_col) <= (fill_right_col - fill_write_col)) begin
+							disp_map[fill_row][fill_write_col] <= fill_seg_left_disp;
+						end else begin
+							disp_map[fill_row][fill_write_col] <= fill_right_disp;
+						end
+						disp_valid_map[fill_row][fill_write_col] <= 1'b1;
+						fill_write_col <= fill_write_col + 1'b1;
+					end else begin
+						fill_left_col <= fill_right_col;
+						fill_left_disp <= fill_right_disp;
+						fill_have_left <= 1'b1;
+						fill_scan_col <= fill_resume_col;
+					end
 				end
 
 				default:
@@ -554,7 +686,23 @@ module mem_block_intf #(
 						end
 					end
 				end else begin
+					next_state = FILL_SCAN;
+				end
+			end
+			FILL_SCAN: begin
+				if (fill_row >= FRAME_HEIGHT) begin
 					next_state = IDLE;
+				end else if (fill_start_apply) begin
+					next_state = FILL_APPLY;
+				end else begin
+					next_state = FILL_SCAN;
+				end
+			end
+			FILL_APPLY: begin
+				if (fill_write_col < fill_right_col) begin
+					next_state = FILL_APPLY;
+				end else begin
+					next_state = FILL_SCAN;
 				end
 			end
 			default:

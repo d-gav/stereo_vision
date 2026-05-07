@@ -510,16 +510,24 @@ reg frame_filled;
 
 // Undistortion ring-buffer drain controller state. cur_write_slot tracks
 // (old_video_in_y_cood mod RING_DEPTH) for ring writes during FILL; drain_y/
-// drain_word/drain_slot drive the per-row writeback into stereo_onchip_ram.
+// drain_byte/drain_slot drive the per-row writeback into stereo_onchip_ram.
+//
+// drain_byte iterates over BYTE columns 0..FULL_FRAME_WIDTH-1, not 32-bit
+// words. The EBAB_video_in master is 8-bit (data_size=8 in Computer_System.qsys),
+// so a "32-bit" write through bus_write_data only delivers the low 8 bits
+// to the slave; advancing by 4 bytes per write would leave 3 of every 4
+// byte columns of stereo_onchip_ram untouched (= stale DMA bytes), which
+// silently dilutes the undistorted pixels and is what made SW[3] appear
+// to have no effect on the disparity output.
 reg [3:0] cur_write_slot;
 reg [9:0] drain_y;            // 0..FRAME_HEIGHT  (== FRAME_HEIGHT means done)
-reg [7:0] drain_word;         // 0..255
+reg [9:0] drain_byte;         // 0..FULL_FRAME_WIDTH-1
 reg [3:0] drain_slot;         // (drain_y mod RING_DEPTH)
 wire [31:0] ring_rd_data;
 wire [31:0] drain_bus_addr =
     video_in_base_address
     + ({22'b0, drain_y}    << 10)   // row stride = 1024 bytes
-    + ({22'b0, drain_word} <<  2);  // word stride = 4 bytes
+    + {22'b0, drain_byte};          // byte stride within row
 
 // Ring write enable: pulse for one cycle per produced pixel. State 4'd8 is
 // where current_pixel_color1 is valid and the FILL FSM is queueing the VGA
@@ -534,7 +542,7 @@ undistort_ring #(.RING_DEPTH(RING_DEPTH)) u_undistort_ring (
     .wr_en       (ring_wr_en_pulse),
     .wr_data     (current_pixel_color1),
     .rd_slot     (drain_slot),
-    .rd_word     (drain_word),
+    .rd_word     (drain_byte[9:2]),
     .rd_data     (ring_rd_data)
 );
 
@@ -675,7 +683,7 @@ always @(posedge CLOCK2_50) begin
 		mbi_disp_ack <= 0;
 		cur_write_slot <= 4'd0;
 		drain_y <= 10'd0;
-		drain_word <= 8'd0;
+		drain_byte <= 10'd0;
 		drain_slot <= 4'd0;
 	end
 	else begin
@@ -753,7 +761,7 @@ always @(posedge CLOCK2_50) begin
 					// longer needed by anyone — safe to commit the staged
 					// undistorted version back into stereo_onchip_ram.
 					if (old_video_in_y_cood >= DRAIN_K) begin
-						drain_word <= 8'd0;
+						drain_byte <= 10'd0;
 						state <= 4'd2;
 					end else begin
 						state <= 4'd0;
@@ -766,40 +774,34 @@ always @(posedge CLOCK2_50) begin
 			// ---- Drain mini-FSM (states 2/3/4) -----------------------------
 			// Pumps one staged row out of the ring buffer back into the main
 			// SRAM via Avalon writes. Shared across PHASE_FILL (mid-frame
-			// drains) and PHASE_DRAIN (tail drains).
+			// drains) and PHASE_DRAIN (tail drains). One byte per iteration
+			// because the EBAB master is 8-bit; bus_write_data and
+			// bus_byte_enable are sized for a hypothetical 32-bit master but
+			// only their low byte / low bit actually reach the slave.
 			if (state == 4'd2) begin
 				// Setup. ring_rd_data will be valid one cycle later because
 				// the ring is M10K-backed (1-cycle read latency).
 				bus_addr <= drain_bus_addr;
-				bus_byte_enable <= 4'b1111;
+				bus_byte_enable <= 4'b0001;
 				state <= 4'd3;
 			end
 			if (state == 4'd3) begin
 				bus_write <= 1'b1;
-				// DIAGNOSTIC: instead of ring_rd_data, write the row index
-				// replicated 4x. After PHASE_DRAIN every SRAM row r contains
-				// byte == r in every column. LEFT and RIGHT halves are then
-				// IDENTICAL row-constants, so |L - R| = 0 for every disparity,
-				// and SAD picks disparity 0 (or whatever the tiebreaker is)
-				// uniformly across the entire output. Expected: the disparity
-				// region of the VGA goes to a SOLID FLAT COLOR (one shade
-				// across the whole rectangle, not a scene). The exact shade
-				// is whatever pio_min/max_disp colorize disparity-0 to.
-				//
-				//   - If you see a solid flat color: drain reaches SAD.
-				//     The bug is in what's stored in the ring buffer or
-				//     in the staleness of the read pipeline — restore the
-				//     line below and dig into the FILL→ring data path.
-				//   - If disparity still looks like a scene: drain is NOT
-				//     reaching SAD. Plumbing bug somewhere in stereo_onchip_ram
-				//     or its sad_port read path.
-				bus_write_data <= {4{drain_y[7:0]}};
-				// bus_write_data <= ring_rd_data;     // <-- restore after test
+				// Pick the byte at lane drain_byte[1:0] from the 32-bit ring
+				// word. The ring stores bytes packed by lane = byte_col[1:0],
+				// so this lines up the byte we just produced in FILL with
+				// the SRAM byte column drain_bus_addr targets.
+				case (drain_byte[1:0])
+					2'd0:    bus_write_data <= {24'b0, ring_rd_data[ 7: 0]};
+					2'd1:    bus_write_data <= {24'b0, ring_rd_data[15: 8]};
+					2'd2:    bus_write_data <= {24'b0, ring_rd_data[23:16]};
+					default: bus_write_data <= {24'b0, ring_rd_data[31:24]};
+				endcase
 				state <= 4'd4;
 			end
 			if (state == 4'd4 && bus_ack) begin
 				bus_write <= 1'b0;
-				if (drain_word == 8'd255) begin
+				if (drain_byte == FULL_FRAME_WIDTH - 1) begin
 					// Row drain complete. Advance to next row.
 					drain_y    <= drain_y + 10'd1;
 					drain_slot <= (drain_slot == RING_DEPTH-1) ? 4'd0
@@ -812,7 +814,7 @@ always @(posedge CLOCK2_50) begin
 					end
 					state <= 4'd0;
 				end else begin
-					drain_word <= drain_word + 8'd1;
+					drain_byte <= drain_byte + 10'd1;
 					state      <= 4'd2;
 				end
 			end
@@ -838,7 +840,7 @@ always @(posedge CLOCK2_50) begin
 						cur_write_slot <= 4'd0;
 					end
 				end else begin
-					drain_word <= 8'd0;
+					drain_byte <= 10'd0;
 					state      <= 4'd2;
 				end
 			end
@@ -846,41 +848,28 @@ always @(posedge CLOCK2_50) begin
 			// Same drain mini-FSM body as in PHASE_FILL.
 			if (state == 4'd2) begin
 				bus_addr <= drain_bus_addr;
-				bus_byte_enable <= 4'b1111;
+				bus_byte_enable <= 4'b0001;
 				state <= 4'd3;
 			end
 			if (state == 4'd3) begin
 				bus_write <= 1'b1;
-				// DIAGNOSTIC: instead of ring_rd_data, write the row index
-				// replicated 4x. After PHASE_DRAIN every SRAM row r contains
-				// byte == r in every column. LEFT and RIGHT halves are then
-				// IDENTICAL row-constants, so |L - R| = 0 for every disparity,
-				// and SAD picks disparity 0 (or whatever the tiebreaker is)
-				// uniformly across the entire output. Expected: the disparity
-				// region of the VGA goes to a SOLID FLAT COLOR (one shade
-				// across the whole rectangle, not a scene). The exact shade
-				// is whatever pio_min/max_disp colorize disparity-0 to.
-				//
-				//   - If you see a solid flat color: drain reaches SAD.
-				//     The bug is in what's stored in the ring buffer or
-				//     in the staleness of the read pipeline — restore the
-				//     line below and dig into the FILL→ring data path.
-				//   - If disparity still looks like a scene: drain is NOT
-				//     reaching SAD. Plumbing bug somewhere in stereo_onchip_ram
-				//     or its sad_port read path.
-				bus_write_data <= {4{drain_y[7:0]}};
-				// bus_write_data <= ring_rd_data;     // <-- restore after test
+				case (drain_byte[1:0])
+					2'd0:    bus_write_data <= {24'b0, ring_rd_data[ 7: 0]};
+					2'd1:    bus_write_data <= {24'b0, ring_rd_data[15: 8]};
+					2'd2:    bus_write_data <= {24'b0, ring_rd_data[23:16]};
+					default: bus_write_data <= {24'b0, ring_rd_data[31:24]};
+				endcase
 				state <= 4'd4;
 			end
 			if (state == 4'd4 && bus_ack) begin
 				bus_write <= 1'b0;
-				if (drain_word == 8'd255) begin
+				if (drain_byte == FULL_FRAME_WIDTH - 1) begin
 					drain_y    <= drain_y + 10'd1;
 					drain_slot <= (drain_slot == RING_DEPTH-1) ? 4'd0
 					                                           : drain_slot + 4'd1;
 					state <= 4'd0;
 				end else begin
-					drain_word <= drain_word + 8'd1;
+					drain_byte <= drain_byte + 10'd1;
 					state      <= 4'd2;
 				end
 			end

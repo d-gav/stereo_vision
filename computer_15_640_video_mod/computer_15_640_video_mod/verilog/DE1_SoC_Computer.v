@@ -380,10 +380,24 @@ localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 
 // Top-level phase
+//
+// PHASE_WAIT is the only phase during which the Video-In DMA is allowed to
+// write Onchip_SRAM. WAIT must be long enough that the DMA can lay down at
+// least one complete PAL frame before FILL starts reading source pixels.
+// FILL, DRAIN and COMPUTE all run with the s1 write-lock asserted so that
+// drained undistorted bytes survive long enough for SAD to read them.
 localparam [1:0] PHASE_FILL      = 2'd0;
 localparam [1:0] PHASE_DRAIN     = 2'd2;   // tail-drain after FILL completes
 localparam [1:0] PHASE_COMPUTE   = 2'd1;
+localparam [1:0] PHASE_WAIT      = 2'd3;   // DMA refresh window, lock released
 reg [1:0] top_phase;
+
+// 50 ms at 50 MHz (CLOCK2_50). PAL is 40 ms/frame, so 50 ms guarantees the
+// DMA writes at least one full frame into SRAM during WAIT regardless of
+// where in its frame cycle the lock-release caught it. Increase if you see
+// tearing in the rectified disparity output; decrease for higher update rate.
+localparam [31:0] WAIT_CYCLES    = 32'd2_500_000;
+reg [31:0] wait_start_timer;
 
 // Undistortion staging ring buffer. PHASE_FILL produces undistorted pixels at
 // destination coordinates and stages them into the ring; older rows are
@@ -410,19 +424,21 @@ assign GPIO_0[3] = TD_CLK27;
 assign GPIO_0[4] = TD_RESET_N;
 
 // ---- LED diagnostic for SRAM lock and FSM phase ----
-// LEDR[0] = sram_s1_write_lock (dim flicker if pulsing each frame, steady
-//                               on if FSM stuck in DRAIN/COMPUTE, off if
-//                               stuck in FILL or signal not reaching gate)
-// LEDR[1] = top_phase == PHASE_FILL    (most of the time; flickers off briefly each frame)
-// LEDR[2] = top_phase == PHASE_DRAIN   (brief ~3 ms pulse per frame)
-// LEDR[3] = top_phase == PHASE_COMPUTE (longer pulse per frame)
+// LEDR[0] = sram_s1_write_lock (steady on except a brief gap during PHASE_WAIT
+//                               every cycle; off only while DMA is allowed to
+//                               write the SRAM)
+// LEDR[1] = top_phase == PHASE_FILL    (longest pulse: rectify+drain in place)
+// LEDR[2] = top_phase == PHASE_DRAIN   (brief ~3 ms pulse per cycle)
+// LEDR[3] = top_phase == PHASE_COMPUTE (longer pulse per cycle: SAD running)
 // LEDR[4] = frame_filled               (high from last pixel until mbi_done resets)
+// LEDR[5] = top_phase == PHASE_WAIT    (~50 ms pulse: DMA refresh window)
 assign LEDR[0] = sram_s1_write_lock;
 assign LEDR[1] = (top_phase == PHASE_FILL);
 assign LEDR[2] = (top_phase == PHASE_DRAIN);
 assign LEDR[3] = (top_phase == PHASE_COMPUTE);
 assign LEDR[4] = frame_filled;
-assign LEDR[9:5] = 5'b0;
+assign LEDR[5] = (top_phase == PHASE_WAIT);
+assign LEDR[9:6] = 4'b0;
 
 //=======================================================
 // Direct sad_port conduit into stereo_onchip_ram (port B of every row's M10K).
@@ -435,17 +451,16 @@ wire                              sad_re;
 wire [9:0]                        sad_col;
 wire [FRAME_HEIGHT*PIXEL_W-1:0]   sad_rdata_flat;
 
-// stereo_onchip_ram s1 write-lock. Held high from the moment the last
-// pixel of FILL has been processed (frame_filled latches) all the way
-// through PHASE_DRAIN and PHASE_COMPUTE. Including frame_filled in the
-// expression closes the small window between the last mid-frame drain
-// ack and the formal top_phase transition — DMA can't sneak a write in
-// during that handshake. We also register the lock so the s1 gate sees
-// a clean edge with no combinational glitch on top_phase transitions.
+// stereo_onchip_ram s1 write-lock. Asserted for the entire FILL → DRAIN →
+// COMPUTE window, released only during PHASE_WAIT. The earlier policy of
+// asserting only at frame_filled left the autonomous Video-In DMA free to
+// overwrite mid-frame drained rows for the bulk of FILL, so SAD ended up
+// reading raw DMA bytes instead of the undistorted pixels just committed.
+// PHASE_WAIT exists precisely so the DMA still gets a window to refresh
+// SRAM with a fresh frame between cycles. Registered to keep the s1 gate
+// edge clean across top_phase transitions.
 reg sram_s1_write_lock;
-wire sram_s1_write_lock_next = frame_filled
-                            || (top_phase == PHASE_DRAIN)
-                            || (top_phase == PHASE_COMPUTE);
+wire sram_s1_write_lock_next = (top_phase != PHASE_WAIT);
 always @(posedge CLOCK2_50) begin
     if (~KEY[0]) sram_s1_write_lock <= 1'b0;
     else         sram_s1_write_lock <= sram_s1_write_lock_next;
@@ -676,7 +691,11 @@ always @(posedge CLOCK2_50) begin
 		read_video_start <= 0;
 		display_right_sel <= SW[2];
 		timer <= 0;
-		top_phase <= PHASE_FILL;
+		// Start in PHASE_WAIT so the DMA has time to lay down a complete
+		// frame before the first FILL reads source pixels. Starting in FILL
+		// would mean reading whatever uninitialized M10K contents power up.
+		top_phase <= PHASE_WAIT;
+		wait_start_timer <= 32'd0;
 		mbi_go <= 0; mbi_rst <= 1;
 		frame_filled <= 0;
 		current_pixel_color1 <= 0;
@@ -832,12 +851,17 @@ always @(posedge CLOCK2_50) begin
 					if (stereo_enabled) begin
 						top_phase <= PHASE_COMPUTE;
 					end else begin
-						// Reset for the next FILL pass.
-						top_phase      <= PHASE_FILL;
-						frame_filled   <= 1'b0;
-						drain_y        <= 10'd0;
-						drain_slot     <= 4'd0;
-						cur_write_slot <= 4'd0;
+						// Skip COMPUTE; go straight to WAIT so the DMA can
+						// refresh the SRAM with a fresh frame before the
+						// next FILL reads source pixels. (Returning straight
+						// to PHASE_FILL would re-read previously-drained,
+						// already-rectified bytes and rectify them again.)
+						top_phase        <= PHASE_WAIT;
+						wait_start_timer <= timer;
+						frame_filled     <= 1'b0;
+						drain_y          <= 10'd0;
+						drain_slot       <= 4'd0;
+						cur_write_slot   <= 4'd0;
 					end
 				end else begin
 					drain_byte <= 10'd0;
@@ -906,18 +930,32 @@ always @(posedge CLOCK2_50) begin
 				state <= 4'd1; // back to waiting
 			end
 
-			// Done with entire computation
+			// Done with entire computation. Route through PHASE_WAIT so the
+			// DMA gets a refresh window before the next FILL.
 			if (mbi_done) begin
-				top_phase      <= PHASE_FILL;
-				state          <= 4'd0;
-				frame_filled   <= 0;
-				drain_y        <= 10'd0;
-				drain_slot     <= 4'd0;
-				cur_write_slot <= 4'd0;
+				top_phase        <= PHASE_WAIT;
+				wait_start_timer <= timer;
+				state            <= 4'd0;
+				frame_filled     <= 0;
+				drain_y          <= 10'd0;
+				drain_slot       <= 4'd0;
+				cur_write_slot   <= 4'd0;
 			end
 		end
 
-		default: top_phase <= PHASE_FILL;
+		// ============ PHASE_WAIT ============
+		// Lock is released here (sram_s1_write_lock_next gates on this), so
+		// the autonomous Video-In DMA writes a fresh frame into Onchip_SRAM.
+		// We simply count cycles until at least one full PAL frame has been
+		// written, then return to FILL with the lock asserted again.
+		PHASE_WAIT: begin
+			mbi_rst <= 1'b1;
+			if ((timer - wait_start_timer) >= WAIT_CYCLES) begin
+				top_phase <= PHASE_FILL;
+			end
+		end
+
+		default: top_phase <= PHASE_WAIT;
 		endcase
 	end
 end

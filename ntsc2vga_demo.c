@@ -52,9 +52,9 @@ volatile unsigned int *h2p_lw_pio_min_disp=NULL;
 // Mirrored knob state so the REPL prompt and `show` command can print what
 // the FPGA was last told. Output PIOs are write-only effectively, so we
 // must remember locally.
-static unsigned int knob_small_pen = 0u;
-static unsigned int knob_big_pen   = 0u;
-static unsigned int knob_max_disp  = 32u;
+static unsigned int knob_small_pen = 64u;
+static unsigned int knob_big_pen   = 512u;
+static unsigned int knob_max_disp  = 84u;
 static unsigned int knob_min_disp  = 0u;
 static unsigned int knob_edge      = 0u;
 

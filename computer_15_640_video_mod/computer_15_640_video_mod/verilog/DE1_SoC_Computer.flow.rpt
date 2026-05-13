@@ -1,5 +1,9 @@
 Flow report for DE1_SoC_Computer
+<<<<<<< HEAD
 Thu May 07 03:49:27 2026
+=======
+Thu May 07 00:00:52 2026
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 Quartus Prime Version 18.1.0 Build 625 09/12/2018 SJ Lite Edition
 
 
@@ -40,25 +44,38 @@ refer to the applicable agreement for further details.
 +-------------------------------------------------------------------------------+
 ; Flow Summary                                                                  ;
 +---------------------------------+---------------------------------------------+
+<<<<<<< HEAD
 ; Flow Status                     ; Successful - Thu May 07 03:49:27 2026       ;
+=======
+; Flow Status                     ; Successful - Thu May 07 00:00:50 2026       ;
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 ; Quartus Prime Version           ; 18.1.0 Build 625 09/12/2018 SJ Lite Edition ;
 ; Revision Name                   ; DE1_SoC_Computer                            ;
 ; Top-level Entity Name           ; DE1_SoC_Computer                            ;
 ; Family                          ; Cyclone V                                   ;
 ; Device                          ; 5CSEMA5F31C6                                ;
 ; Timing Models                   ; Final                                       ;
+<<<<<<< HEAD
 ; Logic utilization (in ALMs)     ; 26,479 / 32,070 ( 83 % )                    ;
 ; Total registers                 ; 15374                                       ;
 ; Total pins                      ; 368 / 457 ( 81 % )                          ;
 ; Total virtual pins              ; 0                                           ;
 ; Total block memory bits         ; 1,881,560 / 4,065,280 ( 46 % )              ;
 ; Total DSP Blocks                ; 17 / 87 ( 20 % )                            ;
+=======
+; Logic utilization (in ALMs)     ; N/A                                         ;
+; Total registers                 ; 15916                                       ;
+; Total pins                      ; 368                                         ;
+; Total virtual pins              ; 0                                           ;
+; Total block memory bits         ; 1,881,560                                   ;
+; Total DSP Blocks                ; 17                                          ;
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 ; Total HSSI RX PCSs              ; 0                                           ;
 ; Total HSSI PMA RX Deserializers ; 0                                           ;
 ; Total HSSI TX PCSs              ; 0                                           ;
 ; Total HSSI PMA TX Serializers   ; 0                                           ;
-; Total PLLs                      ; 2 / 6 ( 33 % )                              ;
-; Total DLLs                      ; 1 / 4 ( 25 % )                              ;
+; Total PLLs                      ; 2                                           ;
+; Total DLLs                      ; 1                                           ;
 +---------------------------------+---------------------------------------------+
 
 
@@ -67,7 +84,11 @@ refer to the applicable agreement for further details.
 +-------------------+---------------------+
 ; Option            ; Setting             ;
 +-------------------+---------------------+
+<<<<<<< HEAD
 ; Start date & time ; 05/07/2026 03:22:42 ;
+=======
+; Start date & time ; 05/06/2026 23:56:50 ;
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 ; Main task         ; Compilation         ;
 ; Revision Name     ; DE1_SoC_Computer    ;
 +-------------------+---------------------+
@@ -79,7 +100,11 @@ refer to the applicable agreement for further details.
 ; Assignment Name                     ; Value                                                                         ; Default Value                        ; Entity Name                              ; Section Id ;
 +-------------------------------------+-------------------------------------------------------------------------------+--------------------------------------+------------------------------------------+------------+
 ; AUTO_EXPORT_VER_COMPATIBLE_DB       ; On                                                                            ; Off                                  ; --                                       ; --         ;
+<<<<<<< HEAD
 ; COMPILER_SIGNATURE_ID               ; 91763709607.177813855603920                                                   ; --                                   ; --                                       ; --         ;
+=======
+; COMPILER_SIGNATURE_ID               ; 198915911231568.177812620742524                                               ; --                                   ; --                                       ; --         ;
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/alt_types.pre.h                ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/emif.pre.xml                   ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
 ; HPS_ISW_FILE                        ; Computer_System/synthesis/submodules/sequencer/sdram_io.pre.h                 ; --                                   ; Computer_System_ARM_A9_HPS_hps_io_border ; --         ;
@@ -134,12 +159,17 @@ refer to the applicable agreement for further details.
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 ; Module Name          ; Elapsed Time ; Average Processors Used ; Peak Virtual Memory ; Total CPU Time (on all processors) ;
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
+<<<<<<< HEAD
 ; Analysis & Synthesis ; 00:02:21     ; 3.6                     ; 5974 MB             ; 00:05:55                           ;
 ; Fitter               ; 00:17:38     ; 1.7                     ; 9817 MB             ; 01:10:36                           ;
 ; Assembler            ; 00:00:29     ; 1.0                     ; 5330 MB             ; 00:00:25                           ;
 ; Timing Analyzer      ; 00:01:17     ; 3.8                     ; 6611 MB             ; 00:03:56                           ;
 ; Database Export      ; 00:01:17     ; 1.0                     ; 5470 MB             ; 00:01:14                           ;
 ; Total                ; 00:23:02     ; --                      ; --                  ; 01:22:06                           ;
+=======
+; Analysis & Synthesis ; 00:01:25     ; 3.9                     ; 5865 MB             ; 00:04:01                           ;
+; Total                ; 00:01:25     ; --                      ; --                  ; 00:04:01                           ;
+>>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 +----------------------+--------------+-------------------------+---------------------+------------------------------------+
 
 
@@ -148,11 +178,7 @@ refer to the applicable agreement for further details.
 +----------------------+------------------+------------+------------+----------------+
 ; Module Name          ; Machine Hostname ; OS Name    ; OS Version ; Processor type ;
 +----------------------+------------------+------------+------------+----------------+
-; Analysis & Synthesis ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
-; Fitter               ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
-; Assembler            ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
-; Timing Analyzer      ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
-; Database Export      ; Ezra             ; Windows 10 ; 10.0       ; x86_64         ;
+; Analysis & Synthesis ; EN-EC-LPH238-16  ; Windows 10 ; 10.0       ; x86_64         ;
 +----------------------+------------------+------------+------------+----------------+
 
 
@@ -160,10 +186,6 @@ refer to the applicable agreement for further details.
 ; Flow Log ;
 ------------
 quartus_map --read_settings_files=on --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
-quartus_fit --read_settings_files=off --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
-quartus_asm --read_settings_files=off --write_settings_files=off DE1_SoC_Computer -c DE1_SoC_Computer
-quartus_sta DE1_SoC_Computer -c DE1_SoC_Computer
-quartus_cdb DE1_SoC_Computer -c DE1_SoC_Computer --export_database="C:/Users/ezrar/cornell-classes/Spring 2026/ECE 5760/stereo_vision/computer_15_640_video_mod/computer_15_640_video_mod/verilog/export_db"
 
 
 

@@ -4,6 +4,9 @@
 *.npy
 *.pyc
 *.json
+!website-report/package.json
+!website-report/package-lock.json
+!website-report/tsconfig.json
 *.mif
 *.qmsg
 *.vcd

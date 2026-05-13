@@ -1,0 +1,40 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[node distance=9mm and 10mm]
+  \node[title] at (0, 2.55) {Stereo Vision System Architecture};
+
+  \node[camera_block] (cams) {Dual PAL/NTSC\\cameras};
+  \node[camera_block, right=of cams] (decoder) {Video front end\\and decoder};
+  \node[memory_block, right=of decoder] (video_dma) {Video-In DMA\\capture stream};
+  \node[memory_block, right=of video_dma] (onchip) {Custom on-chip RAM\\row-banked frame store};
+
+  \node[compute_block, above right=9mm and 13mm of onchip] (rtl) {FPGA SAD matcher\\parallel block matching};
+  \node[compute_block, below right=9mm and 13mm of onchip] (hps) {HPS C matcher\\mmap control path};
+  \node[verify_block, below=16mm of onchip] (python) {Python reference\\sweeps and RTL tests};
+
+  \node[memory_block, right=35mm of onchip] (vga_buffer) {SDRAM VGA\\pixel buffer};
+  \node[display_block, right=of vga_buffer] (vga) {VGA display\\input and disparity};
+
+  \draw[dataflow] (cams) -- (decoder);
+  \draw[dataflow] (decoder) -- (video_dma);
+  \draw[dataflow] (video_dma) -- (onchip);
+  \draw[dataflow] (onchip.east) -- ++(8mm,0) |- (rtl.west);
+  \draw[dataflow] (onchip.east) -- ++(8mm,0) |- (hps.west);
+  \draw[dataflow] (rtl.east) -| (vga_buffer.north);
+  \draw[dataflow] (hps.east) -| (vga_buffer.south);
+  \draw[dataflow] (vga_buffer) -- (vga);
+
+  \draw[flow, dashed] (python.north) -- (onchip.south);
+  \draw[flow, dashed] (python.east) -| (rtl.south);
+
+  \node[labeltext, below=2mm of cams] {analog video};
+  \node[labeltext, below=2mm of onchip] {640 x 288 capture,\\1024 byte stride};
+  \node[labeltext, above=2mm of vga_buffer] {640 x 480\\8-bit pixels};
+
+  \node[groupbox, fit=(cams)(decoder)(video_dma)(onchip), label={[labeltext]below:Capture path}] {};
+  \node[groupbox, fit=(rtl)(hps), label={[labeltext]above:Two implementations share the same SAD parameters}] {};
+\end{tikzpicture}
+\end{document}
+

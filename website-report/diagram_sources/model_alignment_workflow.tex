@@ -1,0 +1,28 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[node distance=8mm and 9mm]
+  \node[title] at (0, 2.3) {Keeping Python, C, and RTL Aligned};
+
+  \node[camera_block] (fixtures) {captured images\\and calibration data};
+  \node[verify_block, right=of fixtures] (python) {Python pipeline\\algorithm sweeps};
+  \node[compute_block, above right=10mm and 12mm of python] (rtl) {RTL matcher\\Icarus testbench};
+  \node[compute_block, below right=10mm and 12mm of python] (cmodel) {HPS C matcher\\board runtime};
+  \node[display_block, right=37mm of python] (compare) {compare outputs\\quality + timing};
+
+  \draw[dataflow] (fixtures) -- (python);
+  \draw[dataflow] (python.east) -- ++(8mm,0) |- (rtl.west);
+  \draw[dataflow] (python.east) -- ++(8mm,0) |- (cmodel.west);
+  \draw[dataflow] (rtl.east) -| (compare.north);
+  \draw[dataflow] (cmodel.east) -| (compare.south);
+
+  \node[smallblock, fill=paper, below=13mm of python, minimum width=47mm] (params) {shared parameters\\BLOCK\_SIZE, MAX\_DISP, v\_shift, swap\_lr};
+  \draw[flow, dashed] (params.north) -- (python.south);
+  \draw[flow, dashed] (params.east) -| (rtl.south);
+  \draw[flow, dashed] (params.east) -| (cmodel.north);
+
+  \node[labeltext, below=3mm of compare] {A change to the matching algorithm should be reflected in all three paths.};
+\end{tikzpicture}
+\end{document}
+

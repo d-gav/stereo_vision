@@ -1,0 +1,33 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[title, anchor=west] at (0, 58) {Captured Frame Layout and HPS Memory Map};
+
+  \draw[fill=camera, draw=blue!45!black, line width=0.8pt] (0,25) rectangle (115,50);
+  \draw[fill=paper, draw=line, line width=0.6pt] (57.2,25) rectangle (58.6,50);
+  \draw[fill=ink, draw=ink] (57.2,25) rectangle (58.6,50);
+
+  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (0,52) -- (57.2,52);
+  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (58.6,52) -- (115,52);
+  \node[labeltext] at (28.6,56) {left subimage\\x = 0..313};
+  \node[labeltext] at (86.8,56) {right subimage\\x = 318..631};
+  \node[labeltext, rotate=90, text=paper] at (57.9,37.5) {bar};
+
+  \node[labeltext, align=left, anchor=west] at (0,19) {Captured PAL frame: 640 x 288 active rows, 1024-byte stride.};
+  \node[labeltext, align=left, anchor=west] at (0,14) {The physical camera order is swapped in the software/algorithm path.};
+
+  \begin{scope}[shift={(0,0)}]
+    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (0,3) {0xC0000000\\SDRAM VGA pixel buffer};
+    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (48,3) {0xC8000000\\FPGA on-chip capture RAM};
+    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (96,3) {0xC9000000\\VGA character buffer};
+
+    \draw[flow] (42,3) -- (48,3);
+    \draw[flow] (90,3) -- (96,3);
+  \end{scope}
+
+  \node[labeltext, anchor=west, align=left] at (0,-8) {Disparity output is written to the VGA pixel buffer for display in the lower image region.};
+\end{tikzpicture}
+\end{document}
+

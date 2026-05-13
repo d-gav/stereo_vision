@@ -1,0 +1,36 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[node distance=8mm and 9mm]
+  \node[title] at (0, 2.8) {FPGA RTL Data Path};
+
+  \node[memory_block] (ram) {stereo\_onchip\_ram\\row-banked M10K storage};
+  \node[compute_block, right=of ram] (prefetch) {column\_prefetch\_parallel\\one byte per row};
+  \node[compute_block, right=of prefetch] (windows) {sliding windows\\left block + right search};
+
+  \node[compute_block, right=of windows, yshift=12mm] (sad0) {block\_match\_sad\\stripe 0};
+  \node[compute_block, right=of windows] (sad1) {block\_match\_sad\\stripe 1};
+  \node[compute_block, right=of windows, yshift=-12mm] (sadn) {block\_match\_sad\\stripe N-1};
+
+  \node[display_block, right=21mm of sad1] (stream) {disparity stream\\valid, x, y, value};
+  \node[memory_block, right=of stream] (vga) {VGA pixel buffer\\display output};
+
+  \draw[dataflow] (ram) -- node[labeltext, above] {sad\_* conduit} (prefetch);
+  \draw[dataflow] (prefetch) -- node[labeltext, above] {columns} (windows);
+  \draw[dataflow] (windows.east) -- ++(7mm,0) |- (sad0.west);
+  \draw[dataflow] (windows.east) -- (sad1.west);
+  \draw[dataflow] (windows.east) -- ++(7mm,0) |- (sadn.west);
+
+  \draw[dataflow] (sad0.east) -| (stream.north);
+  \draw[dataflow] (sad1.east) -- (stream.west);
+  \draw[dataflow] (sadn.east) -| (stream.south);
+  \draw[dataflow] (stream) -- (vga);
+
+  \node[labeltext, below=3mm of ram] {single-cycle read latency};
+  \node[labeltext, below=3mm of sadn] {NUM\_SAD\_UNITS horizontal stripes};
+
+  \node[groupbox, fit=(prefetch)(windows)(sad0)(sad1)(sadn), label={[labeltext]below:SAD compute pipeline}] {};
+\end{tikzpicture}
+\end{document}
+

@@ -375,7 +375,7 @@ localparam RIGHT_LUT_WIDTH      = 315;
 localparam Y_CROP_OFFSET = 44;
 
 // Stereo engine parameters
-localparam BLOCK_SIZE      = 5;
+localparam BLOCK_SIZE      = 9;
 localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 
@@ -612,7 +612,7 @@ column_prefetch_parallel #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(12)
+	.NUM_SAD_UNITS(3)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),
@@ -649,9 +649,9 @@ wire [15:0] disp_scaled = disp_offset * 8'd255;
 wire [7:0]  disp_grad   = disp_scaled / disp_range;
 
 wire [7:0] disp_pixel_color =
-	(mbi_disp_value <= disp_min7) ? 8'hFF :
-	(mbi_disp_value >= disp_max7) ? 8'h00 :
-	(8'd255 - disp_grad);
+	(mbi_disp_value <= disp_min7) ? 8'h00 :
+	(mbi_disp_value >= disp_max7) ? 8'hFF :
+	(disp_grad);
 
 // VGA address for streaming disparity: place right below raw video (row 200+)
 wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;

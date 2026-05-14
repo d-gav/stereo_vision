@@ -375,7 +375,7 @@ localparam RIGHT_LUT_WIDTH      = 315;
 localparam Y_CROP_OFFSET = 44;
 
 // Stereo engine parameters
-localparam BLOCK_SIZE      = 9;
+localparam BLOCK_SIZE      = 5;
 localparam PIXEL_W         = 8;
 localparam MAX_DISP        = 85;
 
@@ -612,7 +612,7 @@ column_prefetch_parallel #(
 mem_block_intf #(
 	.FRAME_HEIGHT(FRAME_HEIGHT), .HALF_FRAME_WIDTH(HALF_FRAME_WIDTH),
 	.BLOCK_SIZE(BLOCK_SIZE), .PIXEL_W(PIXEL_W), .MAX_DISP(MAX_DISP),
-	.NUM_SAD_UNITS(3)
+	.NUM_SAD_UNITS(12)
 ) u_mem_block_intf (
 	.clk(CLOCK2_50), .rst(mbi_rst),
 	.go(mbi_go), .stall(mbi_stall),

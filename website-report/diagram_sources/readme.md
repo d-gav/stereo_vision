@@ -14,6 +14,8 @@ Rendered SVGs are written to:
 public/diagrams/
 ```
 
+Note: the build script uses a `latex -> dvi -> dvisvgm` pipeline when `dvisvgm` is available. This avoids a common `dvisvgm --pdf` issue where text labels are dropped from SVG output on some local TeX setups.
+
 Use those generated files in Astro pages with paths like:
 
 ```html
@@ -36,4 +38,14 @@ Recommended Windows setup: install MiKTeX or TeX Live, then install `dvisvgm` if
 - `sad_block_matching.tex` -> `sad_block_matching.svg`
 - `rtl_data_path.tex` -> `rtl_data_path.svg`
 - `model_alignment_workflow.tex` -> `model_alignment_workflow.svg`
+- `mem_block_intf_fsm.tex` -> `mem_block_intf_fsm.svg`
 
+## Interactive animations
+
+These live under `public/animations/` (HTML, not TeX) and are served as-is by Astro:
+
+- `mem_block_intf.html` — cycle-by-cycle visualization of the SAD matcher's FSM.
+  Shows the reference block, search window, candidate match, memory request,
+  sliding-window control signals and best-SAD scoreboard. Auto-plays or steps
+  through ~70 logical cycles using toy parameters (`BLOCK_SIZE=3, MAX_DISP=5`).
+  Deep-link a specific cycle with `?cycle=N`.

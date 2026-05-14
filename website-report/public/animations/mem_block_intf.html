@@ -1,0 +1,857 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>mem_block_intf — cycle-by-cycle animation</title>
+<style>
+  :root {
+    --cornell: #B31B1B;
+    --ink:     #202124;
+    --muted:   #667085;
+    --line:    #AEB8C6;
+    --paper:   #FFFFFF;
+    --soft:    #F5F7FA;
+    --camera:  #E8F4FF;
+    --memory:  #F0F7EC;
+    --compute: #FFF3E6;
+    --display: #F7ECF3;
+    --verify:  #EFEAFE;
+
+    --u0:      #B31B1B;  /* red    — unit 0 */
+    --u1:      #c97a00;  /* orange — unit 1 */
+    --u2:      #5b5fb5;  /* indigo — unit 2 */
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans,
+                 Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    color: var(--ink);
+    background: var(--paper);
+    padding: 16px 24px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 12px 0 6px; color: var(--ink); }
+  .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 18px; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px;
+    background: var(--paper);
+  }
+  .panel + .panel { margin-top: 14px; }
+
+  svg { display: block; width: 100%; height: auto; }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 14px 0;
+  }
+  button {
+    background: var(--cornell);
+    color: white;
+    border: none;
+    padding: 7px 14px;
+    font-size: 0.9rem;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: 0.4; cursor: default; }
+
+  .speed { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--muted); }
+  .speed input { width: 110px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th, td { padding: 4px 8px; text-align: left; }
+  td.k { color: var(--muted); white-space: nowrap; width: 42%; }
+  td.v { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 500; }
+  td.u { font-weight: 600; }
+  tr.hi td.v { color: var(--cornell); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+  .badge.idle    { background: var(--memory);  color: #2d6b1e; }
+  .badge.phase   { background: var(--compute); color: #8a4a00; }
+  .badge.disp    { background: var(--compute); color: #8a4a00; }
+  .badge.xinc    { background: var(--compute); color: #8a4a00; }
+
+  .desc {
+    background: var(--soft);
+    border-left: 3px solid var(--cornell);
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    min-height: 44px;
+    margin: 10px 0;
+  }
+
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .sw { width: 14px; height: 14px; border-radius: 3px; }
+  .u0sw { border: 2px solid var(--u0); background: rgba(179,27,27,0.18); }
+  .u1sw { border: 2px solid var(--u1); background: rgba(201,122,0,0.18); }
+  .u2sw { border: 2px solid var(--u2); background: rgba(91,95,181,0.18); }
+
+  .params {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 8px;
+  }
+  .params code { background: var(--soft); padding: 1px 5px; border-radius: 3px; }
+
+  .small { font-size: 0.82rem; color: var(--muted); }
+
+  .unit-row {
+    border-left: 3px solid var(--line);
+    padding-left: 8px;
+    margin-bottom: 8px;
+  }
+  .unit-row.u0 { border-color: var(--u0); }
+  .unit-row.u1 { border-color: var(--u1); }
+  .unit-row.u2 { border-color: var(--u2); }
+  .unit-row .label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .unit-row.u0 .label { color: var(--u0); }
+  .unit-row.u1 .label { color: var(--u1); }
+  .unit-row.u2 .label { color: var(--u2); }
+</style>
+</head>
+<body>
+
+<h1>mem_block_intf — cycle-by-cycle animation</h1>
+<div class="subtitle">
+  How the FPGA SAD matcher operates on a 2D block window and runs
+  <strong>NUM_SAD_UNITS</strong> compute units in parallel — one per horizontal
+  stripe of the image. All units share the same FSM, the same memory request,
+  and the same disparity sweep, but each tracks its own best SAD.
+</div>
+
+<div class="panel">
+  <div class="controls">
+    <button id="btn-reset" title="Reset to cycle 0">⏮ Reset</button>
+    <button id="btn-step"  title="Advance one cycle">⏭ Step</button>
+    <button id="btn-play"  title="Play / pause">▶ Play</button>
+    <span class="speed">
+      Speed
+      <input type="range" id="speed" min="80" max="900" value="500" step="20" />
+      <span id="speed-label">slow</span>
+    </span>
+    <span class="small">Cycle <strong id="cycle-num">0</strong> / <span id="cycle-total">0</span></span>
+  </div>
+
+  <div class="desc" id="desc">Press <strong>Step</strong> or <strong>Play</strong> to begin.</div>
+
+  <div class="layout">
+    <!-- LEFT: visualization SVG -->
+    <div>
+      <h2 style="margin-top:0;">Image view — 3 stripes processed in parallel</h2>
+      <svg id="view" viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" role="img"
+           aria-label="Stereo SAD parallel-unit sliding-block animation">
+        <defs>
+          <pattern id="hilite-search" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+            <rect width="6" height="6" fill="rgba(91,95,181,0.06)"/>
+            <line x1="0" y1="6" x2="6" y2="0" stroke="rgba(91,95,181,0.25)" stroke-width="0.7"/>
+          </pattern>
+        </defs>
+
+        <text x="10"  y="14" font-family="sans-serif" font-size="11" fill="#667085">left image (reference)</text>
+        <text x="400" y="14" font-family="sans-serif" font-size="11" fill="#667085">right image (search direction →)</text>
+
+        <g id="left-grid"></g>
+        <g id="right-grid"></g>
+        <g id="stripe-labels"></g>
+
+        <!-- search window covers col_x..col_x+MAX_DISP across the full image height -->
+        <rect id="hi-search" fill="url(#hilite-search)" stroke="#5b5fb5"
+              stroke-dasharray="4 3" stroke-width="1" rx="2"></rect>
+
+        <!-- one reference block + one match block per SAD unit; populated by JS -->
+        <g id="ref-blocks"></g>
+        <g id="match-blocks"></g>
+      </svg>
+
+      <div class="legend">
+        <span><span class="sw u0sw"></span> unit 0 stripe (rows 0–3)</span>
+        <span><span class="sw u1sw"></span> unit 1 stripe (rows 4–7)</span>
+        <span><span class="sw u2sw"></span> unit 2 stripe (rows 8–11)</span>
+        <span><span class="sw" style="background:#e6e6f5; border:1px dashed #5b5fb5;"></span> shared search window</span>
+      </div>
+
+      <div class="params">
+        Toy parameters:
+        <code>BLOCK_SIZE = 3</code>,
+        <code>MAX_DISP = 5</code>,
+        <code>HALF_FRAME_WIDTH = 18</code>,
+        <code>FRAME_HEIGHT = 12</code>,
+        <code>NUM_SAD_UNITS = 3</code>,
+        <code>STRIPE_HEIGHT = 4</code>.
+        The DE1-SoC build uses <code>BLOCK_SIZE = 9</code>, <code>MAX_DISP = 85</code>,
+        and <code>FRAME_HEIGHT = 200</code> rows split across multiple parallel SAD units —
+        same algorithm, just more units and bigger blocks.
+        The synthetic stereo pair plants a different ground-truth disparity per stripe
+        (<strong style="color:var(--u0)">d=1</strong>,
+         <strong style="color:var(--u1)">d=2</strong>,
+         <strong style="color:var(--u2)">d=3</strong>) so each unit converges to a different
+        <code>best_disp</code>.
+      </div>
+    </div>
+
+    <!-- RIGHT: FSM / signals / per-unit scoreboard -->
+    <div>
+      <h2 style="margin-top:0;">FSM &amp; shared signals</h2>
+      <table>
+        <tr><td class="k">state</td>           <td class="v"><span id="t-state" class="badge idle">IDLE</span></td></tr>
+        <tr><td class="k">reg_phase (y in stripe)</td><td class="v" id="t-phase">0</td></tr>
+        <tr><td class="k">reg_col_x</td>       <td class="v" id="t-colx">0</td></tr>
+        <tr><td class="k">reg_disp</td>        <td class="v" id="t-disp">0</td></tr>
+        <tr><td class="k">mem_req</td>         <td class="v" id="t-req">0</td></tr>
+        <tr><td class="k">mem_bank</td>        <td class="v" id="t-bank">—</td></tr>
+        <tr><td class="k">mem_col (shared)</td><td class="v" id="t-col">—</td></tr>
+        <tr><td class="k">slide_reference</td> <td class="v" id="t-slref">0</td></tr>
+        <tr><td class="k">slide_matching</td>  <td class="v" id="t-slmat">0</td></tr>
+        <tr><td class="k">sad_compare_en</td>  <td class="v" id="t-sce">0</td></tr>
+      </table>
+
+      <h2>Per-unit SAD scoreboard</h2>
+      <div class="small" style="margin-bottom:8px;">
+        All units fetch the <em>same</em> mem_col every cycle (port B fans the byte out to all
+        rows in parallel). Each unit only reads its own BLOCK_SIZE rows and tracks its own best.
+      </div>
+
+      <div class="unit-row u0">
+        <div class="label">unit 0 · rows 0–3 · planted d = 1</div>
+        <table>
+          <tr><td class="k">SAD this candidate</td><td class="v" id="u0-sad">—</td></tr>
+          <tr class="hi"><td class="k">best_sad</td>     <td class="v" id="u0-best">—</td></tr>
+          <tr class="hi"><td class="k">best_disp</td>    <td class="v" id="u0-bestd">—</td></tr>
+        </table>
+      </div>
+
+      <div class="unit-row u1">
+        <div class="label">unit 1 · rows 4–7 · planted d = 2</div>
+        <table>
+          <tr><td class="k">SAD this candidate</td><td class="v" id="u1-sad">—</td></tr>
+          <tr class="hi"><td class="k">best_sad</td>     <td class="v" id="u1-best">—</td></tr>
+          <tr class="hi"><td class="k">best_disp</td>    <td class="v" id="u1-bestd">—</td></tr>
+        </table>
+      </div>
+
+      <div class="unit-row u2">
+        <div class="label">unit 2 · rows 8–11 · planted d = 3</div>
+        <table>
+          <tr><td class="k">SAD this candidate</td><td class="v" id="u2-sad">—</td></tr>
+          <tr class="hi"><td class="k">best_sad</td>     <td class="v" id="u2-best">—</td></tr>
+          <tr class="hi"><td class="k">best_disp</td>    <td class="v" id="u2-bestd">—</td></tr>
+        </table>
+      </div>
+
+      <h2>Disparity stream (serialized)</h2>
+      <table>
+        <tr><td class="k">disp_valid</td>     <td class="v" id="t-dv">0</td></tr>
+        <tr><td class="k">emit_unit</td>      <td class="v" id="t-eu">—</td></tr>
+        <tr><td class="k">disp_out_x</td>     <td class="v" id="t-dox">—</td></tr>
+        <tr><td class="k">disp_out_y (= unit · STRIPE_HEIGHT + phase)</td>
+                                              <td class="v" id="t-doy">—</td></tr>
+        <tr><td class="k">disp_out_value</td> <td class="v" id="t-dov">—</td></tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2 style="margin-top:0;">How to read this</h2>
+  <ul style="font-size:0.9rem; line-height:1.5; margin:0; padding-left:20px;">
+    <li>The image is divided into <strong>NUM_SAD_UNITS = 3</strong> horizontal stripes of <code>STRIPE_HEIGHT = 4</code> rows each. Every cycle, <strong>all three units</strong> operate on the same column at the same disparity step.</li>
+    <li>Each unit owns a <strong>BLOCK_SIZE × BLOCK_SIZE</strong> reference block at <code>(col_x, g·STRIPE_HEIGHT + phase)</code> on the left image, and a sliding match block at the same row offset on the right.</li>
+    <li>When <strong>mem_req</strong> fires, <code>column_prefetch_parallel</code> reads the requested column from every row of <code>stereo_onchip_ram</code> in <em>one cycle</em> (port B). Each unit indexes only its BLOCK_SIZE rows out of the returned bus.</li>
+    <li>The result is <strong>three independent</strong> best-SAD trackers running in lock-step. They tend to converge to different <code>best_disp</code> values because the underlying image content differs between stripes — in this synthetic demo we plant d = 1 / 2 / 3 respectively.</li>
+    <li>When <code>disp</code> exits its range, the FSM goes through INCR_X. It emits the three winners serially on the disparity stream — <code>emit_unit</code> cycles 0 → 1 → 2, one stream word per cycle (each acknowledged by <code>disp_ack</code> downstream).</li>
+  </ul>
+</div>
+
+<script>
+"use strict";
+
+// =====================================================================
+// Parameters
+// =====================================================================
+const P = {
+  BLOCK_SIZE:       3,
+  MAX_DISP:         5,
+  HALF_FRAME_WIDTH: 18,
+  FRAME_HEIGHT:     12,
+  NUM_SAD_UNITS:    3,
+  STRIPE_HEIGHT:    4,   // = FRAME_HEIGHT / NUM_SAD_UNITS
+
+  CELL: 18,
+  LEFT_X:  10,
+  GRID_Y:  22,
+  GAP:     50,
+};
+
+// Plant a different ground-truth disparity per stripe so each unit
+// converges to its own best_disp. unit 0 → d=1, unit 1 → d=2, unit 2 → d=3.
+const TRUE_DISP_PER_STRIPE = [1, 2, 3];
+function true_disp(y) {
+  const stripe = Math.min(P.NUM_SAD_UNITS - 1, Math.floor(y / P.STRIPE_HEIGHT));
+  return TRUE_DISP_PER_STRIPE[stripe];
+}
+
+// =====================================================================
+// Synthetic stereo data: LEFT[y][x] random, RIGHT[y][x+true_d] = LEFT[y][x]
+// =====================================================================
+function rand_byte(seed) {
+  let x = (seed * 2654435761) | 0;
+  x ^= x >>> 13; x = (x * 1597334677) | 0; x ^= x >>> 16;
+  return (x >>> 24) & 0xFF;
+}
+const W = P.HALF_FRAME_WIDTH + P.MAX_DISP + 4;
+const LEFT  = Array.from({length: P.FRAME_HEIGHT},
+                (_, y) => Array.from({length: W}, (_, x) => rand_byte(x * 7 + y * 53 + 11)));
+const RIGHT = Array.from({length: P.FRAME_HEIGHT},
+                (_, y) => Array.from({length: W}, (_, x) => rand_byte(x * 13 + y * 41 + 5)));
+for (let y = 0; y < P.FRAME_HEIGHT; y++) {
+  const d = true_disp(y);
+  for (let cx = 0; cx + d < W; cx++) RIGHT[y][cx + d] = LEFT[y][cx];
+}
+
+// SAD for unit g (uses rows g*STRIPE_HEIGHT + phase + [0..B-1] and
+// columns col_x + [-HALF..HALF] vs col_x + disp + [-HALF..HALF])
+function sad_unit(g, col_x, phase, disp) {
+  const half = (P.BLOCK_SIZE - 1) >> 1;
+  let s = 0;
+  for (let rr = 0; rr < P.BLOCK_SIZE; rr++) {
+    const y = g * P.STRIPE_HEIGHT + phase + rr;
+    if (y < 0 || y >= P.FRAME_HEIGHT) continue;
+    for (let i = -half; i <= half; i++) {
+      const lx = col_x + i;
+      const rx = col_x + disp + i;
+      if (lx < 0 || rx < 0 || lx >= W || rx >= W) continue;
+      s += Math.abs(LEFT[y][lx] - RIGHT[y][rx]);
+    }
+  }
+  return s;
+}
+
+// =====================================================================
+// Frame generator
+// =====================================================================
+function build_frames() {
+  const frames = [];
+  const HALF = (P.BLOCK_SIZE - 1) >> 1;
+  const N    = P.NUM_SAD_UNITS;
+
+  const push = (s) => frames.push(Object.assign({
+    state: 'IDLE',
+    phase: 0, col_x: 0, disp: 0,
+    mem_req: 0, mem_bank: '—', mem_col: '—',
+    slide_reference: 0, slide_matching: 0, sad_compare_en: 0,
+    sad_each:  null,           // [unit] -> current candidate SAD
+    best_sad:  null,           // [unit] -> running best SAD
+    best_disp: null,           // [unit] -> running best disparity
+    disp_valid: 0, emit_unit: null,
+    disp_out_x: null, disp_out_y: null, disp_out_value: null,
+    desc: ''
+  }, s));
+
+  push({ desc: 'IDLE. Waiting for `go` from the top-level FSM.' });
+  push({ desc: 'go = 1. Next clock edge: enter INCR_PHASE to load the initial blocks for every unit.' });
+
+  const phase     = 0;
+  const start_cx  = HALF + 1;
+  let cx = start_cx;
+
+  // ===== INCR_PHASE: load right block, then left block. The fetched
+  // column is BROADCAST to all NUM_SAD_UNITS units via port B; each unit
+  // copies its BLOCK_SIZE rows into its own column buffer.
+  for (let k = 0; k < P.BLOCK_SIZE; k++) {
+    push({
+      state: 'INCR_PHASE',
+      phase: phase, col_x: cx, disp: 0,
+      mem_req: 1, mem_bank: 'right', mem_col: cx - HALF + k,
+      slide_matching: k > 0 ? 1 : 0,
+      desc: `INCR_PHASE / right column ${cx - HALF + k} (k=${k+1}/${P.BLOCK_SIZE}). Port B returns one byte from every row in parallel — each of the ${N} units writes its slice into right_col_buf[g][${k}].`
+    });
+  }
+  for (let k = 0; k < P.BLOCK_SIZE; k++) {
+    push({
+      state: 'INCR_PHASE',
+      phase: phase, col_x: cx, disp: 0,
+      mem_req: 1, mem_bank: 'left', mem_col: cx - HALF + k,
+      slide_reference: k > 0 ? 1 : 0,
+      slide_matching:  k === 0 ? 1 : 0,
+      desc: `INCR_PHASE / left column ${cx - HALF + k} (k=${k+1}/${P.BLOCK_SIZE}). All ${N} sliding windows (one per unit) shift in lockstep as each column registers.`
+    });
+  }
+  push({
+    state: 'INCR_PHASE', phase: phase, col_x: cx, disp: 0, slide_reference: 1,
+    desc: 'Final reference column registers; phase_cnt approaches 2·BLOCK_SIZE+2 — phase_complete fires.'
+  });
+  push({
+    state: 'INCR_PHASE', phase: phase, col_x: cx, disp: 0,
+    desc: 'phase_complete. col_x ← BLOCK_SIZE−1. FSM transitions to INCR_DISP for the disparity sweep.'
+  });
+
+  // Run a few col_x positions
+  function run_x(cx) {
+    const best_sad  = new Array(N).fill(Infinity);
+    const best_disp = new Array(N).fill(-1);
+
+    for (let d = 0; d < P.MAX_DISP; d++) {
+      const sad_each = Array.from({length: N}, (_, g) => sad_unit(g, cx, phase, d));
+      // Compare lags slide by one cycle, so update from PREVIOUS d when d>0
+      if (d > 0) {
+        const prev_sad = Array.from({length: N}, (_, g) => sad_unit(g, cx, phase, d - 1));
+        for (let g = 0; g < N; g++) {
+          if (prev_sad[g] < best_sad[g]) { best_sad[g] = prev_sad[g]; best_disp[g] = d - 1; }
+        }
+      }
+      push({
+        state: 'INCR_DISP',
+        phase: phase, col_x: cx, disp: d,
+        mem_req: 1, mem_bank: 'right', mem_col: cx + d,
+        slide_matching: d > 0 ? 1 : 0,
+        sad_compare_en: d > 0 ? 1 : 0,
+        sad_each: d > 0 ? Array.from({length: N}, (_, g) => sad_unit(g, cx, phase, d - 1)) : null,
+        best_sad: best_sad.map(s => isFinite(s) ? s : null),
+        best_disp: best_disp.map(d_ => d_ < 0 ? null : d_),
+        desc: d === 0
+          ? `INCR_DISP / disp=0. Request right column ${cx} (col_x + 0). Blocks are pre-loaded from INCR_PHASE; first SAD compare arrives next cycle.`
+          : `INCR_DISP / disp=${d}. Request right column ${cx + d}. sad_compare_en pulses — each of the ${N} units checks its own SAD for disp=${d-1} vs its own best_sad. Independent winners per stripe.`
+      });
+    }
+
+    // 2 drain cycles
+    for (let g = 0; g < N; g++) {
+      const prev = sad_unit(g, cx, phase, P.MAX_DISP - 1);
+      if (prev < best_sad[g]) { best_sad[g] = prev; best_disp[g] = P.MAX_DISP - 1; }
+    }
+    push({
+      state: 'INCR_DISP', phase: phase, col_x: cx, disp: P.MAX_DISP,
+      slide_matching: 1, sad_compare_en: 1,
+      sad_each: Array.from({length: N}, (_, g) => sad_unit(g, cx, phase, P.MAX_DISP - 1)),
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      desc: `Drain 1/2. Last sad_compare_en for disp=${P.MAX_DISP - 1}.`
+    });
+    push({
+      state: 'INCR_DISP', phase: phase, col_x: cx, disp: P.MAX_DISP,
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      desc: 'Drain 2/2. best_disp is now final for this col_x in every unit. FSM moves to INCR_X.'
+    });
+
+    // INCR_X: load 1 new ref column then BLOCK_SIZE new match columns.
+    // Emit all units' best_disp in parallel — one stream word per cycle.
+    push({
+      state: 'INCR_X',
+      phase: phase, col_x: cx + 1, disp: 0,
+      mem_req: 1, mem_bank: 'left', mem_col: cx + 1 + HALF,
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      disp_valid: 1, emit_unit: 0,
+      disp_out_x: cx, disp_out_y: 0 * P.STRIPE_HEIGHT + phase, disp_out_value: best_disp[0],
+      desc: `INCR_X. Load new ref col ${cx + 1 + HALF}; emit unit 0's best_disp = ${best_disp[0]} for x=${cx}, y=${phase}.`
+    });
+    push({
+      state: 'INCR_X',
+      phase: phase, col_x: cx + 1, disp: 0,
+      mem_req: 1, mem_bank: 'right', mem_col: cx + 1 - HALF,
+      slide_reference: 1,
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      disp_valid: 1, emit_unit: 1,
+      disp_out_x: cx, disp_out_y: 1 * P.STRIPE_HEIGHT + phase, disp_out_value: best_disp[1],
+      desc: `INCR_X. Emit unit 1's best_disp = ${best_disp[1]} for (x=${cx}, y=${1 * P.STRIPE_HEIGHT + phase}).`
+    });
+    push({
+      state: 'INCR_X',
+      phase: phase, col_x: cx + 1, disp: 1,
+      mem_req: 1, mem_bank: 'right', mem_col: cx + 1 - HALF + 1,
+      slide_matching: 1,
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      disp_valid: 1, emit_unit: 2,
+      disp_out_x: cx, disp_out_y: 2 * P.STRIPE_HEIGHT + phase, disp_out_value: best_disp[2],
+      desc: `INCR_X. Emit unit 2's best_disp = ${best_disp[2]} for (x=${cx}, y=${2 * P.STRIPE_HEIGHT + phase}). All ${N} stripe results for x=${cx} are now in the stream.`
+    });
+    push({
+      state: 'INCR_X',
+      phase: phase, col_x: cx + 1, disp: 2,
+      mem_req: 1, mem_bank: 'right', mem_col: cx + 1 - HALF + 2,
+      slide_matching: 1,
+      best_sad: null, best_disp: null,
+      desc: `INCR_X. match_full_x approaching: right block is rebuilt at the new col_x = ${cx + 1}. best_sad/best_disp reset; back to INCR_DISP next cycle.`
+    });
+  }
+
+  for (let i = 0; i < 3; i++) {
+    run_x(cx + i);
+  }
+
+  // ====================================================================
+  // Simulate hitting col_x = X_MAX: INCR_X transitions to INCR_PHASE
+  // with phase ← phase + 1. Each unit's block slides DOWN by one row
+  // inside its stripe and the blocks are reloaded at col_x = BLOCK_SIZE-1.
+  // ====================================================================
+  const phase_next = phase + 1;
+  push({
+    state: 'INCR_X',
+    phase: phase, col_x: P.HALF_FRAME_WIDTH - 1, disp: 0,
+    desc: `col_x reached X_MAX. INCR_X → INCR_PHASE: col_x resets to 0, reg_phase ← ${phase_next}. Every unit's reference block will slide DOWN by one row inside its stripe.`
+  });
+
+  // INCR_PHASE for phase=phase_next: reload right block then left block
+  // at the new y offset. Each frame snapshots phase=phase_next so the
+  // visualization draws blocks at the new row.
+  for (let k = 0; k < P.BLOCK_SIZE; k++) {
+    push({
+      state: 'INCR_PHASE',
+      phase: phase_next, col_x: cx, disp: 0,
+      mem_req: 1, mem_bank: 'right', mem_col: cx - HALF + k,
+      slide_matching: k > 0 ? 1 : 0,
+      desc: `INCR_PHASE / phase=${phase_next}. Right column ${cx - HALF + k} (k=${k+1}/${P.BLOCK_SIZE}). Each unit g writes mem_rdata[g·STRIPE_HEIGHT + ${phase_next} + ${k}] — one row deeper into its stripe than at phase=${phase}.`
+    });
+  }
+  for (let k = 0; k < P.BLOCK_SIZE; k++) {
+    push({
+      state: 'INCR_PHASE',
+      phase: phase_next, col_x: cx, disp: 0,
+      mem_req: 1, mem_bank: 'left', mem_col: cx - HALF + k,
+      slide_reference: k > 0 ? 1 : 0,
+      slide_matching:  k === 0 ? 1 : 0,
+      desc: `INCR_PHASE / phase=${phase_next}. Left column ${cx - HALF + k} (k=${k+1}/${P.BLOCK_SIZE}). All ${N} reference windows shift in lockstep at the new y offset.`
+    });
+  }
+  push({
+    state: 'INCR_PHASE', phase: phase_next, col_x: cx, disp: 0, slide_reference: 1,
+    desc: 'Final reference column registers at the new phase. phase_cnt nears 2·BLOCK_SIZE+2.'
+  });
+  push({
+    state: 'INCR_PHASE', phase: phase_next, col_x: cx, disp: 0,
+    desc: `phase_complete at phase=${phase_next}. col_x ← BLOCK_SIZE−1; FSM re-enters INCR_DISP to sweep disparity for this new scanline.`
+  });
+
+  // ====================================================================
+  // One full col_x sweep at the new phase, so the user clearly sees the
+  // blocks at their lower position with the SAD scoreboard converging.
+  // ====================================================================
+  {
+    const best_sad  = new Array(N).fill(Infinity);
+    const best_disp = new Array(N).fill(-1);
+    const cxp = cx;
+    for (let d = 0; d < P.MAX_DISP; d++) {
+      if (d > 0) {
+        const prev_sad = Array.from({length: N}, (_, g) => sad_unit(g, cxp, phase_next, d - 1));
+        for (let g = 0; g < N; g++) {
+          if (prev_sad[g] < best_sad[g]) { best_sad[g] = prev_sad[g]; best_disp[g] = d - 1; }
+        }
+      }
+      push({
+        state: 'INCR_DISP',
+        phase: phase_next, col_x: cxp, disp: d,
+        mem_req: 1, mem_bank: 'right', mem_col: cxp + d,
+        slide_matching: d > 0 ? 1 : 0,
+        sad_compare_en: d > 0 ? 1 : 0,
+        sad_each: d > 0 ? Array.from({length: N}, (_, g) => sad_unit(g, cxp, phase_next, d - 1)) : null,
+        best_sad: best_sad.map(s => isFinite(s) ? s : null),
+        best_disp: best_disp.map(d_ => d_ < 0 ? null : d_),
+        desc: d === 0
+          ? `INCR_DISP / phase=${phase_next}, disp=0. Sweeping disparity for the row that is one step deeper in each stripe — same algorithm, same parallel units, just a different y.`
+          : `INCR_DISP / phase=${phase_next}, disp=${d}. Each unit re-evaluates its planted ground truth at the new row; best_disp converges to the same per-stripe values because the disparity is planted per-stripe, not per-row.`
+      });
+    }
+    for (let g = 0; g < N; g++) {
+      const prev = sad_unit(g, cxp, phase_next, P.MAX_DISP - 1);
+      if (prev < best_sad[g]) { best_sad[g] = prev; best_disp[g] = P.MAX_DISP - 1; }
+    }
+    push({
+      state: 'INCR_DISP', phase: phase_next, col_x: cxp, disp: P.MAX_DISP,
+      slide_matching: 1, sad_compare_en: 1,
+      sad_each: Array.from({length: N}, (_, g) => sad_unit(g, cxp, phase_next, P.MAX_DISP - 1)),
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      desc: `Drain 1/2 at phase=${phase_next}.`
+    });
+    push({
+      state: 'INCR_DISP', phase: phase_next, col_x: cxp, disp: P.MAX_DISP,
+      best_sad: best_sad.slice(), best_disp: best_disp.slice(),
+      desc: 'Drain 2/2. best_disp is final for this (x, y); FSM moves to INCR_X to emit and advance.'
+    });
+  }
+
+  push({
+    state: 'IDLE',
+    desc: `Toy run done. In the real design phase iterates 0..STRIPE_HEIGHT−1 (so each unit's block walks all the way down its stripe), and the outer col_x loop runs every time. done = 1 returns the FSM to IDLE.`
+  });
+
+  return frames;
+}
+
+// =====================================================================
+// SVG rendering — 2D grids with NUM_SAD_UNITS stripe overlays
+// =====================================================================
+const view = document.getElementById('view');
+const leftGroup     = document.getElementById('left-grid');
+const rightGroup    = document.getElementById('right-grid');
+const stripeLabels  = document.getElementById('stripe-labels');
+const refBlocksG    = document.getElementById('ref-blocks');
+const matchBlocksG  = document.getElementById('match-blocks');
+const hiSearch      = document.getElementById('hi-search');
+
+const UNIT_COLORS = ['#B31B1B', '#c97a00', '#5b5fb5'];
+
+const leftStart  = P.LEFT_X + 4;
+const rightStart = leftStart + P.HALF_FRAME_WIDTH * P.CELL + P.GAP;
+
+function cellX(side, col) { return (side === 'left' ? leftStart : rightStart) + col * P.CELL; }
+function rowY(row)         { return P.GRID_Y + row * P.CELL; }
+
+function drawGrid() {
+  function strip(group, side, data) {
+    let svg = '';
+    const W = P.HALF_FRAME_WIDTH * P.CELL;
+    const H = P.FRAME_HEIGHT * P.CELL;
+    // outer border
+    svg += `<rect x="${cellX(side, 0) - 1}" y="${rowY(0) - 1}" width="${W + 2}" height="${H + 2}"
+              fill="none" stroke="#AEB8C6" stroke-width="0.8" rx="2"/>`;
+    for (let y = 0; y < P.FRAME_HEIGHT; y++) {
+      for (let x = 0; x < P.HALF_FRAME_WIDTH; x++) {
+        const v = data[y][x];
+        const fill = `rgb(${v},${v},${v})`;
+        svg += `<rect x="${cellX(side, x)}" y="${rowY(y)}" width="${P.CELL - 0.5}" height="${P.CELL - 0.5}" fill="${fill}" stroke="#FFFFFF" stroke-width="0.3"/>`;
+      }
+      // row label every 2 rows
+      if (y % 2 === 0) {
+        svg += `<text x="${cellX(side, 0) - 6}" y="${rowY(y) + P.CELL/2 + 3}" font-family="sans-serif" font-size="9" fill="#667085" text-anchor="end">${y}</text>`;
+      }
+    }
+    // column labels along the bottom
+    for (let x = 0; x < P.HALF_FRAME_WIDTH; x += 2) {
+      svg += `<text x="${cellX(side, x) + P.CELL/2}" y="${rowY(P.FRAME_HEIGHT) + 11}" font-family="sans-serif" font-size="9" fill="#667085" text-anchor="middle">${x}</text>`;
+    }
+    group.innerHTML = svg;
+  }
+  strip(leftGroup,  'left',  LEFT);
+  strip(rightGroup, 'right', RIGHT);
+
+  // stripe dividers and labels on both images
+  let svg = '';
+  for (let g = 1; g < P.NUM_SAD_UNITS; g++) {
+    const y = rowY(g * P.STRIPE_HEIGHT);
+    for (const side of ['left', 'right']) {
+      const x0 = cellX(side, 0) - 1;
+      const w  = P.HALF_FRAME_WIDTH * P.CELL + 2;
+      svg += `<line x1="${x0}" y1="${y}" x2="${x0 + w}" y2="${y}" stroke="${UNIT_COLORS[g]}" stroke-width="0.7" stroke-dasharray="2 2" opacity="0.7"/>`;
+    }
+  }
+  // stripe tag on the right edge
+  for (let g = 0; g < P.NUM_SAD_UNITS; g++) {
+    const y_mid = rowY(g * P.STRIPE_HEIGHT) + (P.STRIPE_HEIGHT * P.CELL) / 2 + 3;
+    svg += `<text x="${cellX('right', P.HALF_FRAME_WIDTH) + 6}" y="${y_mid}"
+              font-family="sans-serif" font-size="10" font-weight="600"
+              fill="${UNIT_COLORS[g]}">unit ${g}</text>`;
+  }
+  stripeLabels.innerHTML = svg;
+}
+drawGrid();
+
+function paintBlocks(side, col_x, phase) {
+  if (col_x === null || col_x === undefined) {
+    (side === 'left' ? refBlocksG : matchBlocksG).innerHTML = '';
+    return;
+  }
+  const half = (P.BLOCK_SIZE - 1) >> 1;
+  let svg = '';
+  for (let g = 0; g < P.NUM_SAD_UNITS; g++) {
+    const y0 = g * P.STRIPE_HEIGHT + phase;
+    const x0 = cellX(side, col_x - half) - 1;
+    const y  = rowY(y0) - 1;
+    const w  = P.BLOCK_SIZE * P.CELL + 2;
+    const h  = P.BLOCK_SIZE * P.CELL + 2;
+    const c  = UNIT_COLORS[g];
+    svg += `<rect x="${x0}" y="${y}" width="${w}" height="${h}" fill="${c}" fill-opacity="0.15"
+              stroke="${c}" stroke-width="1.5" rx="2"/>`;
+  }
+  (side === 'left' ? refBlocksG : matchBlocksG).innerHTML = svg;
+}
+
+function paintSearch(col_x) {
+  if (col_x === null || col_x === undefined) {
+    hiSearch.setAttribute('opacity', '0');
+    return;
+  }
+  const half = (P.BLOCK_SIZE - 1) >> 1;
+  const x0 = cellX('right', col_x - half) - 2;
+  const w  = (P.MAX_DISP + P.BLOCK_SIZE) * P.CELL + 4;
+  hiSearch.setAttribute('x', x0);
+  hiSearch.setAttribute('y', rowY(0) - 2);
+  hiSearch.setAttribute('width', w);
+  hiSearch.setAttribute('height', P.FRAME_HEIGHT * P.CELL + 4);
+  hiSearch.setAttribute('opacity', '1');
+}
+
+// =====================================================================
+// State binding & playback
+// =====================================================================
+const FRAMES = build_frames();
+document.getElementById('cycle-total').textContent = FRAMES.length - 1;
+
+const els = {
+  cycle: document.getElementById('cycle-num'),
+  state: document.getElementById('t-state'),
+  phase: document.getElementById('t-phase'),
+  colx:  document.getElementById('t-colx'),
+  disp:  document.getElementById('t-disp'),
+  req:   document.getElementById('t-req'),
+  bank:  document.getElementById('t-bank'),
+  col:   document.getElementById('t-col'),
+  slref: document.getElementById('t-slref'),
+  slmat: document.getElementById('t-slmat'),
+  sce:   document.getElementById('t-sce'),
+  dv:    document.getElementById('t-dv'),
+  eu:    document.getElementById('t-eu'),
+  dox:   document.getElementById('t-dox'),
+  doy:   document.getElementById('t-doy'),
+  dov:   document.getElementById('t-dov'),
+  desc:  document.getElementById('desc'),
+  u: [
+    {sad: document.getElementById('u0-sad'), best: document.getElementById('u0-best'), bestd: document.getElementById('u0-bestd')},
+    {sad: document.getElementById('u1-sad'), best: document.getElementById('u1-best'), bestd: document.getElementById('u1-bestd')},
+    {sad: document.getElementById('u2-sad'), best: document.getElementById('u2-best'), bestd: document.getElementById('u2-bestd')},
+  ]
+};
+
+function badgeClass(state) {
+  switch (state) {
+    case 'IDLE': return 'idle';
+    case 'INCR_PHASE': return 'phase';
+    case 'INCR_DISP':  return 'disp';
+    case 'INCR_X':     return 'xinc';
+    default: return 'idle';
+  }
+}
+
+function render(i) {
+  const f = FRAMES[i];
+  els.cycle.textContent = i;
+  els.state.textContent = f.state;
+  els.state.className = 'badge ' + badgeClass(f.state);
+
+  els.phase.textContent = f.phase;
+  els.colx.textContent  = f.col_x;
+  els.disp.textContent  = f.disp;
+  els.req.textContent   = f.mem_req;
+  els.bank.textContent  = f.mem_bank;
+  els.col.textContent   = f.mem_col;
+  els.slref.textContent = f.slide_reference;
+  els.slmat.textContent = f.slide_matching;
+  els.sce.textContent   = f.sad_compare_en;
+  els.dv.textContent    = f.disp_valid;
+  els.eu.textContent    = f.emit_unit === null || f.emit_unit === undefined ? '—' : f.emit_unit;
+  els.dox.textContent   = f.disp_out_x === null ? '—' : f.disp_out_x;
+  els.doy.textContent   = f.disp_out_y === null ? '—' : f.disp_out_y;
+  els.dov.textContent   = f.disp_out_value === null ? '—' : f.disp_out_value;
+  els.desc.innerHTML    = f.desc;
+
+  for (let g = 0; g < P.NUM_SAD_UNITS; g++) {
+    els.u[g].sad.textContent   = f.sad_each === null || f.sad_each === undefined ? '—' : f.sad_each[g];
+    els.u[g].best.textContent  = f.best_sad === null || f.best_sad[g] === null || f.best_sad[g] === undefined ? '—' : f.best_sad[g];
+    els.u[g].bestd.textContent = f.best_disp === null || f.best_disp[g] === null || f.best_disp[g] === undefined ? '—' : f.best_disp[g];
+  }
+
+  // visualization
+  const showBlocks = f.state === 'INCR_DISP' || f.state === 'INCR_X' || f.state === 'INCR_PHASE';
+  if (showBlocks && f.col_x > 0) {
+    paintSearch(f.col_x);
+    paintBlocks('left',  f.col_x, f.phase);
+    if (f.state === 'INCR_DISP' && f.disp < P.MAX_DISP) {
+      paintBlocks('right', f.col_x + f.disp, f.phase);
+    } else if (f.state === 'INCR_X') {
+      paintBlocks('right', f.col_x, f.phase);
+    } else {
+      paintBlocks('right', f.col_x, f.phase);
+    }
+  } else {
+    paintSearch(null);
+    paintBlocks('left',  null);
+    paintBlocks('right', null);
+  }
+}
+
+let idx = 0;
+let playing = false;
+let timer = null;
+let speed = 500;
+
+function step() {
+  if (idx >= FRAMES.length - 1) { stop(); return; }
+  idx++;
+  render(idx);
+}
+function reset() { idx = 0; render(idx); stop(); }
+function play()  {
+  if (playing) { stop(); return; }
+  playing = true;
+  document.getElementById('btn-play').textContent = '⏸ Pause';
+  timer = setInterval(() => {
+    if (idx >= FRAMES.length - 1) { stop(); return; }
+    step();
+  }, speed);
+}
+function stop() {
+  playing = false;
+  document.getElementById('btn-play').textContent = '▶ Play';
+  clearInterval(timer); timer = null;
+}
+
+document.getElementById('btn-reset').addEventListener('click', reset);
+document.getElementById('btn-step').addEventListener('click', () => { stop(); step(); });
+document.getElementById('btn-play').addEventListener('click', play);
+
+const speedInput = document.getElementById('speed');
+const speedLabel = document.getElementById('speed-label');
+function updateSpeed() {
+  speed = 1000 - Number(speedInput.value);
+  speedLabel.textContent = speed < 200 ? 'fast' : speed < 500 ? 'medium' : 'slow';
+  if (playing) { stop(); play(); }
+}
+speedInput.addEventListener('input', updateSpeed);
+updateSpeed();
+
+const urlCycle = new URLSearchParams(location.search).get('cycle');
+if (urlCycle !== null) {
+  idx = Math.max(0, Math.min(FRAMES.length - 1, parseInt(urlCycle, 10) || 0));
+}
+render(idx);
+</script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+\documentclass[tikz,border=10pt]{standalone}
+\input{diagram_style.tex}
+
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily,
+  state/.style={
+    block,
+    minimum width=34mm,
+    minimum height=14mm,
+    align=center
+  },
+  state_idle/.style    ={state, fill=memory,  draw=green!45!black},
+  state_phase/.style   ={state, fill=compute, draw=orange!65!black},
+  state_disp/.style    ={state, fill=compute, draw=orange!65!black},
+  state_x/.style       ={state, fill=compute, draw=orange!65!black},
+  trans/.style={
+    -{Latex[length=2.8mm,width=2.0mm]},
+    draw=cornellred,
+    line width=0.9pt,
+    rounded corners=2pt
+  },
+  cond/.style={
+    font=\sffamily\scriptsize,
+    text=muted,
+    fill=paper,
+    inner sep=1.5pt,
+    align=center
+  }
+]
+  \node[title] at (-1.0, 6.5) {mem\_block\_intf \, --- \, FSM States};
+
+  %====================================================================
+  % States laid out so transitions are clean
+  %====================================================================
+  \node[state_idle]  (idle)  at (-7.0, 2.0)  {\textbf{IDLE}\\done = 1\\waits for go};
+  \node[state_phase] (phase) at (-2.0, 2.0)  {\textbf{INCR\_PHASE}\\load both blocks\\(new scanline)};
+  \node[state_disp]  (disp)  at ( 5.0, 2.0)  {\textbf{INCR\_DISP}\\sweep disparity\\0..MAX\_DISP$-$1};
+  \node[state_x]     (xinc)  at ( 5.0,-3.0)  {\textbf{INCR\_X}\\advance x by 1\\reload ref+match};
+
+  %====================================================================
+  % Forward transitions
+  %====================================================================
+  \draw[trans] (idle.east) -- node[cond, above]{go} (phase.west);
+
+  \draw[trans] (phase.east) -- node[cond, above]{phase\_complete}
+                                  node[cond, below]{col\_x $\leftarrow$ B$-$1}
+                                  (disp.west);
+
+  \draw[trans] (disp.south) -- node[cond, right, align=left]
+       {disp out of bounds\\(+ 2 flush cycles)\\emit best\_disp}
+       (xinc.north);
+
+  %====================================================================
+  % Self-loops via TikZ "edge [loop above]" idiom
+  %====================================================================
+  \path[trans] (phase) edge[loop above, in=110, out=70, looseness=6, min distance=10mm]
+       node[cond, midway, above]{phase\_cnt $<$ 2$\cdot$B+2\\(reading rows)} (phase);
+
+  \path[trans] (disp) edge[loop above, in=110, out=70, looseness=6, min distance=10mm]
+       node[cond, midway, above]{in\_disp\_bounds\\disp $\leftarrow$ disp+1} (disp);
+
+  \path[trans] (xinc) edge[loop right, in=-30, out=30, looseness=6, min distance=10mm]
+       node[cond, midway, right]{x\_cnt $<$ B+3\\(loading ref + match)} (xinc);
+
+  %====================================================================
+  % Backward / cycling transitions
+  %====================================================================
+  % INCR_X -> INCR_DISP (more x positions to sweep on this row).
+  % Route to the right of INCR_X, then up to INCR_DISP east side.
+  \draw[trans] (xinc.west)
+       -- node[cond, midway, above]{match\_full\_x}
+       ++(-2.5cm,0)
+       |- node[cond, pos=0.75, left]{disp $\leftarrow$ 0}
+       (disp.west);
+
+  % INCR_X -> INCR_PHASE (row done — bump phase)
+  \draw[trans] (xinc.north west) -- ++(-1.5cm,0)
+       |- node[cond, pos=0.75, left, align=right]{col\_x $\geq$ X\_MAX\\phase $\leftarrow$ phase+1}
+       (phase.south);
+
+  % INCR_PHASE -> IDLE (entire stripe done)
+  \draw[trans] (phase.south west) -- ++(0,-8mm)
+       -| node[cond, pos=0.25, below]{reg\_phase $>$ MAX\_PHASE\\(stripe finished)}
+       (idle.south);
+
+  %====================================================================
+  % Side annotations
+  %====================================================================
+  \node[labeltext, align=left, anchor=north west] at (-9.0,-6.0)
+    {\textbf{Nested loop structure}\\
+     \quad \textbf{outer} (INCR\_PHASE): phase = y inside stripe, 0..STRIPE\_HEIGHT$-$1\\
+     \quad \textbf{middle} (INCR\_X): col\_x = reference block x, 0..HALF\_FRAME\_WIDTH$-$1\\
+     \quad \textbf{inner} (INCR\_DISP): disp = current candidate, 0..MAX\_DISP$-$1};
+
+  \node[labeltext, align=left, anchor=north west] at (-9.0,-7.7)
+    {\textbf{Per-state effect}\\
+     \quad \textbf{INCR\_PHASE}: load B columns of ref + B columns of match (B = BLOCK\_SIZE)\\
+     \quad \textbf{INCR\_DISP}: one match column per cycle, SAD vs best updates 1 cycle later\\
+     \quad \textbf{INCR\_X}: emit best\_disp for the current x, then reload ref+match for x+1};
+
+\end{tikzpicture}
+\end{document}

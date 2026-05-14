@@ -4,34 +4,6 @@
 			"name" : "Top",
 			"pins" : [
 				{
-<<<<<<< HEAD
-					"name" : "LEDR[0]",
-=======
-					"name" : "HEX2[0]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[2]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[3]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[4]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[5]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[6]",
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
-					"strict" : false
-				},
-				{
 					"name" : "LEDR[1]",
 					"strict" : false
 				},
@@ -48,37 +20,14 @@
 					"strict" : false
 				},
 				{
-<<<<<<< HEAD
 					"name" : "LEDR[5]",
 					"strict" : false
 				},
 				{
-					"name" : "HEX2[0]",
+					"name" : "LEDR[0]",
 					"strict" : false
 				},
 				{
-					"name" : "HEX2[2]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[3]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[4]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[5]",
-					"strict" : false
-				},
-				{
-					"name" : "HEX2[6]",
-					"strict" : false
-				},
-				{
-=======
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 					"name" : "DRAM_ADDR[0]",
 					"strict" : false
 				},
@@ -155,17 +104,34 @@
 					"strict" : false
 				},
 				{
+					"name" : "HEX2[0]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[2]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[3]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[4]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[5]",
+					"strict" : false
+				},
+				{
+					"name" : "HEX2[6]",
+					"strict" : false
+				},
+				{
 					"name" : "FPGA_I2C_SCLK",
 					"strict" : false
 				},
 				{
-<<<<<<< HEAD
-=======
-					"name" : "LEDR[0]",
-					"strict" : false
-				},
-				{
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 					"name" : "VGA_B[0]",
 					"strict" : false
 				},
@@ -278,8 +244,6 @@
 					"strict" : false
 				},
 				{
-<<<<<<< HEAD
-=======
 					"name" : "FPGA_I2C_SDAT",
 					"strict" : false
 				},
@@ -292,7 +256,6 @@
 					"strict" : false
 				},
 				{
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 					"name" : "DRAM_DQ[0]",
 					"strict" : false
 				},
@@ -325,21 +288,6 @@
 					"strict" : false
 				},
 				{
-<<<<<<< HEAD
-					"name" : "FPGA_I2C_SDAT",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[2]",
-					"strict" : false
-				},
-				{
-					"name" : "GPIO_0[3]",
-					"strict" : false
-				},
-				{
-=======
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 					"name" : "GPIO_0[0]",
 					"strict" : false
 				},
@@ -357,21 +305,14 @@
 				},
 				{
 					"name" : "CLOCK2_50",
-<<<<<<< HEAD
 					"strict" : false
 				},
 				{
 					"name" : "KEY[0]",
-=======
->>>>>>> eed0ad159a0b074eb7b9e1af7aad4c83d91475e2
 					"strict" : false
 				},
 				{
 					"name" : "SW[4]",
-					"strict" : false
-				},
-				{
-					"name" : "CLOCK_50",
 					"strict" : false
 				},
 				{

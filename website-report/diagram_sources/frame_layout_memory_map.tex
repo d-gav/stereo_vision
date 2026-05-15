@@ -1,33 +1,119 @@
-\documentclass[tikz,border=8pt]{standalone}
+\documentclass[tikz,border=10pt]{standalone}
 \input{diagram_style.tex}
 
 \begin{document}
 \begin{tikzpicture}[x=1mm,y=1mm]
-  \node[title, anchor=west] at (0, 58) {Captured Frame Layout and HPS Memory Map};
 
-  \draw[fill=camera, draw=blue!45!black, line width=0.8pt] (0,25) rectangle (115,50);
-  \draw[fill=paper, draw=line, line width=0.6pt] (57.2,25) rectangle (58.6,50);
-  \draw[fill=ink, draw=ink] (57.2,25) rectangle (58.6,50);
+  % ============================================================
+  % Title
+  % ============================================================
+  \node[title, anchor=west] at (0, 96)
+    {Captured Frame Layout and HPS Memory Map};
 
-  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (0,52) -- (57.2,52);
-  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (58.6,52) -- (115,52);
-  \node[labeltext] at (28.6,56) {left subimage\\x = 0..313};
-  \node[labeltext] at (86.8,56) {right subimage\\x = 318..631};
-  \node[labeltext, rotate=90, text=paper] at (57.9,37.5) {bar};
+  % ============================================================
+  % PANEL 1 — Captured PAL frame in FPGA on-chip RAM
+  % ============================================================
+  \node[font=\sffamily\small\bfseries, text=ink, anchor=west] (cap_hdr)
+       at (0, 87)
+       {Captured PAL frame \, --- \, on-chip RAM @ \texttt{0xC8000000}};
+  \node[labeltext, anchor=west, below=0mm of cap_hdr.south west]
+       (cap_sub)
+       {640 $\times$ 288 active pixels \, $\cdot$ \, 8-bit grayscale \, $\cdot$ \, 1024-byte row stride};
 
-  \node[labeltext, align=left, anchor=west] at (0,19) {Captured PAL frame: 640 x 288 active rows, 1024-byte stride.};
-  \node[labeltext, align=left, anchor=west] at (0,14) {The physical camera order is swapped in the software/algorithm path.};
+  % Top "640 columns" brace
+  \draw[decorate, decoration={brace, amplitude=4pt, mirror}, draw=muted]
+       (0, 76) -- (128, 76);
+  \node[labeltext] at (64, 73) {640 columns};
 
-  \begin{scope}[shift={(0,0)}]
-    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (0,3) {0xC0000000\\SDRAM VGA pixel buffer};
-    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (48,3) {0xC8000000\\FPGA on-chip capture RAM};
-    \node[smallblock, minimum width=42mm, anchor=west, fill=memory] at (96,3) {0xC9000000\\VGA character buffer};
+  % The frame rectangle (the dark bar at x=314..317 is drawn in the middle)
+  \draw[fill=camera, draw=blue!45!black, line width=0.8pt]
+       (0, 48) rectangle (128, 70);
+  \draw[fill=ink, draw=ink]
+       (62.8, 48) rectangle (63.6, 70);
 
-    \draw[flow] (42,3) -- (48,3);
-    \draw[flow] (90,3) -- (96,3);
-  \end{scope}
+  % Sub-image labels inside each half
+  \node[labeltext, align=center] at (31.4, 59)
+       {\textbf{``left'' sub-image}\\
+        x = 0\,..\,313 \, $\cdot$ \, 314 px wide\\
+        (physical right camera)};
+  \node[labeltext, align=center] at (95.8, 59)
+       {\textbf{``right'' sub-image}\\
+        x = 318\,..\,631 \, $\cdot$ \, 314 px wide\\
+        (physical left camera)};
 
-  \node[labeltext, anchor=west, align=left] at (0,-8) {Disparity output is written to the VGA pixel buffer for display in the lower image region.};
+  % Right-side "288 rows" brace
+  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted]
+       (130, 48) -- (130, 70);
+  \node[labeltext, anchor=west, align=left] at (132, 59) {288\\rows};
+
+  % Cameras-swapped note in cornellred so it pops as a "watch out"
+  \node[labeltext, anchor=west, align=left, text=cornellred,
+        font=\sffamily\scriptsize\itshape]
+       at (0, 42)
+       {Cameras are physically swapped at the analog front end:
+        the captured ``left'' half is the right camera and vice-versa.\\
+        The C and Python pipelines swap back at the algorithm boundary
+        (\texttt{swap\_lr=1}, \texttt{--swap-inputs}).};
+
+  % ============================================================
+  % PANEL 2 — SDRAM VGA framebuffer (top half: preview, bottom: disparity)
+  % ============================================================
+  \node[font=\sffamily\small\bfseries, text=ink, anchor=west] (vga_hdr)
+       at (0, 32)
+       {SDRAM VGA framebuffer \, --- \, \texttt{0xC0000000}};
+  \node[labeltext, anchor=west, below=0mm of vga_hdr.south west]
+       (vga_sub)
+       {640 $\times$ 480 \, $\cdot$ \, 8-bit grayscale \, $\cdot$ \, 1024-byte row stride};
+
+  % VGA buffer block; 480 rows mapped to 24 mm height, so the row=288
+  % boundary lives at  22 - (288/480)*24 = 22 - 14.4 = 7.6 from the bottom...
+  % We draw bottom at y=-2 and top at y=22 (24 mm tall). The 288/480 cut
+  % from the TOP is 14.4 mm down  ->  y = 22 - 14.4 = 7.6.
+  \draw[fill=memory, draw=green!45!black, line width=0.8pt]
+       (0, -2) rectangle (128, 22);
+  \draw[draw=green!45!black, line width=0.6pt, dashed]
+       (0, 7.6) -- (128, 7.6);
+
+  \node[labeltext, align=center] at (64, 14.8)
+       {\textbf{rows 0\,..\,287}\, --- \, live rectified video preview\\
+        (written by the bus master during \textsc{phase\_fill})};
+  \node[labeltext, align=center] at (64, 2.8)
+       {\textbf{rows 288\,..\,479}\, --- \, disparity map\\
+        (written by the SAD engine during \textsc{phase\_compute})};
+
+  % Right-side "480 rows" brace. The boundary between the two halves
+  % is already obvious from the dashed divider and the row labels, so
+  % no separate "row 288" callout is needed.
+  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted]
+       (130, -2) -- (130, 22);
+  \node[labeltext, anchor=west, align=left] at (132, 10) {480\\rows};
+
+  % ============================================================
+  % PANEL 3 — HPS memory-map reference column (right side)
+  %
+  % Vertically aligned with the panel each address owns: the on-chip
+  % capture RAM block sits at the y of the captured-frame panel; the
+  % SDRAM pixel buffer block sits at the y of the VGA buffer panel.
+  % The character buffer is unrelated to either panel so it floats
+  % at the top of the column. The addresses are already repeated in
+  % the panel headers, so no leader arrows are needed — the spatial
+  % alignment is the cue.
+  % ============================================================
+  \node[font=\sffamily\small\bfseries, text=ink, anchor=west] (mmap_hdr)
+       at (158, 96)
+       {HPS mmap targets};
+
+  \node[smallblock, minimum width=46mm, anchor=west, fill=memory]
+       (mb_chr) at (158, 86)
+       {\texttt{0xC9000000}\\VGA character buffer};
+
+  \node[smallblock, minimum width=46mm, anchor=west, fill=memory]
+       (mb_cap) at (158, 59)
+       {\texttt{0xC8000000}\\FPGA on-chip\\capture RAM};
+
+  \node[smallblock, minimum width=46mm, anchor=west, fill=memory]
+       (mb_vga) at (158, 10)
+       {\texttt{0xC0000000}\\SDRAM VGA\\pixel buffer};
+
 \end{tikzpicture}
 \end{document}
-

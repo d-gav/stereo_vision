@@ -956,8 +956,9 @@ import Figure from '../components/Figure.astro';
 		margin-right: auto;
 	}
 
-	/* Figures and the animation iframe break out wider so SVG labels stay legible. */
-	section > figure,
+	/* Animation iframe matches the figure column. (Figures themselves are sized inside
+	   Figure.astro because Astro CSS scoping prevents a parent-scoped rule from styling
+	   an element rendered by a child component.) */
 	section > .animation-wrap {
 		max-width: var(--figure-width);
 		margin-left: auto;

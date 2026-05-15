@@ -924,7 +924,7 @@ import Figure from '../components/Figure.astro';
 	}
 
 	.container {
-		max-width: var(--reading-width);
+		max-width: var(--container-width);
 		padding: 0 48px 80px;
 		margin: 0 auto;
 	}
@@ -936,6 +936,32 @@ import Figure from '../components/Figure.astro';
 
 	section + section {
 		padding-top: 56px;
+	}
+
+	/* Prose content stays at a comfortable reading width, centered inside the wider container. */
+	section > p,
+	section > ul,
+	section > ol,
+	section > h2,
+	section > h3,
+	section > h4,
+	section > .equation,
+	section > .big-list,
+	section > .fsm-list,
+	section > .metric-grid,
+	section > .code-list,
+	#hero > * {
+		max-width: var(--reading-width);
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Figures and the animation iframe break out wider so SVG labels stay legible. */
+	section > figure,
+	section > .animation-wrap {
+		max-width: var(--figure-width);
+		margin-left: auto;
+		margin-right: auto;
 	}
 
 	.equation {

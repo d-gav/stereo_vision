@@ -62,14 +62,14 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					Our pipeline runs an endless loop of <strong>capture → rectify → match → display</strong>.
 					Two analog cameras feed the DE1-SoC's Video-In subsystem, which writes interlaced PAL
 					frames into an on-chip RAM that we replaced with a custom row-banked variant. A radial
-					undistortion pass rewrites the captured frame in place, and a 24-way parallel SAD engine
+					undistortion pass rewrites the captured frame in place, and a 12-way parallel SAD engine
 					sweeps disparity hypotheses across the rectified pair, streaming the resulting depth
 					map directly to the VGA framebuffer.
 				</p>
 				<Figure
 					src="/diagrams/system_architecture.svg"
 					alt="High-level system architecture diagram"
-					caption="System architecture: two PAL cameras feed Video-In DMA → row-banked on-chip RAM → radial undistort → 24-way SAD engine → VGA framebuffer. The ARM HPS only tunes parameters."
+					caption="System architecture: two PAL cameras feed Video-In DMA → row-banked on-chip RAM → radial undistort → 12-way SAD engine → VGA framebuffer. The ARM HPS only tunes parameters."
 				/>
 			</section>
 
@@ -244,10 +244,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					sweep result was a <strong>9×9 window at max-disp 32</strong> — the smallest
 					setting where the disparity map kept its structure on our specific captures — and
 					that's the operating point baked into the C reference. The final synthesized RTL
-					ultimately ships at <strong>5×5</strong> because the ALM budget at 24 parallel
-					SAD workers couldn't absorb a 9×9 worker (per-worker logic grows exponentially
-					with the block radius); see <a href="#results">Resource Utilization</a> for that
-					trade-off. The SGM penalty constants exposed to the HPS at runtime follow the
+					ultimately ships at <strong>5×5</strong> because the ALM and routing budget at
+					12 parallel SAD workers couldn't absorb a 9×9 worker (per-worker logic grows
+					exponentially with the block radius); see <a href="#results">Resource
+					Utilization</a> for that trade-off. The SGM penalty constants exposed to the HPS at runtime follow the
 					same P1 = 8·blockSize² / P2 = 32·blockSize² formula OpenCV uses internally.
 				</p>
 				<p class="todo">
@@ -330,7 +330,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 						corrects lens distortion before matching begins.
 					</li>
 					<li>
-						<strong>Parallel Block-Matching Engine.</strong> A 24-way parallel SAD compute unit
+						<strong>Parallel Block-Matching Engine.</strong> A 12-way parallel SAD compute unit
 						that produces a dense disparity map, incorporating an SGM-inspired smoothness
 						penalty.
 					</li>
@@ -374,7 +374,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					between the Video-In DMA and the HPS, we implemented a private, parallel read bus.
 					This allows the hardware to fetch <strong>an entire column of pixels — one byte from
 					every row — in a single clock cycle</strong>. This massive increase in read bandwidth
-					is what makes the 24-way parallel SAD economically reachable.
+					is what makes the 12-way parallel SAD economically reachable.
 				</p>
 				<p>Implementing this massive fan-in required specific architectural optimizations:</p>
 				<ul>
@@ -650,9 +650,9 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<ul>
 					<li>
-						<strong>Striping.</strong> The 200-row frame is divided into 24 horizontal stripes.
+						<strong>Striping.</strong> The 200-row frame is divided into 12 horizontal stripes.
 						Each stripe is assigned its own dedicated SAD engine with a private sliding window.
-						All 24 engines are clocked together, evaluating one disparity hypothesis at 24
+						All 12 engines are clocked together, evaluating one disparity hypothesis at 12
 						different vertical positions simultaneously.
 					</li>
 					<li>
@@ -766,23 +766,29 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Speed</h3>
 				<p>
-					We were able to synthesize our design with <strong>24 parallel SAD units</strong>
-					executing simultaneously. At this level of parallel computation, we found that the
-					framerate was ultimately <strong>bottlenecked by the undistortion pipeline</strong>.
-					When the pipeline is full, it drops frames from the video input subsystem. In
-					practice, this results in a 50 ms pause between a new frame, ultimately limiting the
-					framerate with rectification enabled to <strong>20 FPS</strong>.
+					The final synthesized design ships with <strong>12 parallel SAD units</strong>
+					executing simultaneously. At this level of parallel computation, the framerate
+					was ultimately <strong>bottlenecked by the un-pipelined undistortion pipeline</strong>.
+					The four scheduler phases run sequentially because the SRAM lock is held through
+					<code>FILL → DRAIN → COMPUTE</code> and only <code>WAIT</code> releases it for
+					the autonomous Video-In DMA, so the cycle time adds up: <strong>~50 ms</strong>
+					of WAIT (long enough for one full 40-ms PAL frame to land), <strong>~90 ms</strong>
+					of un-pipelined rectification through FILL+DRAIN, and <strong>~9 ms</strong> of SAD
+					compute — about <strong>150 ms per frame</strong>, or roughly
+					<strong>7 FPS</strong> end-to-end with rectification enabled. The 12 → 24 worker
+					choice barely moves this number because rectification dominates by an order of
+					magnitude.
 				</p>
 				<p>
 					With rectification disabled we got worse results — rectification is necessary for
 					horizontal sweeps through the frame to correspond exactly with disparity changes —
-					but we did find a significant improvement in performance. With N = 24, the frame was
-					split into <code>ceil(288/24)</code>-tall stripes, and each worker had to do
+					but we did find a significant improvement in performance. With N = 12, the frame was
+					split into <code>ceil(288/12)</code>-tall stripes, and each worker had to do
 					<code>stripe_height · frame_width · max_disp + frame_width · 5 + stripe_height · 5</code>
-					computations per frame. For our setup, this was approximately 231,672 cycles. At the
-					achieved clock frequency of 50 MHz, this meant that a single frame was computed in
-					0.00463 ms, corresponding with a frame rate of <strong>215 FPS</strong> —
-					significantly exceeding the 25 FPS framerate of the PAL video standard we were using.
+					computations per frame. For our setup, this was approximately 463,000 cycles. At the
+					achieved clock frequency of 50 MHz, that's about <strong>9.3 ms per frame</strong>,
+					corresponding with a frame rate of roughly <strong>108 FPS</strong> — still
+					comfortably exceeding the 25 FPS framerate of the PAL video standard we were using.
 				</p>
 				<p>
 					In retrospect, dedicating more hardware resources and design effort to speeding up the
@@ -794,15 +800,15 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<div class="metric-grid">
 					<div class="metric">
-						<div class="metric-value">20<span class="unit">FPS</span></div>
+						<div class="metric-value">~7<span class="unit">FPS</span></div>
 						<div class="metric-label">End-to-end with rectification</div>
 					</div>
 					<div class="metric">
-						<div class="metric-value">215<span class="unit">FPS</span></div>
+						<div class="metric-value">~108<span class="unit">FPS</span></div>
 						<div class="metric-label">SAD engine in isolation</div>
 					</div>
 					<div class="metric">
-						<div class="metric-value">24<span class="unit">×</span></div>
+						<div class="metric-value">12<span class="unit">×</span></div>
 						<div class="metric-label">Parallel SAD units</div>
 					</div>
 					<div class="metric">
@@ -813,7 +819,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<p class="todo">
 					[TODO: Live-demo video clip — pan a hand or object in front of the rig and show the
-					disparity map updating at 20 FPS. An overlaid FPS counter would make the speed claim
+					disparity map updating at ~7 FPS. An overlaid FPS counter would make the speed claim
 					visible. Also worth a short scope/logic-analyzer trace showing the WAIT → FILL →
 					DRAIN → COMPUTE phase boundaries on the top-level FSM state lines.]
 				</p>
@@ -847,13 +853,16 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Resource Utilization</h3>
 				<p>
-					We were able to successfully compile our design with a <strong>5×5 block size and 24
-					parallel SAD workers</strong>. The limiting resource on how big we could grow the
-					design was <strong>ALM usage for the SAD compute units</strong>: increasing the number
-					of workers grows the ALM count roughly linearly, but increasing the block size grows
-					the per-worker logic <strong>exponentially with the radius of the block</strong>. A
-					5×5 block was the largest we could afford while still keeping enough workers to avoid
-					bottlenecking the disparity-map computation.
+					The final synthesized design ships with a <strong>5×5 block size and 12 parallel
+					SAD workers</strong>. The limiting resources were ALM usage for the SAD compute
+					units and routing closure after introducing the custom row-banked memory:
+					increasing the number of workers grows the ALM count roughly linearly, and
+					increasing the block size grows the per-worker logic <strong>exponentially with the
+					radius of the block</strong>. An earlier configuration on the standard inferred
+					SRAM closed timing at 24 workers, but once the 200-way MMIO mux for the row-banked
+					memory (see below) consumed enough routing real estate, only 12 workers fit in the
+					remaining placement budget. A 5×5 block was the largest we could afford while still
+					keeping enough workers to avoid bottlenecking the disparity-map computation.
 				</p>
 				<p>
 					We initially struggled with M10K block usage because we were inadvertently
@@ -898,8 +907,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					The end-to-end stereo-vision pipeline met our top-line goal: a real-time disparity
 					map computed entirely on the DE1-SoC, with the FPGA doing all of the load-bearing
-					work and the ARM HPS reduced to a thin parameter-tuning shell. The 24-way parallel
-					SAD engine ran far above the camera framerate when isolated (~215 FPS at 50 MHz), and
+					work and the ARM HPS reduced to a thin parameter-tuning shell. The 12-way parallel
+					SAD engine ran well above the camera framerate when isolated (~108 FPS at 50 MHz), and
 					the in-place radial undistortion pipeline successfully gave the matcher horizontal
 					epipolar lines without needing a second frame's worth of on-chip RAM.
 				</p>

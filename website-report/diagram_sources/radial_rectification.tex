@@ -130,16 +130,16 @@
     {$r=\sqrt{dx^2+dy^2}$};
 
   % -- pipeline on the right -------------------------------------------
-  \node[stage, anchor=west, minimum width=37mm] (s1) at (64, 52)
+  \node[stage, anchor=west, minimum width=58mm] (s1) at (64, 52)
     {dst pixel\\[1pt]$(dst_x,\,dst_y)$};
-  \node[stage, anchor=west, minimum width=37mm] (s2) at (64, 41)
+  \node[stage, anchor=west, minimum width=58mm] (s2) at (64, 41)
     {center offset\\[1pt]$dx,\,dy = P - C_{dst}$};
-  \node[stage, anchor=west, minimum width=37mm] (s3) at (64, 30)
+  \node[stage, anchor=west, minimum width=58mm] (s3) at (64, 30)
     {squared radius\\[1pt]$r^2 = dx^2 + dy^2$};
-  \node[stage, anchor=west, minimum width=37mm, fill=compute] (s4) at (64, 19)
+  \node[stage, anchor=west, minimum width=58mm, fill=compute] (s4) at (64, 19)
     {\textbf{LUT lookup}\\[1pt]$\mathrm{scale} = \mathrm{LUT}[r^2]$
-     \;\scriptsize(linearly interpolated)};
-  \node[stage, anchor=west, minimum width=37mm] (s5) at (64, 8)
+     \;(linearly interpolated)};
+  \node[stage, anchor=west, minimum width=58mm] (s5) at (64, 8)
     {source pixel\\[1pt]$\mathit{src} = C_{src} + \mathrm{scale}\cdot(dx,\,dy)$};
 
   \draw[pipe] (s1.south) -- (s2.north);
@@ -147,63 +147,72 @@
   \draw[pipe] (s3.south) -- (s4.north);
   \draw[pipe] (s4.south) -- (s5.north);
 
-  % -- compact LUT curve on the right ----------------------------------
-  \begin{scope}[shift={(112, 12)}]
-    \draw[fill=paper, draw=line, line width=0.6pt] (0, 0) rectangle (70, 50);
-    \node[labeltext, anchor=south, font=\sffamily\scriptsize\bfseries]
-      at (35, 50.5) {radial scale LUT};
-    \node[labeltext, anchor=north, font=\sffamily\scriptsize]
-      at (35, -0.5) {256 Q15 entries per side, linearly interpolated};
+  %====================================================================
+  % SECTION C -- the LUT itself (full-width strip at the bottom)
+  %====================================================================
+  \node[labeltext, anchor=west, text=ink, font=\sffamily\small\bfseries]
+    at (0, 0) {C.\,\,The lookup table -- scale vs.\ squared radius, 256 Q15 entries per side};
+
+  \begin{scope}[shift={(0, -32)}]
+    \draw[fill=paper, draw=line, line width=0.6pt] (3, 0) rectangle (183, 26);
 
     % axes
-    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (5, 8) -- (66, 8);
-    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (5, 8) -- (5, 44);
-    \node[axislbl, anchor=west] at (66, 8) {$r^2$ index};
-    \node[axislbl, anchor=south east] at (5, 44) {scale};
+    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (10, 4) -- (179, 4);
+    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (10, 4) -- (10, 23);
+    \node[axislbl, anchor=west] at (179, 4) {$r^2$ LUT index};
+    \node[axislbl, anchor=east] at (10, 23) {scale};
 
     % scale guides
-    \node[axislbl, anchor=east] at (4.5, 36) {1.18};
-    \node[axislbl, anchor=east] at (4.5, 26) {1.00};
-    \node[axislbl, anchor=east] at (4.5, 18) {0.76};
-    \draw[line!40, line width=0.3pt, dashed] (5, 36) -- (62, 36);
-    \draw[line!40, line width=0.3pt, dashed] (5, 26) -- (62, 26);
-    \draw[line!40, line width=0.3pt, dashed] (5, 18) -- (62, 18);
+    \draw[line!40, line width=0.3pt, dashed] (10, 20) -- (176, 20);
+    \draw[line!40, line width=0.3pt, dashed] (10, 13) -- (176, 13);
+    \draw[line!40, line width=0.3pt, dashed] (10,  4) -- (176,  4);
+    \node[axislbl, anchor=east] at (9.5, 20) {1.18};
+    \node[axislbl, anchor=east] at (9.5, 13) {1.00};
+    \node[axislbl, anchor=east] at (9.5,  4) {0.76};
 
-    % actual LUT curve -- coordinates derived from the real LUT values
+    % x-tick labels
+    \node[axislbl, anchor=north] at ( 10, 3.5) {0};
+    \node[axislbl, anchor=north] at ( 95, 3.5) {127};
+    \node[axislbl, anchor=north] at (176, 3.5) {255};
+
+    % LUT curve -- coordinates from the real Q15 values
     % (left side: 1.179, 1.094, 1.023, 0.966, 0.915, 0.866, 0.826, 0.794, 0.759
-    %  at indices 0, 31, 63, 95, 127, 159, 191, 223, 255)
+    %  sampled at idx 0, 31, 63, 95, 127, 159, 191, 223, 255).
+    % y = 4 + (s-0.76)/0.42 * 16 ;  x = 10 + (idx/255) * 166
     \draw[cornellred, line width=1.2pt, line cap=round]
       plot[smooth, tension=0.4] coordinates {
-        ( 5.00, 35.92)
-        (11.93, 32.71)
-        (19.08, 29.99)
-        (26.24, 27.82)
-        (33.39, 25.87)
-        (40.54, 24.01)
-        (47.70, 22.48)
-        (54.85, 21.27)
-        (62.00, 19.94)
+        ( 10.00, 19.96)
+        ( 30.18, 16.72)
+        ( 50.95, 14.02)
+        ( 71.73, 11.85)
+        ( 92.51,  9.90)
+        (113.28,  8.04)
+        (134.06,  6.51)
+        (154.84,  5.30)
+        (176.00,  3.96)
       };
 
-    % sample-lookup marker (near r^2 index 160)
-    \filldraw[cornellred] (40.76, 24.0) circle (0.7);
-    \draw[muted, line width=0.3pt, dashed] (40.76, 8) -- (40.76, 24.0);
-    \draw[muted, line width=0.3pt, dashed] (5, 24.0) -- (40.76, 24.0);
+    % sample-lookup marker near idx 160
+    \filldraw[cornellred] (114.10, 8.0) circle (0.7);
+    \draw[muted, line width=0.3pt, dashed] (114.10, 4) -- (114.10, 8.0);
+    \draw[muted, line width=0.3pt, dashed] (10, 8.0) -- (114.10, 8.0);
     \node[axislbl, anchor=west, text=cornellred, align=left]
-      at (42, 30) {scale read out\\for this $r^2$};
+      at (115.5, 11) {scale read out for this $r^2$};
+
+    % left/right LUT note
+    \node[axislbl, anchor=north east, align=right] at (175, 22)
+      {one LUT per camera ({\itshape left}, {\itshape right})\\
+       each camera has its own center + distortion profile};
   \end{scope}
 
   %====================================================================
   % Footer
   %====================================================================
-  \node[labeltext, anchor=north west, align=left] at (0, -4)
+  \node[labeltext, anchor=north west, align=left] at (0, -38)
     {\textbf{Why a LUT?}\,
      The closed-form radial correction ($1 + k_1 r^2 + k_2 r^4 + \dots$) is expensive in hardware.
      Precomputing $\mathrm{scale}(r^2)$ off-line and storing 256 Q15 samples per camera turns the
-     per-pixel correction into a fast table read plus linear interpolation between two adjacent
-     samples.\\[3pt]
-     The two cameras carry independent LUTs (\textit{left} and \textit{right}) because each lens
-     has its own optical center and distortion profile.};
+     per-pixel correction into a fast table read plus a linear interpolation between two adjacent samples.};
 
 \end{tikzpicture}
 \end{document}

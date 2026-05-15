@@ -6,100 +6,145 @@
 \begin{document}
 \begin{tikzpicture}[
   font=\sffamily,
+  %===========================================================
+  % State node styles
+  %===========================================================
   state/.style={
-    block,
-    minimum width=34mm,
-    minimum height=14mm,
+    rectangle,
+    rounded corners=6pt,
+    draw=line,
+    line width=0.9pt,
+    fill=paper,
+    align=center,
+    minimum width=44mm,
+    minimum height=22mm,
+    inner xsep=6pt,
+    inner ysep=6pt
+  },
+  state_idle/.style={state, fill=memory,  draw=green!50!black},
+  state_busy/.style={state, fill=compute, draw=orange!70!black},
+  %===========================================================
+  % Transitions
+  %===========================================================
+  fwd/.style={
+    -{Latex[length=3mm,width=2.2mm]},
+    draw=cornellred,
+    line width=1.0pt,
+    rounded corners=3pt
+  },
+  back/.style={
+    -{Latex[length=3mm,width=2.2mm]},
+    draw=cornellred!85!black,
+    line width=1.0pt
+  },
+  selfloop/.style={
+    -{Latex[length=2.4mm,width=1.6mm]},
+    draw=cornellred!65!black,
+    line width=0.8pt
+  },
+  %===========================================================
+  % Labels
+  %===========================================================
+  cond/.style={
+    font=\sffamily\small,
+    text=ink,
+    fill=paper,
+    inner sep=2pt,
     align=center
   },
-  state_idle/.style    ={state, fill=memory,  draw=green!45!black},
-  state_phase/.style   ={state, fill=compute, draw=orange!65!black},
-  state_disp/.style    ={state, fill=compute, draw=orange!65!black},
-  state_x/.style       ={state, fill=compute, draw=orange!65!black},
-  trans/.style={
-    -{Latex[length=2.8mm,width=2.0mm]},
-    draw=cornellred,
-    line width=0.9pt,
-    rounded corners=2pt
-  },
-  cond/.style={
+  loopcond/.style={
     font=\sffamily\scriptsize,
     text=muted,
-    fill=paper,
-    inner sep=1.5pt,
-    align=center
+    align=center,
+    inner sep=1pt
   }
 ]
-  \node[title] at (-1.0, 6.5) {mem\_block\_intf \, --- \, FSM States};
+  \node[title] at (0, 5.0) {SAD Matcher \, --- \, finite state machine};
 
   %====================================================================
-  % States laid out so transitions are clean
+  % Four states laid out left-to-right as the forward pipeline.
+  % Idle is the entry point; the three busy states form a clockwise
+  % loop closed by the back-edges below.
   %====================================================================
-  \node[state_idle]  (idle)  at (-7.0, 2.0)  {\textbf{IDLE}\\done = 1\\waits for go};
-  \node[state_phase] (phase) at (-2.0, 2.0)  {\textbf{INCR\_PHASE}\\load both blocks\\(new scanline)};
-  \node[state_disp]  (disp)  at ( 5.0, 2.0)  {\textbf{INCR\_DISP}\\sweep disparity\\0..MAX\_DISP$-$1};
-  \node[state_x]     (xinc)  at ( 5.0,-3.0)  {\textbf{INCR\_X}\\advance x by 1\\reload ref+match};
+  \node[state_idle] (idle)  at (-10.5,  0)
+    {\textbf{Idle}\\[3pt]
+     \scriptsize{}wait for the top-level\\
+     \scriptsize{}FSM to assert \texttt{go}};
 
-  %====================================================================
-  % Forward transitions
-  %====================================================================
-  \draw[trans] (idle.east) -- node[cond, above]{go} (phase.west);
+  \node[state_busy] (phase) at ( -3.5,  0)
+    {\textbf{Load Blocks}\\[3pt]
+     \scriptsize{}prefetch the rows of\\
+     \scriptsize{}the reference and\\
+     \scriptsize{}match block buffers};
 
-  \draw[trans] (phase.east) -- node[cond, above]{phase\_complete}
-                                  node[cond, below]{col\_x $\leftarrow$ B$-$1}
-                                  (disp.west);
+  \node[state_busy] (disp)  at (  3.5,  0)
+    {\textbf{Sweep Disparities}\\[3pt]
+     \scriptsize{}slide the match window\\
+     \scriptsize{}through every candidate,\\
+     \scriptsize{}keep the best score};
 
-  \draw[trans] (disp.south) -- node[cond, right, align=left]
-       {disp out of bounds\\(+ 2 flush cycles)\\emit best\_disp}
-       (xinc.north);
-
-  %====================================================================
-  % Self-loops via TikZ "edge [loop above]" idiom
-  %====================================================================
-  \path[trans] (phase) edge[loop above, in=110, out=70, looseness=6, min distance=10mm]
-       node[cond, midway, above]{phase\_cnt $<$ 2$\cdot$B+2\\(reading rows)} (phase);
-
-  \path[trans] (disp) edge[loop above, in=110, out=70, looseness=6, min distance=10mm]
-       node[cond, midway, above]{in\_disp\_bounds\\disp $\leftarrow$ disp+1} (disp);
-
-  \path[trans] (xinc) edge[loop right, in=-30, out=30, looseness=6, min distance=10mm]
-       node[cond, midway, right]{x\_cnt $<$ B+3\\(loading ref + match)} (xinc);
+  \node[state_busy] (xinc)  at ( 10.5,  0)
+    {\textbf{Advance Pixel}\\[3pt]
+     \scriptsize{}emit the winner,\\
+     \scriptsize{}shift the reference\\
+     \scriptsize{}right by one column};
 
   %====================================================================
-  % Backward / cycling transitions
+  % Forward path -- along the top, left to right.
+  % The labels read like sentences and never mention raw counters.
   %====================================================================
-  % INCR_X -> INCR_DISP (more x positions to sweep on this row).
-  % Route to the right of INCR_X, then up to INCR_DISP east side.
-  \draw[trans] (xinc.west)
-       -- node[cond, midway, above]{match\_full\_x}
-       ++(-2.5cm,0)
-       |- node[cond, pos=0.75, left]{disp $\leftarrow$ 0}
-       (disp.west);
-
-  % INCR_X -> INCR_PHASE (row done — bump phase)
-  \draw[trans] (xinc.north west) -- ++(-1.5cm,0)
-       |- node[cond, pos=0.75, left, align=right]{col\_x $\geq$ X\_MAX\\phase $\leftarrow$ phase+1}
-       (phase.south);
-
-  % INCR_PHASE -> IDLE (entire stripe done)
-  \draw[trans] (phase.south west) -- ++(0,-8mm)
-       -| node[cond, pos=0.25, below]{reg\_phase $>$ MAX\_PHASE\\(stripe finished)}
-       (idle.south);
+  \draw[fwd] (idle.east)  -- node[cond, above]{start}                 (phase.west);
+  \draw[fwd] (phase.east) -- node[cond, above]{block buffers loaded} (disp.west);
+  \draw[fwd] (disp.east)  -- node[cond, above]{tried every candidate} (xinc.west);
 
   %====================================================================
-  % Side annotations
+  % Self-loops -- above each busy state.
+  % They represent the multi-cycle work the state does internally
+  % (waiting on the prefetcher, walking disparity, etc.).
   %====================================================================
-  \node[labeltext, align=left, anchor=north west] at (-9.0,-6.0)
-    {\textbf{Nested loop structure}\\
-     \quad \textbf{outer} (INCR\_PHASE): phase = y inside stripe, 0..STRIPE\_HEIGHT$-$1\\
-     \quad \textbf{middle} (INCR\_X): col\_x = reference block x, 0..HALF\_FRAME\_WIDTH$-$1\\
-     \quad \textbf{inner} (INCR\_DISP): disp = current candidate, 0..MAX\_DISP$-$1};
+  \path[selfloop] (phase) edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{still fetching\\block rows} (phase);
 
-  \node[labeltext, align=left, anchor=north west] at (-9.0,-7.7)
-    {\textbf{Per-state effect}\\
-     \quad \textbf{INCR\_PHASE}: load B columns of ref + B columns of match (B = BLOCK\_SIZE)\\
-     \quad \textbf{INCR\_DISP}: one match column per cycle, SAD vs best updates 1 cycle later\\
-     \quad \textbf{INCR\_X}: emit best\_disp for the current x, then reload ref+match for x+1};
+  \path[selfloop] (disp)  edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{another\\candidate\\to score} (disp);
+
+  \path[selfloop] (xinc)  edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{still loading\\next pixel's\\columns} (xinc);
+
+  %====================================================================
+  % Back-edges -- below the pipeline.
+  %
+  %   inner :  Advance Pixel  ->  Sweep Disparities  (next pixel)
+  %   outer :  Load Blocks    ->  Idle               (stripe done)
+  %      ^- both span the same width and live on opposite sides of the
+  %         diagram, so they sit at the same depth without overlapping.
+  %
+  %   middle:  Advance Pixel  ->  Load Blocks        (end of row)
+  %      ^- spans the whole pipeline, so the natural curve goes deeper
+  %         and visually wraps the inner and outer arcs.
+  %====================================================================
+  \draw[back] (xinc.south)  to[out=-90, in=-90, looseness=1.0]
+    node[cond, midway, below=1pt]{ready for the next pixel}
+    (disp.south);
+
+  \draw[back] (phase.south) to[out=-90, in=-90, looseness=1.0]
+    node[cond, midway, below=1pt]{stripe finished}
+    (idle.south);
+
+  \draw[back] (xinc.south)  to[out=-90, in=-90, looseness=0.85]
+    node[cond, midway, below=1pt]{end of the row\\(slide block down one row)}
+    (phase.south);
+
+  %====================================================================
+  % Footer / legend
+  %====================================================================
+  \node[labeltext, align=left, anchor=north west] at (-12, -6.2)
+    {\textbf{Three nested loops, outermost to innermost:}\\[3pt]
+     \quad \textbf{Stripe}     \, (\textit{Load Blocks})       --- step the reference block down inside the stripe.\\
+     \quad \textbf{Scanline}   \, (\textit{Advance Pixel})     --- step the reference block right across the row.\\
+     \quad \textbf{Disparity}  \, (\textit{Sweep Disparities}) --- try every candidate match for the current pixel.\\[5pt]
+     Each compute unit (one per stripe) runs this FSM in lockstep, sharing the FSM's memory\\
+     request stream but tracking its own best disparity for the slice of rows it owns.};
 
 \end{tikzpicture}
 \end{document}

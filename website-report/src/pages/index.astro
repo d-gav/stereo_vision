@@ -1074,6 +1074,53 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					flattens out, and the disparity map collapses into the textured-background noise
 					regime visible in panel 1.
 				</p>
+				<p>
+					The same experiment in motion: continuous walks back and forth in front of the
+					rig, captured as the disparity map updates frame-by-frame. The two clips below
+					are the same scene under different operating points and concretely show the
+					<strong>block-size ↔ worker-count trade-off</strong> the design analysis above
+					discusses.
+				</p>
+				<div class="video-grid">
+					<figure class="video-cell">
+						<div class="video-frame">
+							<iframe
+								src="https://www.youtube-nocookie.com/embed/RlYz7NNzLFs?mute=1&rel=0&modestbranding=1&playsinline=1"
+								title="Live disparity map — 9×9 window, 3 SAD workers"
+								loading="lazy"
+								allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								allowfullscreen
+							></iframe>
+						</div>
+						<figcaption>
+							<strong>9×9 window, 3 SAD workers.</strong> The Python-sweep operating
+							point. The bigger block produces a smoother, more spatially coherent
+							silhouette per frame, but the lower worker count drops the framerate —
+							visible as a slower disparity-map update.
+						</figcaption>
+					</figure>
+
+					<figure class="video-cell">
+						<div class="video-frame">
+							<iframe
+								src="https://www.youtube-nocookie.com/embed/ViyVhZbpIIE?mute=1&rel=0&modestbranding=1&playsinline=1"
+								title="Live disparity map — 5×5 window, 12 SAD workers, raised min disparity"
+								loading="lazy"
+								allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+								allowfullscreen
+							></iframe>
+						</div>
+						<figcaption>
+							<strong>5×5 window, 12 SAD workers</strong>, with <code>mind</code>
+							raised over the default. The shipped configuration. The smaller block
+							gives a noisier silhouette per frame, but four times more workers run
+							the SAD compute much faster. Lifting the minimum disparity narrows the
+							useful depth range, so the same physical motion sweeps through more of
+							the output range — gradient changes look more dramatic as the subject
+							walks back.
+						</figcaption>
+					</figure>
+				</div>
 
 				<h3>Resource Utilization</h3>
 				<p>
@@ -1582,6 +1629,51 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		.distance-cell:nth-child(3) { grid-column: 1; grid-row: 2; }
 		.distance-cell:nth-child(4) { grid-column: 2; grid-row: 2; }
 		.distance-cell:nth-child(5) { grid-column: 1 / span 2; grid-row: 3; }
+	}
+
+	/* Side-by-side YouTube comparison — sits in the same 1040px column the grids use. */
+	.video-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 18px;
+		margin: 1.6em auto;
+		max-width: 1040px;
+	}
+
+	.video-cell {
+		margin: 0;
+		padding: 0;
+	}
+
+	.video-frame {
+		position: relative;
+		aspect-ratio: 16 / 9;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		background: #000000;
+	}
+
+	.video-frame iframe {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		border: 0;
+		display: block;
+	}
+
+	.video-cell figcaption {
+		font-size: 0.85rem;
+		color: var(--text-dim);
+		margin-top: 8px;
+		line-height: 1.45;
+	}
+
+	@media (max-width: 720px) {
+		.video-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	/* Mobile: full-width stack for both grids. */

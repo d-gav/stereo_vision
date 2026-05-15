@@ -342,10 +342,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					size, maximum disparity, and stripe height are configured at synthesis to match our
 					software models, while SGM penalties are exposed to the HPS for runtime tuning.
 				</p>
-				<p class="todo">
-					[TODO: Physical-setup photo of the DE1-SoC board with the dual-camera mount and the
-					VGA output, ideally with the disparity map visible on the monitor.]
-				</p>
+				<Figure
+					src="/images/hardware-setup/stereo-rig.jpg"
+					alt="DE1-SoC board with dual-camera stereo rig and AV switcher"
+					caption="The physical rig. <strong>Top:</strong> Terasic DE1-SoC (Cyclone V), with USB, VGA, and the yellow/red/white RCA video inputs visible on the right edge. <strong>Center:</strong> the dual-camera stereo bracket — the two analog cameras are aimed parallel, with their fixed baseline setting the depth resolution of the system. <strong>Bottom-right:</strong> the eight-channel AV switcher we use as a video-input mux to route both camera feeds into the DE1-SoC's single Video-In subsystem."
+				/>
 				<Figure
 					src="/diagrams/rtl_data_path.svg"
 					alt="RTL data path"
@@ -861,13 +862,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							class="image-trigger"
 							type="button"
 							data-lightbox
-							data-src={withBase('/images/variable-penalty/IMG_9558.jpg')}
+							data-src={withBase('/images/variable-penalty/sgm-no-penalty.jpg')}
 							data-alt="No SGM penalty"
 							data-caption="No SGM penalty (P1 = 0, P2 = 0). Raw SAD only."
 							aria-label="Expand: No SGM penalty"
 						>
 							<img
-								src={withBase('/images/variable-penalty/IMG_9558.jpg')}
+								src={withBase('/images/variable-penalty/sgm-no-penalty.jpg')}
 								alt="Disparity map with no SGM penalty"
 								loading="lazy"
 							/>
@@ -884,13 +885,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							class="image-trigger"
 							type="button"
 							data-lightbox
-							data-src={withBase('/images/variable-penalty/IMG_9559.jpg')}
+							data-src={withBase('/images/variable-penalty/sgm-p2-only.jpg')}
 							data-alt="P2 only"
 							data-caption="P2 only (large-jump penalty). Small steps unpenalised, big jumps suppressed."
 							aria-label="Expand: P2-only penalty"
 						>
 							<img
-								src={withBase('/images/variable-penalty/IMG_9559.jpg')}
+								src={withBase('/images/variable-penalty/sgm-p2-only.jpg')}
 								alt="Disparity map with P2-only penalty"
 								loading="lazy"
 							/>
@@ -909,13 +910,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							class="image-trigger"
 							type="button"
 							data-lightbox
-							data-src={withBase('/images/variable-penalty/IMG_9560.jpg')}
+							data-src={withBase('/images/variable-penalty/sgm-both-penalties.jpg')}
 							data-alt="Both penalties"
 							data-caption="Both penalties (P1 and P2). Full 1-D SGM smoothing."
 							aria-label="Expand: both P1 and P2 penalties"
 						>
 							<img
-								src={withBase('/images/variable-penalty/IMG_9560.jpg')}
+								src={withBase('/images/variable-penalty/sgm-both-penalties.jpg')}
 								alt="Disparity map with both P1 and P2 penalties"
 								loading="lazy"
 							/>
@@ -933,13 +934,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							class="image-trigger"
 							type="button"
 							data-lightbox
-							data-src={withBase('/images/variable-penalty/IMG_9561.jpg')}
+							data-src={withBase('/images/variable-penalty/sgm-larger-penalties.jpg')}
 							data-alt="Larger penalties"
 							data-caption="Both penalties at larger magnitudes — over-smoothing."
 							aria-label="Expand: larger P1 and P2 penalties"
 						>
 							<img
-								src={withBase('/images/variable-penalty/IMG_9561.jpg')}
+								src={withBase('/images/variable-penalty/sgm-larger-penalties.jpg')}
 								alt="Disparity map with larger P1 and P2 penalties"
 								loading="lazy"
 							/>
@@ -960,9 +961,118 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					over the HPS REPL (<code>P1</code>, <code>P2</code>) let us pick the operating
 					point per scene without recompiling.
 				</p>
-				<p class="todo">
-					[TODO: Disparity-map photos at 1 m, 2 m, and 3 m distances showing how silhouette
-					quality degrades with range — separate from the penalty sweep above.]
+				<p>
+					Holding the SGM penalties fixed (the panel-3 "both penalties" configuration above),
+					we then walked toward the camera rig to see how silhouette quality scales with
+					range. The five frames below are ordered from <strong>farthest</strong> on the left
+					to <strong>nearest</strong> on the right. Disparity is inversely proportional to
+					depth, so closer objects produce a larger pixel offset between the left and right
+					cameras and therefore appear <strong>brighter</strong> in the disparity map; far
+					objects collapse toward the noise floor.
+				</p>
+				<div class="distance-grid">
+					<figure class="distance-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-distance/distance-1-farthest.jpg')}
+							data-alt="Farthest"
+							data-caption="Farthest — full body, low disparity, silhouette barely emerges from noise."
+							aria-label="Expand: farthest distance"
+						>
+							<img
+								src={withBase('/images/variable-distance/distance-1-farthest.jpg')}
+								alt="Disparity map at the farthest distance"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption><strong>1 — Farthest.</strong> Full-body person across the room. Disparity barely registers above the textured background.</figcaption>
+					</figure>
+
+					<figure class="distance-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-distance/distance-2.jpg')}
+							data-alt="Distance step 2"
+							data-caption="Closer — silhouette starts to brighten."
+							aria-label="Expand: distance step 2"
+						>
+							<img
+								src={withBase('/images/variable-distance/distance-2.jpg')}
+								alt="Disparity map one step closer"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption><strong>2.</strong> One step closer. The silhouette is starting to lift out of the background as a coherent brighter region.</figcaption>
+					</figure>
+
+					<figure class="distance-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-distance/distance-3.jpg')}
+							data-alt="Distance step 3"
+							data-caption="Mid-range — clear silhouette."
+							aria-label="Expand: distance step 3"
+						>
+							<img
+								src={withBase('/images/variable-distance/distance-3.jpg')}
+								alt="Disparity map at mid-range"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption><strong>3.</strong> Mid-range. Torso and held object are clearly distinguishable from the chairs and floor behind them.</figcaption>
+					</figure>
+
+					<figure class="distance-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-distance/distance-4.jpg')}
+							data-alt="Distance step 4"
+							data-caption="Close — high disparity, sharp silhouette."
+							aria-label="Expand: distance step 4"
+						>
+							<img
+								src={withBase('/images/variable-distance/distance-4.jpg')}
+								alt="Disparity map close to the camera"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption><strong>4.</strong> Close. The held object pops as the brightest region in the frame — high disparity, easily separable from background.</figcaption>
+					</figure>
+
+					<figure class="distance-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-distance/distance-5-nearest.jpg')}
+							data-alt="Nearest"
+							data-caption="Nearest — disparity saturates."
+							aria-label="Expand: nearest distance"
+						>
+							<img
+								src={withBase('/images/variable-distance/distance-5-nearest.jpg')}
+								alt="Disparity map at the nearest distance"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption><strong>5 — Nearest.</strong> Arm's length. Disparity is high enough that fingers/arms separate cleanly; the matcher is operating in its sweet spot.</figcaption>
+					</figure>
+				</div>
+				<p>
+					The progression matches the depth sensitivity the geometry predicts: with a
+					<strong>6 cm</strong> baseline and <code>max_disp = 32</code>, the matcher's
+					useful range tops out around 1–3 m. Beyond that, even a real depth step shifts the
+					target by less than a pixel between the two cameras, the SAD cost surface
+					flattens out, and the disparity map collapses into the textured-background noise
+					regime visible in panel 1.
 				</p>
 
 				<h3>Resource Utilization</h3>
@@ -1387,20 +1497,15 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		font-family: 'JetBrains Mono', monospace;
 	}
 
-	.penalty-grid {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 18px;
-		margin: 1.8em auto;
-		max-width: var(--figure-width, 820px);
-	}
-
-	.penalty-cell {
+	/* Shared cell styling for both comparison grids. */
+	.penalty-cell,
+	.distance-cell {
 		margin: 0;
 		padding: 0;
 	}
 
-	.penalty-cell .image-trigger {
+	.penalty-cell .image-trigger,
+	.distance-cell .image-trigger {
 		position: relative;
 		display: block;
 		width: 100%;
@@ -1413,32 +1518,81 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		transition: border-color 0.15s ease;
 	}
 
-	.penalty-cell .image-trigger:hover {
+	.penalty-cell .image-trigger:hover,
+	.distance-cell .image-trigger:hover {
 		border-color: var(--accent);
 	}
 
-	.penalty-cell .image-trigger:focus-visible {
+	.penalty-cell .image-trigger:focus-visible,
+	.distance-cell .image-trigger:focus-visible {
 		outline: 2px solid var(--accent-hot);
 		outline-offset: 2px;
 	}
 
-	.penalty-cell img {
+	.penalty-cell img,
+	.distance-cell img {
 		width: 100%;
 		height: auto;
 		display: block;
 		border-radius: 4px;
 	}
 
-	.penalty-cell figcaption {
-		font-size: 0.82rem;
+	.penalty-cell figcaption,
+	.distance-cell figcaption {
+		font-size: 0.85rem;
 		color: var(--text-dim);
 		margin-top: 8px;
 		line-height: 1.45;
 	}
 
-	@media (max-width: 720px) {
-		.penalty-grid {
+	/* SGM penalty sweep: 2x2 grid, widened so each tile is large enough to read. */
+	.penalty-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 18px;
+		margin: 1.8em auto;
+		max-width: 1040px;
+	}
+
+	/* Distance sweep: 5 panels arranged 3 + 2 with the bottom row centered, so the
+	   sequence reads left-to-right without an orphan tile off to the side. The grid
+	   is 6 columns; each cell spans 2 columns, and the bottom row is offset by 1
+	   column on each side. */
+	.distance-grid {
+		display: grid;
+		grid-template-columns: repeat(6, 1fr);
+		gap: 16px;
+		margin: 1.8em auto;
+		max-width: 1040px;
+	}
+
+	.distance-cell:nth-child(1) { grid-column: 1 / span 2; grid-row: 1; }
+	.distance-cell:nth-child(2) { grid-column: 3 / span 2; grid-row: 1; }
+	.distance-cell:nth-child(3) { grid-column: 5 / span 2; grid-row: 1; }
+	.distance-cell:nth-child(4) { grid-column: 2 / span 2; grid-row: 2; }
+	.distance-cell:nth-child(5) { grid-column: 4 / span 2; grid-row: 2; }
+
+	/* Tablet: drop to 2 columns and let the 5th tile span the bottom — no orphan. */
+	@media (max-width: 900px) {
+		.distance-grid {
+			grid-template-columns: repeat(2, 1fr);
+		}
+		.distance-cell:nth-child(1) { grid-column: 1; grid-row: 1; }
+		.distance-cell:nth-child(2) { grid-column: 2; grid-row: 1; }
+		.distance-cell:nth-child(3) { grid-column: 1; grid-row: 2; }
+		.distance-cell:nth-child(4) { grid-column: 2; grid-row: 2; }
+		.distance-cell:nth-child(5) { grid-column: 1 / span 2; grid-row: 3; }
+	}
+
+	/* Mobile: full-width stack for both grids. */
+	@media (max-width: 600px) {
+		.penalty-grid,
+		.distance-grid {
 			grid-template-columns: 1fr;
+		}
+		.distance-cell:nth-child(n) {
+			grid-column: 1;
+			grid-row: auto;
 		}
 	}
 

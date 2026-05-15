@@ -10,9 +10,14 @@
 \begin{tikzpicture}[node distance=10mm and 12mm]
 
   % ============================================================
-  % Title + one-line story
+  % Title + one-line story.  The rectify cluster towers above the
+  % rest of the pipeline (mapper sits 20mm above sram), so its phase
+  % header "RECTIFY (in place)" lives ~3cm higher than the other
+  % three phase headers.  Title+tagline have to sit well above that
+  % to avoid overlapping the word "rectify" in the tagline with the
+  % "RECTIFY" phase header below it.
   % ============================================================
-  \node[title] (ttl) at (0, 7.6)
+  \node[title] (ttl) at (0, 9.0)
     {Stereo Vision System Architecture};
   \node[labeltext, font=\sffamily\small, text=muted, below=1mm of ttl]
     (tagline)

@@ -17,6 +17,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			{/* ------------------------------------------------------------------ */}
 			<section id="intro">
 				<h2>Introduction</h2>
+				<p class="todo">
+					[TODO: Hero — embed the final demo video (live disparity map running on the DE1-SoC)
+					and a hero photo of the physical rig: the two analog cameras on their mount, the
+					DE1-SoC, and the VGA monitor showing the depth map.]
+				</p>
 				<p>
 					Stereo vision is a technique for extracting a 3D scene from two 2D images. By setting up
 					two cameras slightly offset from each other and pointed at the same picture, we can
@@ -79,6 +84,12 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					its position in the reference image and its position in the other image. Disparity is
 					inversely proportional to depth, scaled by the distance between the two cameras.
 				</p>
+				<p class="todo">
+					[TODO: Stereo triangulation diagram — two camera frustums converging on objects in 3D
+					(the cones-and-trees scene from the PDF works well). Caption should call out that the
+					same object appears at different x-positions in the two frames, and that pixel offset
+					= disparity ∝ 1/depth.]
+				</p>
 				<p>
 					We create this disparity map by block-matching every pixel in the reference (left) image
 					to a position in the other (right) image. Block matching selects a rectangular section
@@ -132,9 +143,27 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					cost — how different the disparity-map pixels are in a given region. SGM attempts to
 					minimize this equation by finding the disparity that is most similar to the initial
 					coordinate while making sure that the final disparity-map pixel remains smooth with
-					respect to its surrounding pixels. <strong>In this project we adapted the algorithm to
-					better suit our needs</strong> — we run a single horizontal sweep, which gives us most
-					of the smoothing benefit at a small fraction of the hardware cost.
+					respect to its surrounding pixels.
+				</p>
+				<p>
+					<strong>In this project we adapted the algorithm to better suit our needs.</strong>
+					Standard SGM reduces the 2D optimization above into a sum of 1D optimizations along
+					multiple scan paths, recursively accumulating cost along each direction. Full
+					multidirectional aggregation is great at smoothing but a poor fit for our project:
+					each path direction would need its own running cost array of size <code>D</code> in
+					memory, and any reverse-direction path would require a second copy of the cost volume
+					or a second pass over the frame. <strong>Our SRAM was already saturated</strong>
+					holding the rectified frame and ring buffer, so we collapsed the smoothness down to a
+					single 1D path along the horizontal left-to-right direction — the natural sweeping
+					order of the block matcher. The penalty cost minimized per pixel is then:
+				</p>
+				<div class="equation">
+					C(p, d<sub>p</sub>) = SAD(p, d<sub>p</sub>) + R(d<sub>p</sub>, d<sub>p−1</sub>)
+				</div>
+				<p>
+					where <code>R</code> applies <code>P1</code> when |d<sub>p</sub> − d<sub>p−1</sub>| = 1
+					and the larger <code>P2</code> when it differs by more. This gives us most of the
+					smoothing benefit at a small fraction of the hardware cost.
 				</p>
 			</section>
 
@@ -194,6 +223,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					per-side optical-center constants</strong> — a destination-side center and a
 					source-side center for each camera.
 				</p>
+				<p class="todo">
+					[TODO: Calibration board photo + before/after rectification pair. Ideally a CharUco
+					capture next to the rectified version with overlaid epipolar lines, so the
+					"horizontal lines should stay horizontal" property is visible.]
+				</p>
 
 				<h3>Picking the matcher and operating point</h3>
 				<p>
@@ -213,6 +247,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					exposed to the HPS at runtime follow the same P1 = 8·blockSize² /
 					P2 = 32·blockSize² formula OpenCV uses internally.
 				</p>
+				<p class="todo">
+					[TODO: Sweep-results visualization — a small grid (window size × max-disp) of
+					thumbnail disparity maps from the parameter sweep so a reader can see why 9×9 / 32
+					was the operating point we landed on. Even 4–6 representative tiles is enough.]
+				</p>
 
 				<h3>Cost metric and preprocessing</h3>
 				<p>
@@ -230,6 +269,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					introducing another. <strong>The RTL keeps SAD as the primary path</strong> and
 					leaves Census as a parallel implementation we can swap in; CLAHE and median-blur
 					stayed as runtime knobs on the C reference rather than burned into the RTL.
+				</p>
+				<p class="todo">
+					[TODO: SAD vs. Census side-by-side disparity maps on the same input pair, ideally one
+					tile showing a textureless region (where Census wins) and one with sharp depth steps
+					(where SAD wins).]
 				</p>
 
 				<h3>The 2D (d, v<sub>y</sub>) search</h3>
@@ -252,6 +296,12 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					right-image context at once instead of <code>BLOCK_SIZE</code>. So vshift stayed a
 					Python/C-only result that explains the residual row-misalignment artifacts we still
 					see in the FPGA disparity map.
+				</p>
+				<p class="todo">
+					[TODO: <code>vshift_color.png</code> preview from the Python sweep — the per-pixel
+					best-(d, v<sub>y</sub>) overlay where blue = right-image shifted up, green = no
+					vertical shift, red = shifted down. Makes the 1–3 row residual misalignment across
+					the frame visible at a glance.]
 				</p>
 			</section>
 
@@ -288,6 +338,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					running the SAD compute, and reading back the results. Crucial parameters like window
 					size, maximum disparity, and stripe height are configured at synthesis to match our
 					software models, while SGM penalties are exposed to the HPS for runtime tuning.
+				</p>
+				<p class="todo">
+					[TODO: Physical-setup photo of the DE1-SoC board with the dual-camera mount and the
+					VGA output, ideally with the disparity map visible on the monitor.]
 				</p>
 				<Figure
 					src="/diagrams/rtl_data_path.svg"
@@ -753,6 +807,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					</div>
 				</div>
 
+				<p class="todo">
+					[TODO: Live-demo video clip — pan a hand or object in front of the rig and show the
+					disparity map updating at 20 FPS. An overlaid FPS counter would make the speed claim
+					visible. Also worth a short scope/logic-analyzer trace showing the WAIT → FILL →
+					DRAIN → COMPUTE phase boundaries on the top-level FSM state lines.]
+				</p>
+
 				<h3>Accuracy</h3>
 				<p>
 					We found that the stereo vision system performed best at a distance of <strong>1–3 m</strong>
@@ -760,13 +821,61 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					this distance, it is possible to differentiate objects in the foreground from the
 					background, with bodies and objects appearing as light, monochrome silhouettes against
 					a dark, noisy background. The vision system is additionally able to pick up on
-					gradients for objects which are angled.
+					gradients for objects which are angled towards or away from the camera, showing the
+					change in the object's depth across the frame.
+				</p>
+				<p>
+					A known issue with basic block matching is that it performs poorly on monochromatic,
+					untextured surfaces. Block matching assigns similar costs to every disparity within
+					such a surface — every block looks identical without a-priori knowledge of where in
+					the surface that block is. We ameliorate this with the simple SGM-inspired penalty
+					described in <a href="#algorithm">the Algorithm section</a>, which smooths the
+					disparity map by penalizing discontinuities. This 1-way smoothing creates a
+					noticeable difference between the left and right edges of objects, but it
+					significantly improves performance on monochrome surfaces and on larger objects
+					generally.
+				</p>
+				<p class="todo">
+					[TODO: Insert disparity-map photos at 1 m, 2 m, and 3 m distances showing the
+					silhouette quality at each. Also a side-by-side of "with vs. without SGM penalty"
+					on a monochrome surface (e.g. blank wall) to make the smoothing benefit visible.]
 				</p>
 
 				<h3>Resource Utilization</h3>
+				<p>
+					We were able to successfully compile our design with a <strong>5×5 block size and 24
+					parallel SAD workers</strong>. The limiting resource on how big we could grow the
+					design was <strong>ALM usage for the SAD compute units</strong>: increasing the number
+					of workers grows the ALM count roughly linearly, but increasing the block size grows
+					the per-worker logic <strong>exponentially with the radius of the block</strong>. A
+					5×5 block was the largest we could afford while still keeping enough workers to avoid
+					bottlenecking the disparity-map computation.
+				</p>
+				<p>
+					We initially struggled with M10K block usage because we were inadvertently
+					<strong>double-buffering the incoming frame data</strong>. This was an artifact of two
+					separate architectural decisions: (1) we wrote the incoming pixel data into a memory
+					that was fragmented row-wise, and (2) we stored the rectified frame in that same
+					memory. As a result we were initially using two separate frame memories — a monolithic
+					on-chip SRAM written by the Video-In subsystem, plus the segmented row-banked memory
+					that the SAD compute units read in parallel — and copying rectified pixels between
+					them.
+				</p>
+				<p>
+					To resolve this redundancy we wrote our own memory block exposing two interfaces: an
+					Avalon MMIO interface to be written to by Video-In, and a parallel asynchronous
+					interface to be read by the compute units. This effectively <strong>halved our M10K
+					utilization</strong> and let us dedicate one M10K per row of each image — the
+					condition for maximum read parallelism. The custom memory block costs about
+					<strong>13,268 ALMs</strong> on its own because the MMIO interface has to mux across
+					200 separate block RAMs spread physically across the die, and that fan-in is also
+					what gives us our very long Quartus compile times — the fitter struggles with the
+					routing.
+				</p>
 				<p class="todo">
-					[TODO: Insert final Quartus fitter report — ALMs, M10Ks, DSPs, registers — once the
-					last working SOF is rebuilt.]
+					[TODO: Insert final Quartus fitter report — exact ALMs / M10Ks / DSPs / registers /
+					Fmax — once the last working SOF is rebuilt. Ideally a screenshot of the resource
+					summary panel.]
 				</p>
 
 				<h3>Safety and Usability</h3>
@@ -791,21 +900,44 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					epipolar lines without needing a second frame's worth of on-chip RAM.
 				</p>
 				<p>
+					What we would do differently next time falls into two architectural decisions that
+					over-constrained the design from the start. <strong>First: storing an entire frame of
+					video in memory and then exploiting row parallelism for matching.</strong> Lines of
+					video are received sequentially, so a leaner approach would have been a small line
+					buffer of the most recent horizontal lines, with parallelism spent across disparity
+					sweeps rather than across rows. We could have hit the same compute throughput with
+					substantially less M10K and ALM budget — and the savings would have unblocked the
+					things we left on the table (deeper SGM sweeps, the 2D <code>(d, v<sub>y</sub>)</code>
+					search, a larger block size).
+				</p>
+				<p>
+					<strong>Second: the rectification pipeline was the single largest bottleneck on
+					throughput</strong> — the un-pipelined rectification took ~90 ms per frame, against
+					only ~4 ms for the disparity computation itself. We hadn't anticipated rectification
+					would be necessary at all when the architecture was set, so we never gave it a
+					first-class design pass. The cleanest implementation would have been to modify pixel
+					coordinates in-stream against a lookup table, but two issues steered us away: the
+					reverse mapping from rectified back to raw coordinates is awkward, and an explicit
+					LUT large enough for the full mapping doesn't fit on chip alongside the SAD engine.
+					Knowing rectification would dominate the runtime, we would have spent more on-chip
+					resources on a simpler in-stream transform rather than the multi-cycle FSM that
+					currently consumes most of the frame time.
+				</p>
+				<p>
+					Smaller things we'd also change: shared per-mount calibration rather than calibrating
+					each lens independently, proper camera mounting to keep the two cameras coplanar,
+					and shipping the 2D <code>(d, v<sub>y</sub>)</code> search the Python and C reference
+					matchers already use.
+				</p>
+				<p>
 					What worked best was the <strong>three-implementation discipline</strong>: Python as
 					the algorithm playground, C on the HPS as a near-identical scalar reference, and the
 					SystemVerilog RTL as the production target. Sharing parameter names
 					(<code>window_w/window_h</code>, <code>max_disparity</code>, <code>v_shift</code>,
 					<code>BLOCK_SIZE</code>, <code>MAX_DISP</code>, <code>NUM_SAD_UNITS</code>) across
 					all three meant every algorithmic decision had a golden reference to validate
-					against.
-				</p>
-				<p>
-					What we would do differently next time: dedicate more hardware budget to the
-					rectification pipeline (which is the current ceiling on framerate), ship the 2D
-					<code>(d, v_y)</code> search that the Python and C reference matchers both use to
-					handle imperfect rectification, and budget for proper camera mounting and shared
-					calibration rather than calibrating each lens independently. A deeper SGM pass — more
-					than one sweep direction — is the obvious quality lever we left on the table.
+					against — any disagreement between FPGA output and the Python reference at the same
+					parameter setting had to be a real RTL bug.
 				</p>
 
 				<h3>Intellectual Property and Standards</h3>
@@ -888,12 +1020,65 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					</li>
 				</ul>
 
-				<h3>C. Team Task List</h3>
+				<h3>C. Work Distribution and AI</h3>
+				<p>
+					We divided the work for this project equally across team members.
+					<strong>Ezra</strong> contributed most significantly to the offline (software)
+					design-space exploration, the lens rectification, and the memory-banking RTL.
+					<strong>Demetrios</strong> contributed most significantly to the block-matching RTL
+					and top-level architecture. <strong>Daniel</strong> helped with RTL simulation.
+				</p>
+				<p>
+					We used generative AI tools to varying degrees in different parts of the project:
+				</p>
 				<ul>
-					<li><strong>Daniel.</strong> [TODO]</li>
-					<li><strong>Demetrios.</strong> [TODO]</li>
-					<li><strong>Ezra.</strong> [TODO]</li>
+					<li>
+						<strong>Block-matching RTL.</strong> We wrote the majority of the RTL ourselves
+						and used generative AI (Claude Code, Microsoft Copilot) to identify or fix bugs.
+						This was useful for catching subtle bugs (e.g. a shift register that did not
+						actually shift the last index) and for trivial state-transition fixes spotted in
+						the waveform.
+					</li>
+					<li>
+						<strong>Segmented memory + Avalon MMIO.</strong> We used generative AI to tweak
+						the RTL to conform to the Avalon interface standard, and to write the TCL script
+						that gets the module to appear as instantiable IP in the Qsys GUI.
+					</li>
+					<li>
+						<strong>Lens rectification RTL.</strong> Significantly AI-driven on both sides —
+						the OpenCV code that extracts lens parameters from a set of images, and the RTL
+						that explored several different implementations targeting different
+						hardware-utilization points.
+					</li>
+					<li>
+						<strong>Software design-space exploration.</strong> AI was used heavily to try
+						out different block-matching algorithms combined with different preprocessing
+						and filtering steps without rewriting the harness for each.
+					</li>
+					<li>
+						<strong>Figures and animations for this report.</strong> We fed snippets of our
+						RTL into AI to generate diagrams and the interactive block-matching animation
+						embedded above.
+					</li>
 				</ul>
+				<p>
+					Our overall takeaway: <strong>generative AI was a productivity multiplier in some
+					places and made bad ideas tractable in others.</strong> It was most effective for
+					design-space exploration, where it let us get a sense of what kinds of results were
+					achievable very quickly. It also accelerated RTL by catching bugs and writing
+					testbenches.
+				</p>
+				<p>
+					In other places, however, it produced overly complicated, poorly architected
+					solutions we wouldn't have attempted to write ourselves. The clearest example is the
+					rectification pipeline, which was significantly AI-generated and turned into the
+					major performance bottleneck — the solution is correct, but it's incredibly hard to
+					optimize or modify. By contrast, our block-matching RTL was almost entirely written
+					by us (with AI used only to test and fix bugs), and that RTL is comparatively
+					performant, easy to iterate on, and easy to understand conceptually. AI is
+					impressive at producing correct RTL, but it tends to create solutions that are
+					complex and difficult to iterate on without rigid guidance.
+				</p>
 
 				<h3>D. References</h3>
 				<ul>

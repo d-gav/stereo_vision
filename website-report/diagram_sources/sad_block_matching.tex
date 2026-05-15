@@ -11,12 +11,52 @@
   \node[labeltext] at (25,58) {left image};
   \node[labeltext] at (107,58) {right image search row};
 
+  % --- Reference window: 5x5 pixel grid -------------------------------------
   \draw[fill=cornellred!18, draw=cornellred, line width=1.2pt] (20,32) rectangle (33,45);
+  \foreach \i/\j/\v in {
+    0/0/30, 1/0/18, 2/0/35, 3/0/22, 4/0/40,
+    0/1/22, 1/1/38, 2/1/16, 3/1/30, 4/1/24,
+    0/2/35, 1/2/22,         3/2/40, 4/2/26,
+    0/3/18, 1/3/30, 2/3/26, 3/3/22, 4/3/38,
+    0/4/40, 1/4/26, 2/4/18, 3/4/32, 4/4/22
+  } {
+    \fill[cornellred!\v] (20+\i*2.6, 32+\j*2.6) rectangle (20+\i*2.6+2.6, 32+\j*2.6+2.6);
+  }
+  \fill[cornellred!70] (20+2*2.6, 32+2*2.6) rectangle (20+3*2.6, 32+3*2.6);
+  \foreach \i in {1,2,3,4} {
+    \draw[draw=cornellred!55, line width=0.2pt] (20+\i*2.6, 32) -- (20+\i*2.6, 45);
+    \draw[draw=cornellred!55, line width=0.2pt] (20, 32+\i*2.6) -- (33, 32+\i*2.6);
+  }
+  \draw[draw=cornellred, line width=1.2pt] (20,32) rectangle (33,45);
+
   \node[labeltext, text=cornellred] at (26.5,28) {reference\\window};
 
+  % --- Solid candidate window: matching 5x5 pixel pattern -------------------
   \draw[fill=compute, draw=orange!65!black, line width=1pt] (108,32) rectangle (121,45);
-  \draw[fill=compute, draw=orange!65!black, line width=0.8pt, dashed] (93,32) rectangle (106,45);
-  \draw[fill=compute, draw=orange!65!black, line width=0.8pt, dashed] (123,32) rectangle (136,45);
+  \foreach \i/\j/\v in {
+    0/0/30, 1/0/18, 2/0/35, 3/0/22, 4/0/40,
+    0/1/22, 1/1/38, 2/1/16, 3/1/30, 4/1/24,
+    0/2/35, 1/2/22,         3/2/40, 4/2/26,
+    0/3/18, 1/3/30, 2/3/26, 3/3/22, 4/3/38,
+    0/4/40, 1/4/26, 2/4/18, 3/4/32, 4/4/22
+  } {
+    \fill[orange!\v] (108+\i*2.6, 32+\j*2.6) rectangle (108+\i*2.6+2.6, 32+\j*2.6+2.6);
+  }
+  \fill[orange!70] (108+2*2.6, 32+2*2.6) rectangle (108+3*2.6, 32+3*2.6);
+  \foreach \i in {1,2,3,4} {
+    \draw[draw=orange!55!black, line width=0.2pt, opacity=0.55] (108+\i*2.6, 32) -- (108+\i*2.6, 45);
+    \draw[draw=orange!55!black, line width=0.2pt, opacity=0.55] (108, 32+\i*2.6) -- (121, 32+\i*2.6);
+  }
+  \draw[draw=orange!65!black, line width=1pt] (108,32) rectangle (121,45);
+
+  % --- Dashed (non-winning) candidates: grid only ---------------------------
+  \foreach \xL in {93, 123} {
+    \draw[fill=compute, draw=orange!65!black, line width=0.8pt, dashed] (\xL,32) rectangle (\xL+13,45);
+    \foreach \i in {1,2,3,4} {
+      \draw[draw=orange!55!black, line width=0.18pt, opacity=0.4] (\xL+\i*2.6, 32) -- (\xL+\i*2.6, 45);
+      \draw[draw=orange!55!black, line width=0.18pt, opacity=0.4] (\xL, 32+\i*2.6) -- (\xL+13, 32+\i*2.6);
+    }
+  }
 
   \draw[flow, dashed] (33,39) -- (93,39);
   \draw[flow, dashed] (33,39) -- (108,39);

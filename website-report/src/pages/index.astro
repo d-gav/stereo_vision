@@ -136,6 +136,123 @@ import Figure from '../components/Figure.astro';
 			</section>
 
 			{/* ------------------------------------------------------------------ */}
+			<section id="software-prep">
+				<h2>Software Preprocessing</h2>
+				<p>
+					Before any of this landed in hardware, every algorithmic choice was first prototyped
+					in Python and validated against captured stereo pairs. The Python work serves three
+					roles at once: a parameter-sweep playground for finding the right operating point,
+					a golden reference for cross-checking the C and RTL implementations, and the offline
+					calibration tool that produces the lens-correction coefficients the FPGA actually
+					consumes.
+				</p>
+				<Figure
+					src="/diagrams/model_alignment_workflow.svg"
+					alt="Model alignment workflow"
+					caption="The cross-implementation pipeline: Python is the algorithm playground and golden reference, C mirrors the same parameters on the HPS, and the RTL is the production target. All three share parameter names by design, so any disagreement between them is a real implementation bug rather than parameter drift."
+				/>
+				<p>
+					The three implementations share the same parameter names — window size, max
+					disparity, vertical shift, block size, number of SAD units. When a Python experiment
+					locks in a value, the C reference picks it up unchanged and the RTL constants follow.
+					That alignment is what makes hardware debugging tractable: if the FPGA disparity map
+					disagrees with the Python reference at the same parameter setting, the discrepancy
+					has to be a real RTL issue, not a config mismatch.
+				</p>
+
+				<h3>Lens calibration</h3>
+				<p>
+					The calibration work walked from "no calibration, just an analytic fisheye model" to
+					"real calibration baked into the FPGA as a small polynomial." The first attempt
+					parameterised the two cameras' wide-angle lenses under several analytic projections
+					— equidistant, equisolid, stereographic, rectilinear — and remapped the cropped
+					active region with OpenCV, blending between identity and the model by a tunable
+					correction strength. An autotune loop scored each candidate remap with edge-tracking
+					and Hough-line "is this line straight after warp?" objectives. This never produced a
+					usable stereo pair: the center looked corrected, the periphery didn't.
+				</p>
+				<p>
+					Switching to a real <strong>CharUco-board calibration</strong> with a fisheye
+					intrinsic model gave per-lens calibration matrices, which OpenCV's standard
+					rectification pipeline turned into a per-pixel gather map. That map was packed into
+					a 21-bit <code>{'{valid, src_y, src_x}'}</code> ROM format the RTL could consume
+					directly. The full LUT was too big to keep on-chip alongside the SAD engine and the
+					framebuffers, so a final pass compressed it into a small fixed-point polynomial — a
+					2D degree-6 fit in Q18, and a purely radial fit in Q15 with per-side optical-center
+					offsets. <strong>The radial form is what survives in the final RTL</strong>, because
+					it gives most of the quality at a tiny fraction of the DSP/LUT cost.
+				</p>
+				<p>
+					Each lens was calibrated independently, and the analog front end clips pixels
+					asymmetrically off each side of every captured frame before the left/right split. The
+					two cameras therefore have different optical-center offsets, and those offsets aren't
+					symmetric about the midline. The final RTL reflects this with <strong>two completely
+					separate 256-entry Q15 scale tables</strong> (one per camera) and <strong>four
+					per-side optical-center constants</strong> — a destination-side center and a
+					source-side center for each camera.
+				</p>
+
+				<h3>Picking the matcher and operating point</h3>
+				<p>
+					The first family of disparity experiments was about finding the right matcher and
+					operating point. OpenCV's BM and SGBM matchers (with P1 = 8·blockSize²,
+					P2 = 32·blockSize², 3-way SGBM mode) served as a golden reference, and we wrote a
+					custom windowed-SAD from scratch with box-filter aggregation and a winner-take-all
+					loop over disparity. Both L1 and L2 cost modes were swept.
+				</p>
+				<p>
+					The sweep driver walked max-disparities {'{'}24, 32, 48, 64, 96{'}'} against window
+					sizes {'{'}5, 7, 9, 11, 13{'}'}, and a parallel sweep pushed the grid much further
+					(window 3..33, max-disp up to 224) to see how flat the metric landscape was. The
+					result is what's hardwired into the RTL: <strong>9×9 window, max-disp 32</strong>.
+					That number isn't arbitrary — it's the smallest setting in the sweep where the
+					disparity map kept its structure on our specific captures. The SGM penalty constants
+					exposed to the HPS at runtime follow the same P1 = 8·blockSize² /
+					P2 = 32·blockSize² formula OpenCV uses internally.
+				</p>
+
+				<h3>Cost metric and preprocessing</h3>
+				<p>
+					A second family of experiments changed the cost metric itself, because raw
+					absolute-difference SAD struggled on low-texture and exposure-mismatched regions. A
+					<strong>Census + Hamming</strong> path replaces each pixel with the sign-pattern of
+					its neighbours and matches by box-filtered popcount-XOR distances — invariant to
+					local brightness differences between the two cameras, which we definitely had. The
+					sweep driver also ran a preprocessing grid over CLAHE on/off, median-blur kernel
+					sizes, and a Gaussian high-pass before matching.
+				</p>
+				<p>
+					The conclusion was mixed: Census beat SAD on textureless surfaces but was worse on
+					edges with real depth steps, and each preprocessing knob fixed one failure mode while
+					introducing another. <strong>The RTL keeps SAD as the primary path</strong> and
+					leaves Census as a parallel implementation we can swap in; CLAHE and median-blur
+					stayed as runtime knobs on the C reference rather than burned into the RTL.
+				</p>
+
+				<h3>The 2D (d, v<sub>y</sub>) search</h3>
+				<p>
+					The third family was the 2D (d, v<sub>y</sub>) search — the cleanest example of a
+					Python finding we couldn't get into the FPGA in time. OpenCV's SGBM assumes
+					perfectly horizontal epipolar lines, and ours weren't: each lens was calibrated
+					independently, the two cameras weren't perfectly co-planar, and remapping left
+					sub-pixel row error that SGBM couldn't see through. So the Python and C matchers
+					also try ±V row shifts of the right image for each candidate disparity and keep the
+					(d, v<sub>y</sub>) pair with minimum aggregated cost. Real images need 1–3 rows of
+					slack across the frame.
+				</p>
+				<p>
+					This was the largest-quality jump in the whole Python sweep, and it's a first-class
+					parameter in the C reference matcher. On the RTL side we never shipped it — the
+					row-banked on-chip RAM, the per-stripe SAD units, and the radial-mapper ring buffer
+					already filled the project's time budget, and a 2D (d, v<sub>y</sub>) search would
+					have needed the SAD engine to consume <code>BLOCK_SIZE + 2·V</code> rows of
+					right-image context at once instead of <code>BLOCK_SIZE</code>. So vshift stayed a
+					Python/C-only result that explains the residual row-misalignment artifacts we still
+					see in the FPGA disparity map.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
 			<section id="hardware">
 				<h2>Hardware Design</h2>
 				<p>
@@ -178,25 +295,6 @@ import Figure from '../components/Figure.astro';
 					src="/diagrams/frame_layout_memory_map.svg"
 					alt="Frame layout and memory map"
 					caption="Frame layout and memory map: 640×288 captured PAL frame split into left and right sub-images, stored at FPGA_ONCHIP_BASE = 0xC8000000 with 1024-byte stride. The disparity map is written into rows 288..479 of the VGA framebuffer at SDRAM_BASE = 0xC0000000."
-				/>
-
-				<h3>Keeping Python, C, and RTL in lockstep</h3>
-				<p>
-					Before any of this landed in hardware, every algorithmic choice was first tested in
-					Python against captured stereo pairs. The Python pipeline lives in
-					<code>sterio-vision-python/</code> and <code>python-testing/</code>, with the matcher
-					registry in <code>stereo_depth_system/methods.py</code> and the sweep driver in
-					<code>run_stereo_experiments.py</code>. The HPS C reference in <code>stereo_c/</code>
-					mirrors the same parameters on the ARM side as a scalar control. All three
-					implementations share parameter names (<code>window_w/window_h</code>,
-					<code>max_disparity</code>, <code>v_shift</code>, <code>BLOCK_SIZE</code>,
-					<code>MAX_DISP</code>, <code>NUM_SAD_UNITS</code>) on purpose, so every algorithmic
-					decision has a golden reference to validate against.
-				</p>
-				<Figure
-					src="/diagrams/model_alignment_workflow.svg"
-					alt="Model alignment workflow"
-					caption="The cross-implementation pipeline: Python is the algorithm playground and golden reference, C mirrors the same parameters on the HPS, and the RTL is the production target. The pathfinding work for both rectification and the matcher is documented inline with each hardware block."
 				/>
 			</section>
 
@@ -253,11 +351,13 @@ import Figure from '../components/Figure.astro';
 				<p>
 					Block matching only works if corresponding features lie on the same horizontal
 					scanline in both images. Raw cameras with cheap wide-angle lenses don't give you that
-					for free — straight lines in the world bend, the optical centers don't sit at the
-					geometric image center, and the two cameras' lenses don't match each other exactly.
-					Rectification is the geometric remapping that takes the raw warped frame and produces
-					the rectilinear projection that the matcher expects, and we bake the whole pass
-					directly into the FPGA so the SAD engine never sees a raw pixel.
+					for free — straight lines in the world bend, and the two cameras' lenses don't match
+					each other exactly. The analog front end on the DE1-SoC also clips about 40 pixels
+					off each side of every captured frame before the left/right split, so each camera's
+					true optical center doesn't sit at the geometric center of its cropped half. All of
+					this has to be undone before SAD ever runs. Rectification is the geometric remapping
+					that fixes it, and we bake the whole pass directly into the FPGA so the SAD engine
+					never sees a raw pixel.
 				</p>
 				<Figure
 					src="/diagrams/radial_rectification.svg"
@@ -265,59 +365,31 @@ import Figure from '../components/Figure.astro';
 					caption="Radial rectification: for each rectified output pixel we compute its radial offset from the lens center, scale it by an interpolated calibration coefficient, and re-anchor on the source-side lens center to get the raw source pixel to sample."
 				/>
 				<p>
-					The rest of this section walks the full rectification pipeline in the order it runs:
-					first the offline calibration work that produces the radial coefficients, then the
-					hardware mapper that consumes them, and finally the in-place memory scheduler that
-					actually moves rectified bytes through the SRAM safely.
+					Because the two cameras' optical centers don't match and aren't symmetric about the
+					split, the final RTL carries <strong>two completely independent per-camera
+					calibrations</strong>: a separate radial scale table for each side, plus a separate
+					destination-side optical center and source-side optical center per side. The pipeline
+					selects which calibration to use based on which half of the frame the current
+					destination pixel falls in. The offline calibration work that produces those tables
+					and centers is described in the <a href="#software-prep">Software Preprocessing</a>
+					section.
+				</p>
+				<p>
+					The rest of this section walks the hardware pipeline in the order it runs: the radial
+					mapper that converts a destination pixel into a source pixel, the staging ring that
+					lets us rewrite the frame in place without corrupting our own input, and the
+					four-phase scheduler that keeps the rectified frame consistent against an autonomous
+					capture DMA.
 				</p>
 
-				{/* ---- 6.1 Software pathfinding ---- */}
-				<h3>From software calibration to a baked polynomial</h3>
-				<p>
-					The rectification side of the OpenCV work walked from "no calibration, just an
-					analytic fisheye model" to "real calibration baked into the FPGA as a small
-					polynomial." First pass was <code>python-testing/fisheye-reconstruction.py</code>,
-					which parameterises the two candidate Razer lenses (125° and 98° HFOV) under
-					different analytic projections — equidistant, equisolid, stereographic, rectilinear
-					— and remaps the cropped 320×240 active region with <code>cv2.remap</code>, blending
-					between identity and the model by a <code>correction_strength</code> knob. The
-					autotune family <code>v6..v20</code> then scored each candidate remap with
-					<code>cv2.Sobel</code> edge tracking and <code>cv2.Canny</code> +
-					<code>cv2.HoughLinesP</code> "is this line straight after warp?" objectives.
-				</p>
-				<p>
-					This never produced a usable stereo pair — the center looked corrected, the periphery
-					didn't — so we switched to a real calibration in
-					<code>python-testing/camera_calibration_charuco.py</code> and
-					<code>python-testing/split_calibrate_generate_luts_and_compare.py</code>: CLAHE + 3×
-					upscale, <code>cv2.findChessboardCornersSB</code> (fallback
-					<code>findChessboardCorners</code> + <code>cornerSubPix</code>),
-					<code>cv2.fisheye.calibrate</code> for each lens independently, then
-					<code>estimateNewCameraMatrixForUndistortRectify</code> →
-					<code>initUndistortRectifyMap</code> → <code>remap</code>. The resulting per-pixel
-					gather map was packed into the 21-bit <code>{'{valid, src_y, src_x}'}</code> ROM
-					format the RTL consumes, and then <code>fit_polynomial_mapper_from_lut.py</code> plus
-					<code>radial_shift_degree_sweep.py</code> compressed the LUT into a small fixed-point
-					polynomial — a 2D deg-6 fit in Q18 (<code>stereo_poly_mapper_deg6_q18.v</code>) and a
-					purely radial fit in Q15 with an optional center shift
-					(<code>radial_scale_lut_q15.vh</code>, consumed by
-					<code>stereo_radial_mapper_q15*.v</code>).
-				</p>
-				<p>
-					<strong>The radial form is what survives in the final RTL</strong>, because the full
-					per-pixel LUT is too big to keep on-chip alongside the SAD engine and framebuffers,
-					and the radial fit gives us most of the quality at a tiny fraction of the DSP/LUT
-					cost.
-				</p>
-
-				{/* ---- 6.2 Radial Mapper FSM ---- */}
+				{/* ---- Radial Mapper FSM ---- */}
 				<h3>The 11-stage Radial Mapper</h3>
 				<p>
-					The radial mapper is the hardware that consumes that baked Q15 LUT. It uses an
-					<strong>11-stage fixed-point pipeline</strong>: it consumes one destination pixel per
-					cycle and emits the corresponding source coordinate eleven cycles later — calculating
-					the vector to the image center, applying a radial coefficient, interpolating from the
-					calibration lookup table, and applying center offsets.
+					The radial mapper is the hardware that consumes the per-camera calibration. It uses
+					an <strong>11-stage fixed-point pipeline</strong>: it consumes one destination pixel
+					per cycle and emits the corresponding source coordinate eleven cycles later —
+					calculating the vector to the image center, applying a radial coefficient,
+					interpolating from the calibration lookup table, and applying center offsets.
 				</p>
 				<Figure
 					src="/diagrams/radial_mapper_fsm.svg"
@@ -503,83 +575,13 @@ import Figure from '../components/Figure.astro';
 				<h2>SAD Block-Matching Engine</h2>
 				<p>
 					With a rectified frame sitting in the row-banked SRAM, the block matcher is the
-					engine that actually computes disparities. Before describing the hardware itself,
-					it's worth walking through the Python experiments that fixed every parameter the
-					hardware later consumed — window size, max disparity, cost metric, and the one
-					algorithmic feature we couldn't fit in time.
+					engine that actually computes disparities. The choice of SAD as the cost function,
+					the 9×9 window, the max-disparity bound, and the SGM penalty formulation were all
+					locked in during the Python sweep work — see the
+					<a href="#software-prep">Software Preprocessing</a> section for that pathfinding.
+					The hardware below implements the winner of those sweeps.
 				</p>
 
-				{/* ---- 7.1 Matcher pathfinding ---- */}
-				<h3>Picking the matcher and operating point</h3>
-				<p>
-					The first family of disparity experiments was about finding the right matcher and
-					operating point. We wrapped OpenCV's own <code>cv2.StereoBM_create</code> and
-					<code>cv2.StereoSGBM_create</code> (with P1 = 8·blockSize², P2 = 32·blockSize²,
-					<code>STEREO_SGBM_MODE_SGBM_3WAY</code>, <code>disp12MaxDiff=1</code>,
-					<code>uniquenessRatio=10</code>, <code>speckleWindowSize=50</code>) as a golden
-					reference, then wrote a custom windowed-SAD from scratch using <code>cv2.boxFilter</code>
-					for per-disparity aggregation and a winner-take-all loop over <code>d</code>. Both an
-					L1 and L2 cost mode are in there. The sweep driver walked
-					<code>--sad-max-disparities "24,32,48,64,96"</code> against
-					<code>--sad-window-sizes "5,7,9,11,13"</code> while a parallel script pushed the
-					window/disparity grid much further (window 3..33, max-disp up to 224) to see how flat
-					the metric landscape was.
-				</p>
-				<p>
-					The result of those sweeps is what's now hardwired into
-					<code>block_match_pkg.sv</code> and <code>stereo_config.h</code>: <strong>9×9 window,
-					max-disp 32</strong>. That number isn't arbitrary — it's the smallest setting in the
-					sweep where the disparity map kept its structure on our specific 320×288 captures. The
-					SGBM penalty constants came along the same way — <code>SGM_P1</code>/<code>SGM_P2</code>
-					exposed as parameters on <code>block_match.sv</code> follow the same
-					P1 = 8·blockSize² / P2 = 32·blockSize² formula OpenCV uses internally.
-				</p>
-
-				<h3>Changing the cost metric</h3>
-				<p>
-					The second family of experiments was about changing the cost metric and the input
-					preprocessing, because raw absolute-difference SAD struggled on low-texture and
-					exposure-mismatched regions. We added a <strong>Census + Hamming</strong> path that
-					replaces each pixel with the sign-pattern of its neighbours and matches by
-					<code>boxFilter</code> of popcount-XOR distances — invariant to local brightness
-					differences between the two cameras, which we definitely had. The sweep driver also
-					runs a preprocessing grid over CLAHE on/off and median-blur kernel size 0/3/5, and a
-					Gaussian high-pass before matching.
-				</p>
-				<p>
-					The conclusion was mixed: Census beat SAD on textureless surfaces but was worse on
-					edges with real depth steps, and the preprocessing knobs each fixed one failure mode
-					while introducing another. <strong>So the RTL keeps SAD as the primary path</strong>
-					and leaves Census as a viable parallel implementation we can swap in, with CLAHE and
-					median-blur retained as preprocessing knobs on the C reference rather than burned into
-					the RTL.
-				</p>
-
-				<h3>The 2D (d, v<sub>y</sub>) search that didn't ship</h3>
-				<p>
-					The third family was the 2D <code>(d, v_y)</code> search — and this one is the
-					cleanest example of a Python finding that we could not get into the FPGA in time.
-					OpenCV <code>cv2.StereoSGBM</code> assumes perfectly horizontal epipolar lines, and
-					ours weren't: each lens was calibrated independently, the two cameras weren't
-					perfectly co-planar, and remapping left sub-pixel row error that SGBM could not see
-					through. So <code>compute_sad_custom_vshift</code> and <code>compute_sgbm_vshift</code>
-					in <code>methods.py</code> extend the search to also try ±V row shifts of the right
-					image for each candidate <code>d</code> and keep the <code>(d, v_y)</code> pair with
-					minimum aggregated cost. Real images need 1–3 rows of slack across the frame.
-				</p>
-				<p>
-					This was the largest-quality jump in the whole Python sweep, and it's a first-class
-					parameter in the C reference matcher (<code>v_shift</code> / <code>--vshift</code>).
-					On the RTL side we never shipped it — getting the row-banked on-chip RAM, the
-					per-stripe SAD units, and the radial-mapper ring buffer all routed and meeting timing
-					ate the project's time budget, and a 2D <code>(d, v_y)</code> search would have
-					needed the SAD engine to consume <code>BLOCK_SIZE + 2·V_SHIFT</code> rows of
-					right-image context at once instead of <code>BLOCK_SIZE</code>. So vshift stayed a
-					Python/C-only result that explains the residual row-misalignment artifacts we still
-					see in the FPGA disparity map.
-				</p>
-
-				{/* ---- 7.2 The hardware engine ---- */}
 				<h3>The parallel-stripe architecture</h3>
 				<p>
 					The block matcher implements a parallel-stripe sweep over the rectified frames through

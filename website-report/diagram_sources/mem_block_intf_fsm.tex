@@ -1,0 +1,160 @@
+\documentclass[tikz,border=10pt]{standalone}
+\input{diagram_style.tex}
+
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily,
+  %===========================================================
+  % State node styles
+  %===========================================================
+  state/.style={
+    rectangle,
+    rounded corners=6pt,
+    draw=line,
+    line width=0.9pt,
+    fill=paper,
+    align=center,
+    minimum width=42mm,
+    minimum height=22mm,
+    inner xsep=6pt,
+    inner ysep=6pt
+  },
+  state_idle/.style={state, fill=memory,  draw=green!50!black},
+  state_busy/.style={state, fill=compute, draw=orange!70!black},
+  %===========================================================
+  % Transitions
+  %===========================================================
+  fwd/.style={
+    -{Latex[length=3mm,width=2.2mm]},
+    draw=cornellred,
+    line width=1.0pt,
+    rounded corners=3pt
+  },
+  back/.style={
+    -{Latex[length=3mm,width=2.2mm]},
+    draw=cornellred!85!black,
+    line width=1.0pt
+  },
+  selfloop/.style={
+    -{Latex[length=2.4mm,width=1.6mm]},
+    draw=cornellred!65!black,
+    line width=0.8pt
+  },
+  %===========================================================
+  % Labels
+  %===========================================================
+  cond/.style={
+    font=\sffamily\small,
+    text=ink,
+    fill=paper,
+    inner sep=2pt,
+    align=center
+  },
+  loopcond/.style={
+    font=\sffamily\scriptsize,
+    text=muted,
+    align=center,
+    inner sep=1pt
+  }
+]
+  \node[title] at (0, 5.0) {SAD Matcher \, --- \, finite state machine};
+
+  %====================================================================
+  % Five states laid out left-to-right as the forward pipeline.
+  % Idle is the entry point; the four busy states sit in the
+  % three-loop body (disparity / pixel / row), closed by the
+  % back-edges below.
+  %====================================================================
+  \node[state_idle] (idle)  at (-14.0,  0)
+    {\textbf{Idle}\\[3pt]
+     \scriptsize{}wait for the top-level\\
+     \scriptsize{}FSM to assert \texttt{go}};
+
+  \node[state_busy] (phase) at ( -7.0,  0)
+    {\textbf{Load Blocks}\\[3pt]
+     \scriptsize{}prefetch the initial\\
+     \scriptsize{}reference + match\\
+     \scriptsize{}block buffers};
+
+  \node[state_busy] (disp)  at (  0.0,  0)
+    {\textbf{Sweep Disparities}\\[3pt]
+     \scriptsize{}slide the match window\\
+     \scriptsize{}through every candidate,\\
+     \scriptsize{}keep the best score};
+
+  \node[state_busy] (xinc)  at (  7.0,  0)
+    {\textbf{Advance Pixel}\\[3pt]
+     \scriptsize{}emit the winner,\\
+     \scriptsize{}shift the reference\\
+     \scriptsize{}right by one column};
+
+  \node[state_busy] (rinc)  at ( 14.0,  0)
+    {\textbf{Advance Row}\\[3pt]
+     \scriptsize{}drop down one row,\\
+     \scriptsize{}reload both block\\
+     \scriptsize{}buffers from memory};
+
+  %====================================================================
+  % Forward path -- along the top, left to right.
+  % Labels read like sentences; no raw register names appear.
+  %====================================================================
+  \draw[fwd] (idle.east)  -- node[cond, above]{start}                  (phase.west);
+  \draw[fwd] (phase.east) -- node[cond, above]{buffers loaded}         (disp.west);
+  \draw[fwd] (disp.east)  -- node[cond, above]{tried every candidate}  (xinc.west);
+  \draw[fwd] (xinc.east)  -- node[cond, above]{end of the row}         (rinc.west);
+
+  %====================================================================
+  % Self-loops -- above each busy state. They represent the
+  % multi-cycle work the state does internally (waiting on the
+  % prefetcher, walking disparity, etc.).
+  %====================================================================
+  \path[selfloop] (phase) edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{still fetching\\initial rows} (phase);
+
+  \path[selfloop] (disp)  edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{another\\candidate\\to score} (disp);
+
+  \path[selfloop] (xinc)  edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{still loading\\next pixel's\\columns} (xinc);
+
+  \path[selfloop] (rinc)  edge[loop above, in=60, out=120, looseness=6, min distance=10mm]
+    node[loopcond, above]{still fetching\\the next row's\\block buffers} (rinc);
+
+  %====================================================================
+  % Back-edges -- below the pipeline. The further back an edge
+  % reaches, the deeper its arc dips, so the three nested loops
+  % visibly stack:
+  %
+  %   inner  :  Advance Pixel -> Sweep Disparities   (next pixel)
+  %   middle :  Advance Row   -> Sweep Disparities   (row reloaded)
+  %   outer  :  Advance Row   -> Idle                (stripe done)
+  %====================================================================
+  \draw[back] (xinc.south)  to[out=-90, in=-90, looseness=1.0]
+    node[cond, midway, below=1pt]{ready for the next pixel}
+    (disp.south);
+
+  \draw[back] (rinc.south)  to[out=-90, in=-90, looseness=1.0]
+    node[cond, midway, below=1pt]{new row reloaded}
+    (disp.south);
+
+  \draw[back] (rinc.south)  to[out=-90, in=-90, looseness=1.0]
+    node[cond, midway, below=1pt]{stripe finished}
+    (idle.south);
+
+  %====================================================================
+  % Footer / legend
+  %====================================================================
+  \node[labeltext, align=left, anchor=north west] at (-16, -7.5)
+    {\textbf{Three nested loops, outermost to innermost:}\\[3pt]
+     \quad \textbf{Stripe}     \, (\textit{Advance Row})        --- step down inside the stripe; reload both block buffers for the new row.\\
+     \quad \textbf{Scanline}   \, (\textit{Advance Pixel})      --- step the reference block right across the current row.\\
+     \quad \textbf{Disparity}  \, (\textit{Sweep Disparities})  --- try every candidate match for the current pixel.\\[5pt]
+     \emph{Load Blocks} and \emph{Advance Row} share the same Verilog state (\texttt{INCR\_PHASE}); they are drawn\\
+     separately to make the entry path (first row of a stripe) and the loop body (every later row) easy to follow.\\[3pt]
+     Each compute unit (one per stripe) runs this FSM in lockstep, sharing the FSM's memory request stream\\
+     but tracking its own best disparity for the slice of rows it owns.};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,135 @@
+\documentclass[tikz,border=10pt]{standalone}
+\input{diagram_style.tex}
+
+% Put groupbox backdrops on their own layer so they don't paint over
+% the blocks they enclose.
+\pgfdeclarelayer{background}
+\pgfsetlayers{background,main}
+
+\begin{document}
+\begin{tikzpicture}[node distance=10mm and 12mm]
+
+  % ============================================================
+  % Title + one-line story
+  % ============================================================
+  \node[title] (ttl) at (0, 7.6)
+    {Stereo Vision System Architecture};
+  \node[labeltext, font=\sffamily\small, text=muted, below=1mm of ttl]
+    (tagline)
+    {Endless loop: \textbf{capture} $\to$ \textbf{rectify} $\to$ \textbf{match} $\to$ \textbf{display}};
+
+  % ============================================================
+  % Main pipeline (single horizontal row, left to right)
+  % ============================================================
+  \node[camera_block] (cams) at (-12.5, 2.0)
+    {Dual PAL/NTSC\\cameras};
+  \node[camera_block, right=of cams] (decoder)
+    {Video-In subsystem\\NTSC decoder};
+  \node[memory_block, right=of decoder] (vdma)
+    {Video-In DMA\\Avalon master};
+
+  \node[memory_block, right=22mm of vdma,
+        minimum width=44mm, minimum height=14mm] (sram)
+    {\textbf{Row-banked on-chip RAM}\\custom 200 rows $\times$ 1024\,B\\
+     \textit{200\,B per cycle read port}};
+
+  \node[compute_block, right=22mm of sram,
+        minimum width=48mm, minimum height=18mm] (sad)
+    {\textbf{24-way parallel SAD}\\$9\times9$ window \, $\cdot$ \, max-disp 32\\
+     1-D SGM smoothness penalty};
+
+  \node[memory_block, right=of sad] (vbuf)
+    {SDRAM VGA\\framebuffer\\640$\times$480, 8-bit};
+  \node[display_block, right=of vbuf] (vga)
+    {VGA display\\disparity map};
+
+  % ============================================================
+  % Rectify loop (above SRAM): radial undistorter rewrites in place
+  % ============================================================
+  \node[compute_block, above=20mm of sram,
+        minimum width=44mm, minimum height=12mm] (mapper)
+    {Q15 radial undistorter\\\textit{rewrites SRAM in place}};
+
+  % ============================================================
+  % HPS control rail (below the pipeline)
+  % ============================================================
+  \node[verify_block, below=22mm of sad,
+        minimum width=140mm, minimum height=12mm] (hps)
+    {\textbf{ARM HPS} — parameter tuning only (no load-bearing compute)\\
+     PIO registers: min/max disparity \, $\cdot$ \, SGM P1, P2 \, $\cdot$ \, edge enable};
+
+  % ============================================================
+  % Data-flow arrows (red): cameras -> SRAM -> SAD -> VGA
+  % ============================================================
+  \draw[dataflow] (cams)    -- (decoder)
+    node[labeltext, midway, above]{analog};
+  \draw[dataflow] (decoder) -- (vdma);
+  \draw[dataflow] (vdma)    -- (sram)
+    node[labeltext, midway, above, align=center]
+      {640$\times$288\\PAL frame};
+
+  \draw[dataflow] (sram) -- (sad)
+    node[labeltext, midway, above, align=center]
+      {full-column\\read};
+
+  \draw[dataflow] (sad)  -- (vbuf)
+    node[labeltext, midway, above]{disparity};
+  \draw[dataflow] (vbuf) -- (vga);
+
+  % ============================================================
+  % Rectify loop arrows: SRAM -> mapper -> SRAM, in-place rewrite
+  % Two parallel vertical arrows, well separated, with labels on
+  % opposite sides so they never overlap.
+  % ============================================================
+  \draw[dataflow]
+    ($(sram.north) + (-11mm,0)$) -- ($(mapper.south) + (-11mm,0)$)
+    node[labeltext, midway, left=1pt]{read raw};
+  \draw[dataflow]
+    ($(mapper.south) + (11mm,0)$) -- ($(sram.north) + (11mm,0)$)
+    node[labeltext, midway, right=1pt]{write rectified};
+
+  % ============================================================
+  % HPS control wires (dashed, grey): tune SAD + colorize
+  % ============================================================
+  \draw[flow, dashed] (hps.north -| sad.south) -- (sad.south)
+    node[labeltext, pos=0.55, right=1pt, align=left]
+      {params\\(P1, P2,\\min/max d)};
+  \draw[flow, dashed] (hps.north -| vbuf.south) -- (vbuf.south);
+
+  % ============================================================
+  % Phase group boxes — on background layer so they sit behind
+  % their blocks and don't clip the data-flow arrows.
+  % No labels on the groupboxes themselves; phase headers are
+  % rendered explicitly below at a single shared baseline so the
+  % four phases read like column titles instead of floating wherever
+  % a particular cluster happens to top out.
+  % ============================================================
+  \begin{pgfonlayer}{background}
+    \node[groupbox, fit=(cams)(decoder)(vdma)] (gb_capture) {};
+    \node[groupbox, fit=(sram)(mapper)]       (gb_rectify) {};
+    \node[groupbox, fit=(sad), inner sep=10pt] (gb_match)   {};
+    \node[groupbox, fit=(vbuf)(vga)]           (gb_display) {};
+  \end{pgfonlayer}
+
+  % Phase headers — each header is centered on the x-midpoint of its
+  % groupbox and sits a fixed 4mm above the top of that groupbox.
+  \node[font=\sffamily\bfseries\small, text=cornellred,
+        above=2mm of gb_capture.north]  {CAPTURE};
+  \node[font=\sffamily\bfseries\small, text=cornellred,
+        above=2mm of gb_rectify.north]  {RECTIFY \,(in place)};
+  \node[font=\sffamily\bfseries\small, text=cornellred,
+        above=2mm of gb_match.north]    {MATCH};
+  \node[font=\sffamily\bfseries\small, text=cornellred,
+        above=2mm of gb_display.north]  {DISPLAY};
+
+  % ============================================================
+  % Footnote: legend for arrow conventions
+  % ============================================================
+  \node[labeltext, anchor=north west, align=left]
+        at ($(hps.south west) + (0,-4mm)$)
+    {\textcolor{cornellred}{\textbf{---$\!>$}} \, data-flow (pixels, disparities)
+     \hspace{6mm}
+     \textcolor{muted}{\textbf{- - $\!>$}} \, control / parameter wires (PIO)};
+
+\end{tikzpicture}
+\end{document}

@@ -1,0 +1,231 @@
+\documentclass[tikz,border=10pt]{standalone}
+\input{diagram_style.tex}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,decorations.markings}
+
+\begin{document}
+\begin{tikzpicture}[x=1mm,y=1mm,
+  stage/.style={
+    rectangle, rounded corners=2pt, draw=line, line width=0.7pt,
+    fill=paper, align=center, font=\sffamily\scriptsize,
+    inner xsep=3pt, inner ysep=3pt,
+    minimum height=8mm
+  },
+  pipe/.style={
+    -{Latex[length=2.4mm,width=1.6mm]},
+    draw=cornellred,
+    line width=0.9pt
+  },
+  axislbl/.style={font=\sffamily\scriptsize, text=muted}
+]
+
+  \node[title, anchor=west] at (0, 138) {Radial Lens Rectification};
+  \node[labeltext, anchor=west] at (0, 132)
+    {Each output pixel asks: \emph{where in the distorted capture did this point really come from?}
+     A 1-D radial scale LUT answers that for any radius.};
+
+  %====================================================================
+  % SECTION A -- picture-level view: captured vs rectified
+  %====================================================================
+  \node[labeltext, anchor=west, text=ink, font=\sffamily\small\bfseries]
+    at (0, 122) {A.\,\,The lens warps everything radially around the optical center};
+
+  % --- Captured (distorted) -------------------------------------------
+  % Rings of equal "physical-world radius" sit at the radii LUT(r^2)*r,
+  % i.e. bunched up at the edge because scale(r) shrinks with radius.
+  % Captured ring radii derived from the real LUT values:
+  %   r_dst   4 ->  4.6   (scale ~1.16)
+  %   r_dst   8 ->  8.8   (scale ~1.10)
+  %   r_dst  12 -> 12.2   (scale ~1.02)
+  %   r_dst  16 -> 14.7   (scale ~0.92)
+  %   r_dst  20 -> 16.4   (scale ~0.82)
+  \draw[fill=camera, draw=blue!45!black, line width=0.7pt]
+    (3, 70) rectangle (78, 116);
+  \node[labeltext, anchor=south, font=\sffamily\small] at (40.5, 116.5)
+    {captured (lens distorted)};
+
+  \begin{scope}
+    \clip (3,70) rectangle (78,116);
+    \foreach \r in {4.6, 8.8, 12.2, 14.7, 16.4} {
+      \draw[muted!70, line width=0.3pt] (40.5, 93) circle (\r);
+    }
+    \foreach \a in {0, 45, 90, 135, 180, 225, 270, 315} {
+      \draw[muted!50, line width=0.25pt, dashed]
+        (40.5, 93) -- ({40.5+19*cos(\a)}, {93+19*sin(\a)});
+    }
+  \end{scope}
+
+  \filldraw[cornellred] (40.5, 93) circle (0.6);
+  \node[labeltext, anchor=north, text=cornellred, font=\sffamily\scriptsize]
+    at (40.5, 91.5) {lens center};
+
+  % source pixel: same angle as P, but at the COMPRESSED radius.
+  % angle = 30 deg, dst radius = 18, scale ~= 0.86, src radius ~= 15.5
+  \coordinate (capP) at ({40.5 + 15.5*cos(30)}, {93 + 15.5*sin(30)});
+  \filldraw[cornellred] (capP) circle (0.9);
+  \node[labeltext, anchor=west, text=cornellred,
+        font=\sffamily\scriptsize] at ({40.5 + 15.5*cos(30) + 1.2}, {93 + 15.5*sin(30) + 0.5}) {source};
+
+  % --- Rectify arrow ---------------------------------------------------
+  \draw[-{Latex[length=4mm,width=3mm]}, draw=cornellred, line width=1.4pt]
+    (82, 93) -- (104, 93);
+  \node[labeltext, anchor=south, text=cornellred, font=\sffamily\small\bfseries]
+    at (93, 94) {rectify};
+  \node[labeltext, anchor=north, text=muted, font=\sffamily\scriptsize]
+    at (93, 92) {(per-side, per-pixel)};
+
+  % --- Rectified (straight) -------------------------------------------
+  \draw[fill=memory, draw=green!45!black, line width=0.7pt]
+    (108, 70) rectangle (183, 116);
+  \node[labeltext, anchor=south, font=\sffamily\small] at (145.5, 116.5)
+    {rectified output};
+
+  \begin{scope}
+    \clip (108,70) rectangle (183,116);
+    % evenly-spaced rings: 4, 8, 12, 16, 20
+    \foreach \r in {4, 8, 12, 16, 20} {
+      \draw[muted!70, line width=0.3pt] (145.5, 93) circle (\r);
+    }
+    \foreach \a in {0, 45, 90, 135, 180, 225, 270, 315} {
+      \draw[muted!50, line width=0.25pt, dashed]
+        (145.5, 93) -- ({145.5+22*cos(\a)}, {93+22*sin(\a)});
+    }
+  \end{scope}
+
+  \filldraw[cornellred] (145.5, 93) circle (0.6);
+  \node[labeltext, anchor=north, text=cornellred, font=\sffamily\scriptsize]
+    at (145.5, 91.5) {lens center};
+
+  % output pixel P: angle 30 deg, dst radius = 18 (between rings 4 & 5)
+  \coordinate (rectP) at ({145.5 + 18*cos(30)}, {93 + 18*sin(30)});
+  \filldraw[cornellred] (rectP) circle (0.9);
+  \node[labeltext, anchor=west, text=cornellred,
+        font=\sffamily\scriptsize] at ({145.5 + 18*cos(30) + 1.2}, {93 + 18*sin(30) + 0.5}) {P\,(output)};
+
+  % faint arc connecting P -> source to show "where did this pixel come from"
+  \draw[dashed, draw=cornellred!75, line width=0.5pt,
+        -{Latex[length=2mm,width=1.4mm]}]
+    (rectP) to[bend left=18] (capP);
+  \node[labeltext, anchor=south, text=cornellred!85!black,
+        font=\sffamily\scriptsize\itshape] at (93, 108)
+    {same ring count, smaller radius};
+
+  %====================================================================
+  % SECTION B -- per-pixel math
+  %====================================================================
+  \node[labeltext, anchor=west, text=ink, font=\sffamily\small\bfseries]
+    at (0, 62) {B.\,\,For each output pixel P, look up its radial scale and project back to the source};
+
+  % -- geometric inset on the left -------------------------------------
+  \draw[fill=paper, draw=line, line width=0.6pt]
+    (3, 14) rectangle (58, 56);
+  \node[labeltext, anchor=south, font=\sffamily\scriptsize] at (30.5, 14.5)
+    {geometry around one output pixel};
+
+  \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (12, 25) -- (54, 25);
+  \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (12, 22) -- (12, 53);
+  \node[axislbl, anchor=west] at (54, 25) {$x$};
+  \node[axislbl, anchor=south] at (12, 53) {$y$};
+
+  \filldraw[cornellred] (12, 25) circle (0.6);
+  \node[axislbl, anchor=north east, text=cornellred] at (12, 24.5) {$C$};
+
+  \filldraw[cornellred] (44, 45) circle (0.9);
+  \node[axislbl, anchor=south west, text=cornellred] at (44, 45) {$P$};
+
+  \draw[muted, line width=0.4pt, dashed] (44, 25) -- (44, 45);
+  \draw[muted, line width=0.4pt, dashed] (12, 45) -- (44, 45);
+  \node[axislbl, anchor=north] at (28, 25) {$dx$};
+  \node[axislbl, anchor=east] at (12, 35) {$dy$};
+
+  \draw[cornellred, line width=0.9pt, -{Latex[length=2mm,width=1.4mm]}]
+    (12, 25) -- (44, 45);
+  \node[axislbl, anchor=south east, text=cornellred] at (33, 36)
+    {$r=\sqrt{dx^2+dy^2}$};
+
+  % -- pipeline on the right -------------------------------------------
+  \node[stage, anchor=west, minimum width=58mm] (s1) at (64, 52)
+    {dst pixel\\[1pt]$(dst_x,\,dst_y)$};
+  \node[stage, anchor=west, minimum width=58mm] (s2) at (64, 41)
+    {center offset\\[1pt]$dx,\,dy = P - C_{dst}$};
+  \node[stage, anchor=west, minimum width=58mm] (s3) at (64, 30)
+    {squared radius\\[1pt]$r^2 = dx^2 + dy^2$};
+  \node[stage, anchor=west, minimum width=58mm, fill=compute] (s4) at (64, 19)
+    {\textbf{LUT lookup}\\[1pt]$\mathrm{scale} = \mathrm{LUT}[r^2]$
+     \;(linearly interpolated)};
+  \node[stage, anchor=west, minimum width=58mm] (s5) at (64, 8)
+    {source pixel\\[1pt]$\mathit{src} = C_{src} + \mathrm{scale}\cdot(dx,\,dy)$};
+
+  \draw[pipe] (s1.south) -- (s2.north);
+  \draw[pipe] (s2.south) -- (s3.north);
+  \draw[pipe] (s3.south) -- (s4.north);
+  \draw[pipe] (s4.south) -- (s5.north);
+
+  %====================================================================
+  % SECTION C -- the LUT itself (full-width strip at the bottom)
+  %====================================================================
+  \node[labeltext, anchor=west, text=ink, font=\sffamily\small\bfseries]
+    at (0, 0) {C.\,\,The lookup table -- scale vs.\ squared radius, 256 Q15 entries per side};
+
+  \begin{scope}[shift={(0, -32)}]
+    \draw[fill=paper, draw=line, line width=0.6pt] (3, 0) rectangle (183, 26);
+
+    % axes
+    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (10, 4) -- (179, 4);
+    \draw[muted!80, line width=0.35pt, -{Latex[length=2mm]}] (10, 4) -- (10, 23);
+    \node[axislbl, anchor=west] at (179, 4) {$r^2$ LUT index};
+    \node[axislbl, anchor=east] at (10, 23) {scale};
+
+    % scale guides
+    \draw[line!40, line width=0.3pt, dashed] (10, 20) -- (176, 20);
+    \draw[line!40, line width=0.3pt, dashed] (10, 13) -- (176, 13);
+    \draw[line!40, line width=0.3pt, dashed] (10,  4) -- (176,  4);
+    \node[axislbl, anchor=east] at (9.5, 20) {1.18};
+    \node[axislbl, anchor=east] at (9.5, 13) {1.00};
+    \node[axislbl, anchor=east] at (9.5,  4) {0.76};
+
+    % x-tick labels
+    \node[axislbl, anchor=north] at ( 10, 3.5) {0};
+    \node[axislbl, anchor=north] at ( 95, 3.5) {127};
+    \node[axislbl, anchor=north] at (176, 3.5) {255};
+
+    % LUT curve -- coordinates from the real Q15 values
+    % (left side: 1.179, 1.094, 1.023, 0.966, 0.915, 0.866, 0.826, 0.794, 0.759
+    %  sampled at idx 0, 31, 63, 95, 127, 159, 191, 223, 255).
+    % y = 4 + (s-0.76)/0.42 * 16 ;  x = 10 + (idx/255) * 166
+    \draw[cornellred, line width=1.2pt, line cap=round]
+      plot[smooth, tension=0.4] coordinates {
+        ( 10.00, 19.96)
+        ( 30.18, 16.72)
+        ( 50.95, 14.02)
+        ( 71.73, 11.85)
+        ( 92.51,  9.90)
+        (113.28,  8.04)
+        (134.06,  6.51)
+        (154.84,  5.30)
+        (176.00,  3.96)
+      };
+
+    % sample-lookup marker near idx 160
+    \filldraw[cornellred] (114.10, 8.0) circle (0.7);
+    \draw[muted, line width=0.3pt, dashed] (114.10, 4) -- (114.10, 8.0);
+    \draw[muted, line width=0.3pt, dashed] (10, 8.0) -- (114.10, 8.0);
+    \node[axislbl, anchor=west, text=cornellred, align=left]
+      at (115.5, 11) {scale read out for this $r^2$};
+
+    % left/right LUT note
+    \node[axislbl, anchor=north east, align=right] at (175, 22)
+      {one LUT per camera ({\itshape left}, {\itshape right})\\
+       each camera has its own center + distortion profile};
+  \end{scope}
+
+  %====================================================================
+  % Footer
+  %====================================================================
+  \node[labeltext, anchor=north west, align=left] at (0, -38)
+    {\textbf{Why a LUT?}\,
+     The closed-form radial correction ($1 + k_1 r^2 + k_2 r^4 + \dots$) is expensive in hardware.
+     Precomputing $\mathrm{scale}(r^2)$ off-line and storing 256 Q15 samples per camera turns the
+     per-pixel correction into a fast table read plus a linear interpolation between two adjacent samples.};
+
+\end{tikzpicture}
+\end{document}

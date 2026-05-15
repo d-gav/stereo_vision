@@ -1,0 +1,120 @@
+\documentclass[tikz,border=10pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[x=1mm,y=1mm]
+
+  % ============================================================
+  % Title + tagline
+  % ============================================================
+  \node[title, anchor=west] at (-2, 92)
+    {Software Preprocessing --- Keeping Python, C, and RTL Aligned};
+  \node[labeltext, font=\sffamily\small, text=muted, anchor=west, align=left]
+       at (-2, 85)
+    {Python serves three roles at once: \textbf{algorithm playground},
+     \textbf{golden reference}, and \textbf{offline calibration tool}.
+     The C and RTL implementations consume what it produces.};
+
+  % ============================================================
+  % Row 1 --- source data
+  % ============================================================
+  \node[camera_block, minimum width=50mm, minimum height=14mm]
+       (pairs) at (40, 70)
+       {Captured stereo pairs\\\textit{640$\times$288 PAL frames}};
+  \node[camera_block, minimum width=50mm, minimum height=14mm]
+       (calib) at (100, 70)
+       {CharUco calibration images\\\textit{per-lens fisheye target}};
+
+  % ============================================================
+  % Row 2 --- Python pipeline (centerpiece)
+  % ============================================================
+  \node[verify_block, minimum width=140mm, minimum height=22mm]
+       (python) at (70, 45)
+       {\textbf{Python pipeline} \, --- \, single algorithmic source of truth\\[2pt]
+        parameter sweeps (window, max-disp, $v_y$ shift) \, $\cdot$ \,
+        fisheye intrinsic fit \, $\cdot$ \, polynomial LUT compression\\
+        matcher zoo (SAD-L1/L2 \, $\cdot$ \, Census+Hamming \, $\cdot$ \, OpenCV BM/SGBM)
+        used as the reference output};
+
+  % ============================================================
+  % Row 3 --- two artifacts Python emits for the FPGA build
+  % ============================================================
+  \node[memory_block, minimum width=52mm, minimum height=28mm]
+       (params) at (40, 14)
+       {\textbf{Shared parameter contract}\\[1pt]
+        \texttt{window\_w/h}\\
+        \texttt{max\_disparity}, \texttt{v\_shift}\\
+        \texttt{BLOCK\_SIZE}, \texttt{MAX\_DISP}\\
+        \texttt{NUM\_SAD\_UNITS}, \texttt{swap\_lr}};
+
+  \node[memory_block, minimum width=52mm, minimum height=28mm]
+       (lut) at (100, 14)
+       {\textbf{Calibration LUT}\\[1pt]
+        Q15 radial scale table\\
+        per-camera optical centers\\
+        baked into \texttt{.memh} ROMs\\
+        the FPGA bitstream loads};
+
+  % ============================================================
+  % Row 4 --- two consumers (terminal in this view; their disparity
+  % outputs go to the rest of the system shown in the other figures).
+  % ============================================================
+  \node[compute_block, minimum width=52mm, minimum height=18mm]
+       (cmodel) at (40, -20)
+       {\textbf{C matcher} \, (HPS)\\
+        NEON SAD, board runtime,\\
+        mirrors Python parameters};
+
+  \node[compute_block, minimum width=52mm, minimum height=18mm]
+       (rtl) at (100, -20)
+       {\textbf{RTL matcher} \, (Cyclone V)\\
+        24-way parallel SAD,\\
+        Icarus tb + on-chip bring-up};
+
+  % ============================================================
+  % Row 5 --- alignment-principle note. NOT a comparison stage:
+  % nothing flows into it. It is a freestanding annotation, styled
+  % with a cornellred outline to read as a callout rather than a
+  % data-flow block.
+  % ============================================================
+  \node[draw=cornellred, line width=0.9pt, rounded corners=4pt, fill=paper,
+        text width=140mm, align=left, inner sep=8pt,
+        font=\sffamily\small, text=ink]
+       (note) at (70, -45)
+       {\textbf{Why this alignment matters.} \,
+        With shared parameter names and a single rectification LUT,
+        \emph{nothing about the configuration can drift between the three
+        paths}. When the RTL disparity map looks visibly wrong at a
+        setting where Python's looks right, the bug has to be in the
+        RTL --- \textcolor{cornellred}{not in a config mismatch.}};
+
+  % ============================================================
+  % Arrows
+  % ============================================================
+
+  % Sources -> Python (solid red)
+  \draw[dataflow] (pairs.south) -- (pairs.south |- python.north);
+  \draw[dataflow] (calib.south) -- (calib.south |- python.north);
+
+  % Python -> artifacts (solid red)
+  \draw[dataflow] (python.south -| params.north) -- (params.north)
+       node[labeltext, midway, right=1pt]{parameters};
+  \draw[dataflow] (python.south -| lut.north) -- (lut.north)
+       node[labeltext, midway, right=1pt]{calibration};
+
+  % Shared-params bus (dashed grey). Drops from params, runs along
+  % y=-4, then feeds C straight down and RTL from the west side
+  % (so it never collides with the solid LUT wire entering RTL.north).
+  \draw[flow, dashed] (params.south) -- (40, -4) -- (cmodel.north);
+  \draw[flow, dashed] (params.south) -- (40, -4) -- (70, -4) --
+                      (70, -20) -- (rtl.west);
+  \node[labeltext, anchor=south] at (55, -3) {shared parameters};
+
+  % Calibration LUT -> RTL only (solid red, into RTL.north)
+  \draw[dataflow] (lut.south) -- (rtl.north)
+       node[labeltext, midway, right=1pt]{LUT ROM};
+
+  % No arrows feed the bottom note. It is a principle, not a stage.
+
+\end{tikzpicture}
+\end{document}

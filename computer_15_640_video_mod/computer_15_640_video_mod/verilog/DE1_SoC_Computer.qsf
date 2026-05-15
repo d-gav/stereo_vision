@@ -980,11 +980,13 @@ set_global_assignment -name VERILOG_FILE fill_pipe_controller.v
 set_global_assignment -name VERILOG_FILE stereo_bram_bank.v
 set_global_assignment -name VERILOG_FILE stereo_stripe_bram.v
 set_global_assignment -name SYSTEMVERILOG_FILE column_prefetch.v
+set_global_assignment -name SYSTEMVERILOG_FILE column_prefetch_parallel.sv
+set_global_assignment -name SYSTEMVERILOG_FILE undistort_ring.sv
 set_global_assignment -name SYSTEMVERILOG_FILE mem_block_intf_d.v
 set_global_assignment -name SYSTEMVERILOG_FILE sliding_window.sv
 set_global_assignment -name SYSTEMVERILOG_FILE block_match.sv
-set_global_assignment -name SMART_RECOMPILE ON
-set_global_assignment -name PROJECT_IP_REGENERATION_POLICY ALWAYS_REGENERATE_IP
+set_global_assignment -name FITTER_EFFORT "AUTO FIT"
 set_global_assignment -name AUTO_EXPORT_VER_COMPATIBLE_DB ON
-set_global_assignment -name PROJECT_OUTPUT_DIRECTORY output_files
+set_global_assignment -name PROJECT_IP_REGENERATION_POLICY ALWAYS_REGENERATE_IP
+set_global_assignment -name SMART_RECOMPILE ON
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top

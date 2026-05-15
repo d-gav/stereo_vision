@@ -1,0 +1,35 @@
+\documentclass[tikz,border=8pt]{standalone}
+\input{diagram_style.tex}
+
+\begin{document}
+\begin{tikzpicture}[x=1mm,y=1mm]
+  \node[title, anchor=west] at (0, 64) {SAD Block Matching};
+
+  \draw[fill=camera, draw=blue!45!black, line width=0.8pt] (0,18) rectangle (50,54);
+  \draw[fill=camera, draw=blue!45!black, line width=0.8pt] (72,18) rectangle (142,54);
+
+  \node[labeltext] at (25,58) {left image};
+  \node[labeltext] at (107,58) {right image search row};
+
+  \draw[fill=cornellred!18, draw=cornellred, line width=1.2pt] (20,32) rectangle (33,45);
+  \node[labeltext, text=cornellred] at (26.5,28) {reference\\window};
+
+  \draw[fill=compute, draw=orange!65!black, line width=1pt] (108,32) rectangle (121,45);
+  \draw[fill=compute, draw=orange!65!black, line width=0.8pt, dashed] (93,32) rectangle (106,45);
+  \draw[fill=compute, draw=orange!65!black, line width=0.8pt, dashed] (123,32) rectangle (136,45);
+
+  \draw[flow, dashed] (33,39) -- (93,39);
+  \draw[flow, dashed] (33,39) -- (108,39);
+  \draw[flow, dashed] (33,39) -- (123,39);
+
+  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (93,30) -- (136,30);
+  \node[labeltext] at (114.5,24) {candidate disparities\\0..MAX\_DISP};
+
+  \node[compute_block, minimum width=38mm] (sad) at (71,5) {$\sum |L(x,y)-R(x-d,y)|$\\choose lowest cost};
+  \draw[dataflow] (26.5,32) .. controls (35,12) and (51,8) .. (sad.west);
+  \draw[dataflow] (114.5,32) .. controls (104,12) and (92,8) .. (sad.east);
+
+  \node[labeltext, align=center] at (71,-8) {The winning shift becomes the disparity value for the center pixel.};
+\end{tikzpicture}
+\end{document}
+

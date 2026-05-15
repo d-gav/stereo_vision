@@ -4,121 +4,129 @@
 
 `timescale 1 ps / 1 ps
 module Computer_System (
-		inout  wire        av_config_SDAT,                               //                        av_config.SDAT
-		output wire        av_config_SCLK,                               //                                 .SCLK
-		input  wire        clock_bridge_0_in_clk_clk,                    //            clock_bridge_0_in_clk.clk
-		input  wire [27:0] ebab_video_in_external_interface_address,     // ebab_video_in_external_interface.address
-		input  wire        ebab_video_in_external_interface_byte_enable, //                                 .byte_enable
-		input  wire        ebab_video_in_external_interface_read,        //                                 .read
-		input  wire        ebab_video_in_external_interface_write,       //                                 .write
-		input  wire [7:0]  ebab_video_in_external_interface_write_data,  //                                 .write_data
-		output wire        ebab_video_in_external_interface_acknowledge, //                                 .acknowledge
-		output wire [7:0]  ebab_video_in_external_interface_read_data,   //                                 .read_data
-		output wire        hps_io_hps_io_emac1_inst_TX_CLK,              //                           hps_io.hps_io_emac1_inst_TX_CLK
-		output wire        hps_io_hps_io_emac1_inst_TXD0,                //                                 .hps_io_emac1_inst_TXD0
-		output wire        hps_io_hps_io_emac1_inst_TXD1,                //                                 .hps_io_emac1_inst_TXD1
-		output wire        hps_io_hps_io_emac1_inst_TXD2,                //                                 .hps_io_emac1_inst_TXD2
-		output wire        hps_io_hps_io_emac1_inst_TXD3,                //                                 .hps_io_emac1_inst_TXD3
-		input  wire        hps_io_hps_io_emac1_inst_RXD0,                //                                 .hps_io_emac1_inst_RXD0
-		inout  wire        hps_io_hps_io_emac1_inst_MDIO,                //                                 .hps_io_emac1_inst_MDIO
-		output wire        hps_io_hps_io_emac1_inst_MDC,                 //                                 .hps_io_emac1_inst_MDC
-		input  wire        hps_io_hps_io_emac1_inst_RX_CTL,              //                                 .hps_io_emac1_inst_RX_CTL
-		output wire        hps_io_hps_io_emac1_inst_TX_CTL,              //                                 .hps_io_emac1_inst_TX_CTL
-		input  wire        hps_io_hps_io_emac1_inst_RX_CLK,              //                                 .hps_io_emac1_inst_RX_CLK
-		input  wire        hps_io_hps_io_emac1_inst_RXD1,                //                                 .hps_io_emac1_inst_RXD1
-		input  wire        hps_io_hps_io_emac1_inst_RXD2,                //                                 .hps_io_emac1_inst_RXD2
-		input  wire        hps_io_hps_io_emac1_inst_RXD3,                //                                 .hps_io_emac1_inst_RXD3
-		inout  wire        hps_io_hps_io_qspi_inst_IO0,                  //                                 .hps_io_qspi_inst_IO0
-		inout  wire        hps_io_hps_io_qspi_inst_IO1,                  //                                 .hps_io_qspi_inst_IO1
-		inout  wire        hps_io_hps_io_qspi_inst_IO2,                  //                                 .hps_io_qspi_inst_IO2
-		inout  wire        hps_io_hps_io_qspi_inst_IO3,                  //                                 .hps_io_qspi_inst_IO3
-		output wire        hps_io_hps_io_qspi_inst_SS0,                  //                                 .hps_io_qspi_inst_SS0
-		output wire        hps_io_hps_io_qspi_inst_CLK,                  //                                 .hps_io_qspi_inst_CLK
-		inout  wire        hps_io_hps_io_sdio_inst_CMD,                  //                                 .hps_io_sdio_inst_CMD
-		inout  wire        hps_io_hps_io_sdio_inst_D0,                   //                                 .hps_io_sdio_inst_D0
-		inout  wire        hps_io_hps_io_sdio_inst_D1,                   //                                 .hps_io_sdio_inst_D1
-		output wire        hps_io_hps_io_sdio_inst_CLK,                  //                                 .hps_io_sdio_inst_CLK
-		inout  wire        hps_io_hps_io_sdio_inst_D2,                   //                                 .hps_io_sdio_inst_D2
-		inout  wire        hps_io_hps_io_sdio_inst_D3,                   //                                 .hps_io_sdio_inst_D3
-		inout  wire        hps_io_hps_io_usb1_inst_D0,                   //                                 .hps_io_usb1_inst_D0
-		inout  wire        hps_io_hps_io_usb1_inst_D1,                   //                                 .hps_io_usb1_inst_D1
-		inout  wire        hps_io_hps_io_usb1_inst_D2,                   //                                 .hps_io_usb1_inst_D2
-		inout  wire        hps_io_hps_io_usb1_inst_D3,                   //                                 .hps_io_usb1_inst_D3
-		inout  wire        hps_io_hps_io_usb1_inst_D4,                   //                                 .hps_io_usb1_inst_D4
-		inout  wire        hps_io_hps_io_usb1_inst_D5,                   //                                 .hps_io_usb1_inst_D5
-		inout  wire        hps_io_hps_io_usb1_inst_D6,                   //                                 .hps_io_usb1_inst_D6
-		inout  wire        hps_io_hps_io_usb1_inst_D7,                   //                                 .hps_io_usb1_inst_D7
-		input  wire        hps_io_hps_io_usb1_inst_CLK,                  //                                 .hps_io_usb1_inst_CLK
-		output wire        hps_io_hps_io_usb1_inst_STP,                  //                                 .hps_io_usb1_inst_STP
-		input  wire        hps_io_hps_io_usb1_inst_DIR,                  //                                 .hps_io_usb1_inst_DIR
-		input  wire        hps_io_hps_io_usb1_inst_NXT,                  //                                 .hps_io_usb1_inst_NXT
-		output wire        hps_io_hps_io_spim1_inst_CLK,                 //                                 .hps_io_spim1_inst_CLK
-		output wire        hps_io_hps_io_spim1_inst_MOSI,                //                                 .hps_io_spim1_inst_MOSI
-		input  wire        hps_io_hps_io_spim1_inst_MISO,                //                                 .hps_io_spim1_inst_MISO
-		output wire        hps_io_hps_io_spim1_inst_SS0,                 //                                 .hps_io_spim1_inst_SS0
-		input  wire        hps_io_hps_io_uart0_inst_RX,                  //                                 .hps_io_uart0_inst_RX
-		output wire        hps_io_hps_io_uart0_inst_TX,                  //                                 .hps_io_uart0_inst_TX
-		inout  wire        hps_io_hps_io_i2c0_inst_SDA,                  //                                 .hps_io_i2c0_inst_SDA
-		inout  wire        hps_io_hps_io_i2c0_inst_SCL,                  //                                 .hps_io_i2c0_inst_SCL
-		inout  wire        hps_io_hps_io_i2c1_inst_SDA,                  //                                 .hps_io_i2c1_inst_SDA
-		inout  wire        hps_io_hps_io_i2c1_inst_SCL,                  //                                 .hps_io_i2c1_inst_SCL
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO09,               //                                 .hps_io_gpio_inst_GPIO09
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO35,               //                                 .hps_io_gpio_inst_GPIO35
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO40,               //                                 .hps_io_gpio_inst_GPIO40
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO41,               //                                 .hps_io_gpio_inst_GPIO41
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO48,               //                                 .hps_io_gpio_inst_GPIO48
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO53,               //                                 .hps_io_gpio_inst_GPIO53
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO54,               //                                 .hps_io_gpio_inst_GPIO54
-		inout  wire        hps_io_hps_io_gpio_inst_GPIO61,               //                                 .hps_io_gpio_inst_GPIO61
-		output wire [14:0] memory_mem_a,                                 //                           memory.mem_a
-		output wire [2:0]  memory_mem_ba,                                //                                 .mem_ba
-		output wire        memory_mem_ck,                                //                                 .mem_ck
-		output wire        memory_mem_ck_n,                              //                                 .mem_ck_n
-		output wire        memory_mem_cke,                               //                                 .mem_cke
-		output wire        memory_mem_cs_n,                              //                                 .mem_cs_n
-		output wire        memory_mem_ras_n,                             //                                 .mem_ras_n
-		output wire        memory_mem_cas_n,                             //                                 .mem_cas_n
-		output wire        memory_mem_we_n,                              //                                 .mem_we_n
-		output wire        memory_mem_reset_n,                           //                                 .mem_reset_n
-		inout  wire [31:0] memory_mem_dq,                                //                                 .mem_dq
-		inout  wire [3:0]  memory_mem_dqs,                               //                                 .mem_dqs
-		inout  wire [3:0]  memory_mem_dqs_n,                             //                                 .mem_dqs_n
-		output wire        memory_mem_odt,                               //                                 .mem_odt
-		output wire [3:0]  memory_mem_dm,                                //                                 .mem_dm
-		input  wire        memory_oct_rzqin,                             //                                 .oct_rzqin
-		input  wire [31:0] pio_test_test_export,                         //                    pio_test_test.export
-		output wire [12:0] sdram_addr,                                   //                            sdram.addr
-		output wire [1:0]  sdram_ba,                                     //                                 .ba
-		output wire        sdram_cas_n,                                  //                                 .cas_n
-		output wire        sdram_cke,                                    //                                 .cke
-		output wire        sdram_cs_n,                                   //                                 .cs_n
-		inout  wire [7:0]  sdram_dq,                                     //                                 .dq
-		output wire        sdram_dqm,                                    //                                 .dqm
-		output wire        sdram_ras_n,                                  //                                 .ras_n
-		output wire        sdram_we_n,                                   //                                 .we_n
-		output wire        sdram_clk_clk,                                //                        sdram_clk.clk
-		input  wire        system_pll_ref_clk_clk,                       //               system_pll_ref_clk.clk
-		input  wire        system_pll_ref_reset_reset,                   //             system_pll_ref_reset.reset
-		output wire        vga_CLK,                                      //                              vga.CLK
-		output wire        vga_HS,                                       //                                 .HS
-		output wire        vga_VS,                                       //                                 .VS
-		output wire        vga_BLANK,                                    //                                 .BLANK
-		output wire        vga_SYNC,                                     //                                 .SYNC
-		output wire [7:0]  vga_R,                                        //                                 .R
-		output wire [7:0]  vga_G,                                        //                                 .G
-		output wire [7:0]  vga_B,                                        //                                 .B
-		input  wire        vga_pll_ref_clk_clk,                          //                  vga_pll_ref_clk.clk
-		input  wire        vga_pll_ref_reset_reset,                      //                vga_pll_ref_reset.reset
-		input  wire        video_in_TD_CLK27,                            //                         video_in.TD_CLK27
-		input  wire [7:0]  video_in_TD_DATA,                             //                                 .TD_DATA
-		input  wire        video_in_TD_HS,                               //                                 .TD_HS
-		input  wire        video_in_TD_VS,                               //                                 .TD_VS
-		input  wire        video_in_clk27_reset,                         //                                 .clk27_reset
-		output wire        video_in_TD_RESET,                            //                                 .TD_RESET
-		output wire        video_in_overflow_flag                        //                                 .overflow_flag
+		inout  wire          av_config_SDAT,                               //                         av_config.SDAT
+		output wire          av_config_SCLK,                               //                                  .SCLK
+		input  wire          clock_bridge_0_in_clk_clk,                    //             clock_bridge_0_in_clk.clk
+		input  wire [27:0]   ebab_video_in_external_interface_address,     //  ebab_video_in_external_interface.address
+		input  wire          ebab_video_in_external_interface_byte_enable, //                                  .byte_enable
+		input  wire          ebab_video_in_external_interface_read,        //                                  .read
+		input  wire          ebab_video_in_external_interface_write,       //                                  .write
+		input  wire [7:0]    ebab_video_in_external_interface_write_data,  //                                  .write_data
+		output wire          ebab_video_in_external_interface_acknowledge, //                                  .acknowledge
+		output wire [7:0]    ebab_video_in_external_interface_read_data,   //                                  .read_data
+		output wire          hps_io_hps_io_emac1_inst_TX_CLK,              //                            hps_io.hps_io_emac1_inst_TX_CLK
+		output wire          hps_io_hps_io_emac1_inst_TXD0,                //                                  .hps_io_emac1_inst_TXD0
+		output wire          hps_io_hps_io_emac1_inst_TXD1,                //                                  .hps_io_emac1_inst_TXD1
+		output wire          hps_io_hps_io_emac1_inst_TXD2,                //                                  .hps_io_emac1_inst_TXD2
+		output wire          hps_io_hps_io_emac1_inst_TXD3,                //                                  .hps_io_emac1_inst_TXD3
+		input  wire          hps_io_hps_io_emac1_inst_RXD0,                //                                  .hps_io_emac1_inst_RXD0
+		inout  wire          hps_io_hps_io_emac1_inst_MDIO,                //                                  .hps_io_emac1_inst_MDIO
+		output wire          hps_io_hps_io_emac1_inst_MDC,                 //                                  .hps_io_emac1_inst_MDC
+		input  wire          hps_io_hps_io_emac1_inst_RX_CTL,              //                                  .hps_io_emac1_inst_RX_CTL
+		output wire          hps_io_hps_io_emac1_inst_TX_CTL,              //                                  .hps_io_emac1_inst_TX_CTL
+		input  wire          hps_io_hps_io_emac1_inst_RX_CLK,              //                                  .hps_io_emac1_inst_RX_CLK
+		input  wire          hps_io_hps_io_emac1_inst_RXD1,                //                                  .hps_io_emac1_inst_RXD1
+		input  wire          hps_io_hps_io_emac1_inst_RXD2,                //                                  .hps_io_emac1_inst_RXD2
+		input  wire          hps_io_hps_io_emac1_inst_RXD3,                //                                  .hps_io_emac1_inst_RXD3
+		inout  wire          hps_io_hps_io_qspi_inst_IO0,                  //                                  .hps_io_qspi_inst_IO0
+		inout  wire          hps_io_hps_io_qspi_inst_IO1,                  //                                  .hps_io_qspi_inst_IO1
+		inout  wire          hps_io_hps_io_qspi_inst_IO2,                  //                                  .hps_io_qspi_inst_IO2
+		inout  wire          hps_io_hps_io_qspi_inst_IO3,                  //                                  .hps_io_qspi_inst_IO3
+		output wire          hps_io_hps_io_qspi_inst_SS0,                  //                                  .hps_io_qspi_inst_SS0
+		output wire          hps_io_hps_io_qspi_inst_CLK,                  //                                  .hps_io_qspi_inst_CLK
+		inout  wire          hps_io_hps_io_sdio_inst_CMD,                  //                                  .hps_io_sdio_inst_CMD
+		inout  wire          hps_io_hps_io_sdio_inst_D0,                   //                                  .hps_io_sdio_inst_D0
+		inout  wire          hps_io_hps_io_sdio_inst_D1,                   //                                  .hps_io_sdio_inst_D1
+		output wire          hps_io_hps_io_sdio_inst_CLK,                  //                                  .hps_io_sdio_inst_CLK
+		inout  wire          hps_io_hps_io_sdio_inst_D2,                   //                                  .hps_io_sdio_inst_D2
+		inout  wire          hps_io_hps_io_sdio_inst_D3,                   //                                  .hps_io_sdio_inst_D3
+		inout  wire          hps_io_hps_io_usb1_inst_D0,                   //                                  .hps_io_usb1_inst_D0
+		inout  wire          hps_io_hps_io_usb1_inst_D1,                   //                                  .hps_io_usb1_inst_D1
+		inout  wire          hps_io_hps_io_usb1_inst_D2,                   //                                  .hps_io_usb1_inst_D2
+		inout  wire          hps_io_hps_io_usb1_inst_D3,                   //                                  .hps_io_usb1_inst_D3
+		inout  wire          hps_io_hps_io_usb1_inst_D4,                   //                                  .hps_io_usb1_inst_D4
+		inout  wire          hps_io_hps_io_usb1_inst_D5,                   //                                  .hps_io_usb1_inst_D5
+		inout  wire          hps_io_hps_io_usb1_inst_D6,                   //                                  .hps_io_usb1_inst_D6
+		inout  wire          hps_io_hps_io_usb1_inst_D7,                   //                                  .hps_io_usb1_inst_D7
+		input  wire          hps_io_hps_io_usb1_inst_CLK,                  //                                  .hps_io_usb1_inst_CLK
+		output wire          hps_io_hps_io_usb1_inst_STP,                  //                                  .hps_io_usb1_inst_STP
+		input  wire          hps_io_hps_io_usb1_inst_DIR,                  //                                  .hps_io_usb1_inst_DIR
+		input  wire          hps_io_hps_io_usb1_inst_NXT,                  //                                  .hps_io_usb1_inst_NXT
+		output wire          hps_io_hps_io_spim1_inst_CLK,                 //                                  .hps_io_spim1_inst_CLK
+		output wire          hps_io_hps_io_spim1_inst_MOSI,                //                                  .hps_io_spim1_inst_MOSI
+		input  wire          hps_io_hps_io_spim1_inst_MISO,                //                                  .hps_io_spim1_inst_MISO
+		output wire          hps_io_hps_io_spim1_inst_SS0,                 //                                  .hps_io_spim1_inst_SS0
+		input  wire          hps_io_hps_io_uart0_inst_RX,                  //                                  .hps_io_uart0_inst_RX
+		output wire          hps_io_hps_io_uart0_inst_TX,                  //                                  .hps_io_uart0_inst_TX
+		inout  wire          hps_io_hps_io_i2c0_inst_SDA,                  //                                  .hps_io_i2c0_inst_SDA
+		inout  wire          hps_io_hps_io_i2c0_inst_SCL,                  //                                  .hps_io_i2c0_inst_SCL
+		inout  wire          hps_io_hps_io_i2c1_inst_SDA,                  //                                  .hps_io_i2c1_inst_SDA
+		inout  wire          hps_io_hps_io_i2c1_inst_SCL,                  //                                  .hps_io_i2c1_inst_SCL
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO09,               //                                  .hps_io_gpio_inst_GPIO09
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO35,               //                                  .hps_io_gpio_inst_GPIO35
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO40,               //                                  .hps_io_gpio_inst_GPIO40
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO41,               //                                  .hps_io_gpio_inst_GPIO41
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO48,               //                                  .hps_io_gpio_inst_GPIO48
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO53,               //                                  .hps_io_gpio_inst_GPIO53
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO54,               //                                  .hps_io_gpio_inst_GPIO54
+		inout  wire          hps_io_hps_io_gpio_inst_GPIO61,               //                                  .hps_io_gpio_inst_GPIO61
+		output wire [14:0]   memory_mem_a,                                 //                            memory.mem_a
+		output wire [2:0]    memory_mem_ba,                                //                                  .mem_ba
+		output wire          memory_mem_ck,                                //                                  .mem_ck
+		output wire          memory_mem_ck_n,                              //                                  .mem_ck_n
+		output wire          memory_mem_cke,                               //                                  .mem_cke
+		output wire          memory_mem_cs_n,                              //                                  .mem_cs_n
+		output wire          memory_mem_ras_n,                             //                                  .mem_ras_n
+		output wire          memory_mem_cas_n,                             //                                  .mem_cas_n
+		output wire          memory_mem_we_n,                              //                                  .mem_we_n
+		output wire          memory_mem_reset_n,                           //                                  .mem_reset_n
+		inout  wire [31:0]   memory_mem_dq,                                //                                  .mem_dq
+		inout  wire [3:0]    memory_mem_dqs,                               //                                  .mem_dqs
+		inout  wire [3:0]    memory_mem_dqs_n,                             //                                  .mem_dqs_n
+		output wire          memory_mem_odt,                               //                                  .mem_odt
+		output wire [3:0]    memory_mem_dm,                                //                                  .mem_dm
+		input  wire          memory_oct_rzqin,                             //                                  .oct_rzqin
+		input  wire          onchip_sram_1_sad_port_re,                    //            onchip_sram_1_sad_port.re
+		input  wire [9:0]    onchip_sram_1_sad_port_col,                   //                                  .col
+		output wire [1599:0] onchip_sram_1_sad_port_rdata,                 //                                  .rdata
+		input  wire          onchip_sram_s1_lock_lock,                     //               onchip_sram_s1_lock.lock
+		output wire [31:0]   pio_big_pen_external_connection_export,       //   pio_big_pen_external_connection.export
+		output wire [31:0]   pio_max_disp_external_connection_export,      //  pio_max_disp_external_connection.export
+		output wire [31:0]   pio_min_disp_external_connection_export,      //  pio_min_disp_external_connection.export
+		output wire [31:0]   pio_small_pen_external_connection_export,     // pio_small_pen_external_connection.export
+		input  wire [31:0]   pio_test_test_export,                         //                     pio_test_test.export
+		output wire [12:0]   sdram_addr,                                   //                             sdram.addr
+		output wire [1:0]    sdram_ba,                                     //                                  .ba
+		output wire          sdram_cas_n,                                  //                                  .cas_n
+		output wire          sdram_cke,                                    //                                  .cke
+		output wire          sdram_cs_n,                                   //                                  .cs_n
+		inout  wire [7:0]    sdram_dq,                                     //                                  .dq
+		output wire          sdram_dqm,                                    //                                  .dqm
+		output wire          sdram_ras_n,                                  //                                  .ras_n
+		output wire          sdram_we_n,                                   //                                  .we_n
+		output wire          sdram_clk_clk,                                //                         sdram_clk.clk
+		input  wire          system_pll_ref_clk_clk,                       //                system_pll_ref_clk.clk
+		input  wire          system_pll_ref_reset_reset,                   //              system_pll_ref_reset.reset
+		output wire          vga_CLK,                                      //                               vga.CLK
+		output wire          vga_HS,                                       //                                  .HS
+		output wire          vga_VS,                                       //                                  .VS
+		output wire          vga_BLANK,                                    //                                  .BLANK
+		output wire          vga_SYNC,                                     //                                  .SYNC
+		output wire [7:0]    vga_R,                                        //                                  .R
+		output wire [7:0]    vga_G,                                        //                                  .G
+		output wire [7:0]    vga_B,                                        //                                  .B
+		input  wire          vga_pll_ref_clk_clk,                          //                   vga_pll_ref_clk.clk
+		input  wire          vga_pll_ref_reset_reset,                      //                 vga_pll_ref_reset.reset
+		input  wire          video_in_TD_CLK27,                            //                          video_in.TD_CLK27
+		input  wire [7:0]    video_in_TD_DATA,                             //                                  .TD_DATA
+		input  wire          video_in_TD_HS,                               //                                  .TD_HS
+		input  wire          video_in_TD_VS,                               //                                  .TD_VS
+		input  wire          video_in_clk27_reset,                         //                                  .clk27_reset
+		output wire          video_in_TD_RESET,                            //                                  .TD_RESET
+		output wire          video_in_overflow_flag                        //                                  .overflow_flag
 	);
 
-	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, AV_Config:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, SDRAM:clk, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, mm_interconnect_4:System_PLL_sys_clk_clk, pio_0:clk, rst_controller:clk, rst_controller_004:clk]
+	wire          system_pll_sys_clk_clk;                                                       // System_PLL:sys_clk_clk -> [ARM_A9_HPS:f2h_axi_clk, ARM_A9_HPS:h2f_axi_clk, ARM_A9_HPS:h2f_lw_axi_clk, AV_Config:clk, Onchip_SRAM:clk, Pixel_DMA_Addr_Translation:clk, SDRAM:clk, VGA_Subsystem:sys_clk_clk, Video_In_DMA_Addr_Translation:clk, Video_In_Subsystem:sys_clk_clk, mm_interconnect_0:System_PLL_sys_clk_clk, mm_interconnect_1:System_PLL_sys_clk_clk, mm_interconnect_2:System_PLL_sys_clk_clk, mm_interconnect_3:System_PLL_sys_clk_clk, mm_interconnect_4:System_PLL_sys_clk_clk, pio_0:clk, pio_big_pen:clk, pio_max_disp:clk, pio_min_disp:clk, pio_small_pen:clk, rst_controller:clk, rst_controller_002:clk]
 	wire    [7:0] ebab_video_in_avalon_master_readdata;                                         // mm_interconnect_0:EBAB_video_in_avalon_master_readdata -> EBAB_video_in:avalon_readdata
 	wire          ebab_video_in_avalon_master_waitrequest;                                      // mm_interconnect_0:EBAB_video_in_avalon_master_waitrequest -> EBAB_video_in:avalon_waitrequest
 	wire          ebab_video_in_avalon_master_byteenable;                                       // EBAB_video_in:avalon_byteenable -> mm_interconnect_0:EBAB_video_in_avalon_master_byteenable
@@ -177,12 +185,14 @@ module Computer_System (
 	wire          mm_interconnect_0_sdram_s1_readdatavalid;                                     // SDRAM:za_valid -> mm_interconnect_0:SDRAM_s1_readdatavalid
 	wire          mm_interconnect_0_sdram_s1_write;                                             // mm_interconnect_0:SDRAM_s1_write -> SDRAM:az_wr_n
 	wire    [7:0] mm_interconnect_0_sdram_s1_writedata;                                         // mm_interconnect_0:SDRAM_s1_writedata -> SDRAM:az_data
-	wire          mm_interconnect_0_onchip_sram_s2_chipselect;                                  // mm_interconnect_0:Onchip_SRAM_s2_chipselect -> Onchip_SRAM:chipselect2
-	wire    [7:0] mm_interconnect_0_onchip_sram_s2_readdata;                                    // Onchip_SRAM:readdata2 -> mm_interconnect_0:Onchip_SRAM_s2_readdata
-	wire   [17:0] mm_interconnect_0_onchip_sram_s2_address;                                     // mm_interconnect_0:Onchip_SRAM_s2_address -> Onchip_SRAM:address2
-	wire          mm_interconnect_0_onchip_sram_s2_write;                                       // mm_interconnect_0:Onchip_SRAM_s2_write -> Onchip_SRAM:write2
-	wire    [7:0] mm_interconnect_0_onchip_sram_s2_writedata;                                   // mm_interconnect_0:Onchip_SRAM_s2_writedata -> Onchip_SRAM:writedata2
-	wire          mm_interconnect_0_onchip_sram_s2_clken;                                       // mm_interconnect_0:Onchip_SRAM_s2_clken -> Onchip_SRAM:clken2
+	wire          mm_interconnect_0_onchip_sram_s2_chipselect;                                  // mm_interconnect_0:Onchip_SRAM_s2_chipselect -> Onchip_SRAM:s2_chipselect
+	wire   [31:0] mm_interconnect_0_onchip_sram_s2_readdata;                                    // Onchip_SRAM:s2_readdata -> mm_interconnect_0:Onchip_SRAM_s2_readdata
+	wire   [15:0] mm_interconnect_0_onchip_sram_s2_address;                                     // mm_interconnect_0:Onchip_SRAM_s2_address -> Onchip_SRAM:s2_address
+	wire          mm_interconnect_0_onchip_sram_s2_read;                                        // mm_interconnect_0:Onchip_SRAM_s2_read -> Onchip_SRAM:s2_read
+	wire    [3:0] mm_interconnect_0_onchip_sram_s2_byteenable;                                  // mm_interconnect_0:Onchip_SRAM_s2_byteenable -> Onchip_SRAM:s2_byteenable
+	wire          mm_interconnect_0_onchip_sram_s2_write;                                       // mm_interconnect_0:Onchip_SRAM_s2_write -> Onchip_SRAM:s2_write
+	wire   [31:0] mm_interconnect_0_onchip_sram_s2_writedata;                                   // mm_interconnect_0:Onchip_SRAM_s2_writedata -> Onchip_SRAM:s2_writedata
+	wire          mm_interconnect_0_onchip_sram_s2_clken;                                       // mm_interconnect_0:Onchip_SRAM_s2_clken -> Onchip_SRAM:s2_clken
 	wire          mm_interconnect_0_vga_subsystem_char_buffer_slave_chipselect;                 // mm_interconnect_0:VGA_Subsystem_char_buffer_slave_chipselect -> VGA_Subsystem:char_buffer_slave_chipselect
 	wire    [7:0] mm_interconnect_0_vga_subsystem_char_buffer_slave_readdata;                   // VGA_Subsystem:char_buffer_slave_readdata -> mm_interconnect_0:VGA_Subsystem_char_buffer_slave_readdata
 	wire          mm_interconnect_0_vga_subsystem_char_buffer_slave_waitrequest;                // VGA_Subsystem:char_buffer_slave_waitrequest -> mm_interconnect_0:VGA_Subsystem_char_buffer_slave_waitrequest
@@ -248,6 +258,26 @@ module Computer_System (
 	wire   [31:0] mm_interconnect_1_video_in_subsystem_edge_detection_control_slave_writedata;  // mm_interconnect_1:Video_In_Subsystem_edge_detection_control_slave_writedata -> Video_In_Subsystem:edge_detection_control_slave_writedata
 	wire   [31:0] mm_interconnect_1_pio_0_s1_readdata;                                          // pio_0:readdata -> mm_interconnect_1:pio_0_s1_readdata
 	wire    [1:0] mm_interconnect_1_pio_0_s1_address;                                           // mm_interconnect_1:pio_0_s1_address -> pio_0:address
+	wire          mm_interconnect_1_pio_small_pen_s1_chipselect;                                // mm_interconnect_1:pio_small_pen_s1_chipselect -> pio_small_pen:chipselect
+	wire   [31:0] mm_interconnect_1_pio_small_pen_s1_readdata;                                  // pio_small_pen:readdata -> mm_interconnect_1:pio_small_pen_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_small_pen_s1_address;                                   // mm_interconnect_1:pio_small_pen_s1_address -> pio_small_pen:address
+	wire          mm_interconnect_1_pio_small_pen_s1_write;                                     // mm_interconnect_1:pio_small_pen_s1_write -> pio_small_pen:write_n
+	wire   [31:0] mm_interconnect_1_pio_small_pen_s1_writedata;                                 // mm_interconnect_1:pio_small_pen_s1_writedata -> pio_small_pen:writedata
+	wire          mm_interconnect_1_pio_big_pen_s1_chipselect;                                  // mm_interconnect_1:pio_big_pen_s1_chipselect -> pio_big_pen:chipselect
+	wire   [31:0] mm_interconnect_1_pio_big_pen_s1_readdata;                                    // pio_big_pen:readdata -> mm_interconnect_1:pio_big_pen_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_big_pen_s1_address;                                     // mm_interconnect_1:pio_big_pen_s1_address -> pio_big_pen:address
+	wire          mm_interconnect_1_pio_big_pen_s1_write;                                       // mm_interconnect_1:pio_big_pen_s1_write -> pio_big_pen:write_n
+	wire   [31:0] mm_interconnect_1_pio_big_pen_s1_writedata;                                   // mm_interconnect_1:pio_big_pen_s1_writedata -> pio_big_pen:writedata
+	wire          mm_interconnect_1_pio_max_disp_s1_chipselect;                                 // mm_interconnect_1:pio_max_disp_s1_chipselect -> pio_max_disp:chipselect
+	wire   [31:0] mm_interconnect_1_pio_max_disp_s1_readdata;                                   // pio_max_disp:readdata -> mm_interconnect_1:pio_max_disp_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_max_disp_s1_address;                                    // mm_interconnect_1:pio_max_disp_s1_address -> pio_max_disp:address
+	wire          mm_interconnect_1_pio_max_disp_s1_write;                                      // mm_interconnect_1:pio_max_disp_s1_write -> pio_max_disp:write_n
+	wire   [31:0] mm_interconnect_1_pio_max_disp_s1_writedata;                                  // mm_interconnect_1:pio_max_disp_s1_writedata -> pio_max_disp:writedata
+	wire          mm_interconnect_1_pio_min_disp_s1_chipselect;                                 // mm_interconnect_1:pio_min_disp_s1_chipselect -> pio_min_disp:chipselect
+	wire   [31:0] mm_interconnect_1_pio_min_disp_s1_readdata;                                   // pio_min_disp:readdata -> mm_interconnect_1:pio_min_disp_s1_readdata
+	wire    [1:0] mm_interconnect_1_pio_min_disp_s1_address;                                    // mm_interconnect_1:pio_min_disp_s1_address -> pio_min_disp:address
+	wire          mm_interconnect_1_pio_min_disp_s1_write;                                      // mm_interconnect_1:pio_min_disp_s1_write -> pio_min_disp:write_n
+	wire   [31:0] mm_interconnect_1_pio_min_disp_s1_writedata;                                  // mm_interconnect_1:pio_min_disp_s1_writedata -> pio_min_disp:writedata
 	wire   [31:0] mm_interconnect_1_pixel_dma_addr_translation_slave_readdata;                  // Pixel_DMA_Addr_Translation:slave_readdata -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_readdata
 	wire          mm_interconnect_1_pixel_dma_addr_translation_slave_waitrequest;               // Pixel_DMA_Addr_Translation:slave_waitrequest -> mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_waitrequest
 	wire    [1:0] mm_interconnect_1_pixel_dma_addr_translation_slave_address;                   // mm_interconnect_1:Pixel_DMA_Addr_Translation_slave_address -> Pixel_DMA_Addr_Translation:slave_address
@@ -292,22 +322,22 @@ module Computer_System (
 	wire   [31:0] video_in_subsystem_video_in_dma_master_address;                               // Video_In_Subsystem:video_in_dma_master_address -> mm_interconnect_4:Video_In_Subsystem_video_in_dma_master_address
 	wire          video_in_subsystem_video_in_dma_master_write;                                 // Video_In_Subsystem:video_in_dma_master_write -> mm_interconnect_4:Video_In_Subsystem_video_in_dma_master_write
 	wire    [7:0] video_in_subsystem_video_in_dma_master_writedata;                             // Video_In_Subsystem:video_in_dma_master_writedata -> mm_interconnect_4:Video_In_Subsystem_video_in_dma_master_writedata
-	wire          mm_interconnect_4_onchip_sram_s1_chipselect;                                  // mm_interconnect_4:Onchip_SRAM_s1_chipselect -> Onchip_SRAM:chipselect
-	wire    [7:0] mm_interconnect_4_onchip_sram_s1_readdata;                                    // Onchip_SRAM:readdata -> mm_interconnect_4:Onchip_SRAM_s1_readdata
-	wire   [17:0] mm_interconnect_4_onchip_sram_s1_address;                                     // mm_interconnect_4:Onchip_SRAM_s1_address -> Onchip_SRAM:address
-	wire          mm_interconnect_4_onchip_sram_s1_write;                                       // mm_interconnect_4:Onchip_SRAM_s1_write -> Onchip_SRAM:write
-	wire    [7:0] mm_interconnect_4_onchip_sram_s1_writedata;                                   // mm_interconnect_4:Onchip_SRAM_s1_writedata -> Onchip_SRAM:writedata
-	wire          mm_interconnect_4_onchip_sram_s1_clken;                                       // mm_interconnect_4:Onchip_SRAM_s1_clken -> Onchip_SRAM:clken
+	wire          mm_interconnect_4_onchip_sram_s1_chipselect;                                  // mm_interconnect_4:Onchip_SRAM_s1_chipselect -> Onchip_SRAM:s1_chipselect
+	wire    [7:0] mm_interconnect_4_onchip_sram_s1_readdata;                                    // Onchip_SRAM:s1_readdata -> mm_interconnect_4:Onchip_SRAM_s1_readdata
+	wire   [17:0] mm_interconnect_4_onchip_sram_s1_address;                                     // mm_interconnect_4:Onchip_SRAM_s1_address -> Onchip_SRAM:s1_address
+	wire          mm_interconnect_4_onchip_sram_s1_read;                                        // mm_interconnect_4:Onchip_SRAM_s1_read -> Onchip_SRAM:s1_read
+	wire          mm_interconnect_4_onchip_sram_s1_write;                                       // mm_interconnect_4:Onchip_SRAM_s1_write -> Onchip_SRAM:s1_write
+	wire    [7:0] mm_interconnect_4_onchip_sram_s1_writedata;                                   // mm_interconnect_4:Onchip_SRAM_s1_writedata -> Onchip_SRAM:s1_writedata
+	wire          mm_interconnect_4_onchip_sram_s1_clken;                                       // mm_interconnect_4:Onchip_SRAM_s1_clken -> Onchip_SRAM:s1_clken
 	wire   [31:0] arm_a9_hps_f2h_irq0_irq;                                                      // irq_mapper:sender_irq -> ARM_A9_HPS:f2h_irq_p0
 	wire   [31:0] arm_a9_hps_f2h_irq1_irq;                                                      // irq_mapper_001:sender_irq -> ARM_A9_HPS:f2h_irq_p1
-	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [AV_Config:reset, Onchip_SRAM:reset, Pixel_DMA_Addr_Translation:reset, SDRAM:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:AV_Config_reset_reset_bridge_in_reset_reset, mm_interconnect_1:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Onchip_SRAM_reset1_reset_bridge_in_reset_reset, mm_interconnect_4:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, rst_translator:in_reset]
-	wire          rst_controller_reset_out_reset_req;                                           // rst_controller:reset_req -> [Onchip_SRAM:reset_req, rst_translator:reset_req_in]
+	wire          rst_controller_reset_out_reset;                                               // rst_controller:reset_out -> [AV_Config:reset, Pixel_DMA_Addr_Translation:reset, SDRAM:reset_n, Video_In_DMA_Addr_Translation:reset, mm_interconnect_0:SDRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_0:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_1:AV_Config_reset_reset_bridge_in_reset_reset, mm_interconnect_1:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_2:Pixel_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_2:VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_DMA_Addr_Translation_reset_reset_bridge_in_reset_reset, mm_interconnect_3:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset_reset]
 	wire          arm_a9_hps_h2f_reset_reset;                                                   // ARM_A9_HPS:h2f_rst_n -> [rst_controller:reset_in0, rst_controller_001:reset_in0, rst_controller_002:reset_in0, rst_controller_003:reset_in0, rst_controller_004:reset_in0]
-	wire          system_pll_reset_source_reset;                                                // System_PLL:reset_source_reset -> [rst_controller:reset_in1, rst_controller_001:reset_in1, rst_controller_002:reset_in1, rst_controller_003:reset_in1]
+	wire          system_pll_reset_source_reset;                                                // System_PLL:reset_source_reset -> [rst_controller:reset_in1, rst_controller_001:reset_in1, rst_controller_003:reset_in1, rst_controller_004:reset_in1]
 	wire          rst_controller_001_reset_out_reset;                                           // rst_controller_001:reset_out -> [EBAB_video_in:reset, mm_interconnect_0:EBAB_video_in_reset_reset_bridge_in_reset_reset]
-	wire          rst_controller_002_reset_out_reset;                                           // rst_controller_002:reset_out -> VGA_Subsystem:sys_reset_reset_n
-	wire          rst_controller_003_reset_out_reset;                                           // rst_controller_003:reset_out -> Video_In_Subsystem:sys_reset_reset_n
-	wire          rst_controller_004_reset_out_reset;                                           // rst_controller_004:reset_out -> [mm_interconnect_0:ARM_A9_HPS_h2f_axi_master_agent_clk_reset_reset_bridge_in_reset_reset, mm_interconnect_1:pio_0_reset_reset_bridge_in_reset_reset, pio_0:reset_n]
+	wire          rst_controller_002_reset_out_reset;                                           // rst_controller_002:reset_out -> [Onchip_SRAM:reset, mm_interconnect_0:Onchip_SRAM_reset_reset_bridge_in_reset_reset, mm_interconnect_1:pio_0_reset_reset_bridge_in_reset_reset, mm_interconnect_4:Onchip_SRAM_reset_reset_bridge_in_reset_reset, pio_0:reset_n, pio_big_pen:reset_n, pio_max_disp:reset_n, pio_min_disp:reset_n, pio_small_pen:reset_n]
+	wire          rst_controller_003_reset_out_reset;                                           // rst_controller_003:reset_out -> VGA_Subsystem:sys_reset_reset_n
+	wire          rst_controller_004_reset_out_reset;                                           // rst_controller_004:reset_out -> Video_In_Subsystem:sys_reset_reset_n
 
 	Computer_System_ARM_A9_HPS #(
 		.F2S_Width (2),
@@ -536,23 +566,31 @@ module Computer_System (
 		.read_data          (ebab_video_in_external_interface_read_data)    //                   .export
 	);
 
-	Computer_System_Onchip_SRAM onchip_sram (
-		.address     (mm_interconnect_4_onchip_sram_s1_address),    //     s1.address
-		.clken       (mm_interconnect_4_onchip_sram_s1_clken),      //       .clken
-		.chipselect  (mm_interconnect_4_onchip_sram_s1_chipselect), //       .chipselect
-		.write       (mm_interconnect_4_onchip_sram_s1_write),      //       .write
-		.readdata    (mm_interconnect_4_onchip_sram_s1_readdata),   //       .readdata
-		.writedata   (mm_interconnect_4_onchip_sram_s1_writedata),  //       .writedata
-		.address2    (mm_interconnect_0_onchip_sram_s2_address),    //     s2.address
-		.chipselect2 (mm_interconnect_0_onchip_sram_s2_chipselect), //       .chipselect
-		.clken2      (mm_interconnect_0_onchip_sram_s2_clken),      //       .clken
-		.write2      (mm_interconnect_0_onchip_sram_s2_write),      //       .write
-		.readdata2   (mm_interconnect_0_onchip_sram_s2_readdata),   //       .readdata
-		.writedata2  (mm_interconnect_0_onchip_sram_s2_writedata),  //       .writedata
-		.clk         (system_pll_sys_clk_clk),                      //   clk1.clk
-		.reset       (rst_controller_reset_out_reset),              // reset1.reset
-		.reset_req   (rst_controller_reset_out_reset_req),          //       .reset_req
-		.freeze      (1'b0)                                         // (terminated)
+	stereo_onchip_ram #(
+		.N_ROWS    (200),
+		.ROW_BYTES (1024)
+	) onchip_sram (
+		.clk           (system_pll_sys_clk_clk),                      //      clk.clk
+		.reset         (rst_controller_002_reset_out_reset),          //    reset.reset
+		.s1_address    (mm_interconnect_4_onchip_sram_s1_address),    //       s1.address
+		.s1_chipselect (mm_interconnect_4_onchip_sram_s1_chipselect), //         .chipselect
+		.s1_clken      (mm_interconnect_4_onchip_sram_s1_clken),      //         .clken
+		.s1_write      (mm_interconnect_4_onchip_sram_s1_write),      //         .write
+		.s1_read       (mm_interconnect_4_onchip_sram_s1_read),       //         .read
+		.s1_writedata  (mm_interconnect_4_onchip_sram_s1_writedata),  //         .writedata
+		.s1_readdata   (mm_interconnect_4_onchip_sram_s1_readdata),   //         .readdata
+		.s2_address    (mm_interconnect_0_onchip_sram_s2_address),    //       s2.address
+		.s2_chipselect (mm_interconnect_0_onchip_sram_s2_chipselect), //         .chipselect
+		.s2_clken      (mm_interconnect_0_onchip_sram_s2_clken),      //         .clken
+		.s2_write      (mm_interconnect_0_onchip_sram_s2_write),      //         .write
+		.s2_read       (mm_interconnect_0_onchip_sram_s2_read),       //         .read
+		.s2_byteenable (mm_interconnect_0_onchip_sram_s2_byteenable), //         .byteenable
+		.s2_writedata  (mm_interconnect_0_onchip_sram_s2_writedata),  //         .writedata
+		.s2_readdata   (mm_interconnect_0_onchip_sram_s2_readdata),   //         .readdata
+		.sad_re        (onchip_sram_1_sad_port_re),                   // sad_port.re
+		.sad_col       (onchip_sram_1_sad_port_col),                  //         .col
+		.sad_rdata     (onchip_sram_1_sad_port_rdata),                //         .rdata
+		.s1_write_lock (onchip_sram_s1_lock_lock)                     //  s1_lock.lock
 	);
 
 	altera_up_avalon_video_dma_ctrl_addr_trans #(
@@ -636,7 +674,7 @@ module Computer_System (
 		.pixel_dma_master_read                (vga_subsystem_pixel_dma_master_read),                                  //                          .read
 		.pixel_dma_master_readdata            (vga_subsystem_pixel_dma_master_readdata),                              //                          .readdata
 		.sys_clk_clk                          (system_pll_sys_clk_clk),                                               //                   sys_clk.clk
-		.sys_reset_reset_n                    (~rst_controller_002_reset_out_reset),                                  //                 sys_reset.reset_n
+		.sys_reset_reset_n                    (~rst_controller_003_reset_out_reset),                                  //                 sys_reset.reset_n
 		.vga_CLK                              (vga_CLK),                                                              //                       vga.CLK
 		.vga_HS                               (vga_HS),                                                               //                          .HS
 		.vga_VS                               (vga_VS),                                                               //                          .VS
@@ -677,7 +715,7 @@ module Computer_System (
 		.edge_detection_control_slave_chipselect (mm_interconnect_1_video_in_subsystem_edge_detection_control_slave_chipselect), //                             .chipselect
 		.edge_detection_control_slave_readdata   (mm_interconnect_1_video_in_subsystem_edge_detection_control_slave_readdata),   //                             .readdata
 		.sys_clk_clk                             (system_pll_sys_clk_clk),                                                       //                      sys_clk.clk
-		.sys_reset_reset_n                       (~rst_controller_003_reset_out_reset),                                          //                    sys_reset.reset_n
+		.sys_reset_reset_n                       (~rst_controller_004_reset_out_reset),                                          //                    sys_reset.reset_n
 		.video_in_TD_CLK27                       (video_in_TD_CLK27),                                                            //                     video_in.TD_CLK27
 		.video_in_TD_DATA                        (video_in_TD_DATA),                                                             //                             .TD_DATA
 		.video_in_TD_HS                          (video_in_TD_HS),                                                               //                             .TD_HS
@@ -699,91 +737,137 @@ module Computer_System (
 
 	Computer_System_pio_0 pio_0 (
 		.clk      (system_pll_sys_clk_clk),              //                 clk.clk
-		.reset_n  (~rst_controller_004_reset_out_reset), //               reset.reset_n
+		.reset_n  (~rst_controller_002_reset_out_reset), //               reset.reset_n
 		.address  (mm_interconnect_1_pio_0_s1_address),  //                  s1.address
 		.readdata (mm_interconnect_1_pio_0_s1_readdata), //                    .readdata
 		.in_port  (pio_test_test_export)                 // external_connection.export
 	);
 
+	Computer_System_pio_big_pen pio_big_pen (
+		.clk        (system_pll_sys_clk_clk),                      //                 clk.clk
+		.reset_n    (~rst_controller_002_reset_out_reset),         //               reset.reset_n
+		.address    (mm_interconnect_1_pio_big_pen_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_big_pen_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_big_pen_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_big_pen_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_big_pen_s1_readdata),   //                    .readdata
+		.out_port   (pio_big_pen_external_connection_export)       // external_connection.export
+	);
+
+	Computer_System_pio_big_pen pio_max_disp (
+		.clk        (system_pll_sys_clk_clk),                       //                 clk.clk
+		.reset_n    (~rst_controller_002_reset_out_reset),          //               reset.reset_n
+		.address    (mm_interconnect_1_pio_max_disp_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_max_disp_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_max_disp_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_max_disp_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_max_disp_s1_readdata),   //                    .readdata
+		.out_port   (pio_max_disp_external_connection_export)       // external_connection.export
+	);
+
+	Computer_System_pio_big_pen pio_min_disp (
+		.clk        (system_pll_sys_clk_clk),                       //                 clk.clk
+		.reset_n    (~rst_controller_002_reset_out_reset),          //               reset.reset_n
+		.address    (mm_interconnect_1_pio_min_disp_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_min_disp_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_min_disp_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_min_disp_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_min_disp_s1_readdata),   //                    .readdata
+		.out_port   (pio_min_disp_external_connection_export)       // external_connection.export
+	);
+
+	Computer_System_pio_big_pen pio_small_pen (
+		.clk        (system_pll_sys_clk_clk),                        //                 clk.clk
+		.reset_n    (~rst_controller_002_reset_out_reset),           //               reset.reset_n
+		.address    (mm_interconnect_1_pio_small_pen_s1_address),    //                  s1.address
+		.write_n    (~mm_interconnect_1_pio_small_pen_s1_write),     //                    .write_n
+		.writedata  (mm_interconnect_1_pio_small_pen_s1_writedata),  //                    .writedata
+		.chipselect (mm_interconnect_1_pio_small_pen_s1_chipselect), //                    .chipselect
+		.readdata   (mm_interconnect_1_pio_small_pen_s1_readdata),   //                    .readdata
+		.out_port   (pio_small_pen_external_connection_export)       // external_connection.export
+	);
+
 	Computer_System_mm_interconnect_0 mm_interconnect_0 (
-		.ARM_A9_HPS_h2f_axi_master_awid                                        (arm_a9_hps_h2f_axi_master_awid),                                //                                       ARM_A9_HPS_h2f_axi_master.awid
-		.ARM_A9_HPS_h2f_axi_master_awaddr                                      (arm_a9_hps_h2f_axi_master_awaddr),                              //                                                                .awaddr
-		.ARM_A9_HPS_h2f_axi_master_awlen                                       (arm_a9_hps_h2f_axi_master_awlen),                               //                                                                .awlen
-		.ARM_A9_HPS_h2f_axi_master_awsize                                      (arm_a9_hps_h2f_axi_master_awsize),                              //                                                                .awsize
-		.ARM_A9_HPS_h2f_axi_master_awburst                                     (arm_a9_hps_h2f_axi_master_awburst),                             //                                                                .awburst
-		.ARM_A9_HPS_h2f_axi_master_awlock                                      (arm_a9_hps_h2f_axi_master_awlock),                              //                                                                .awlock
-		.ARM_A9_HPS_h2f_axi_master_awcache                                     (arm_a9_hps_h2f_axi_master_awcache),                             //                                                                .awcache
-		.ARM_A9_HPS_h2f_axi_master_awprot                                      (arm_a9_hps_h2f_axi_master_awprot),                              //                                                                .awprot
-		.ARM_A9_HPS_h2f_axi_master_awvalid                                     (arm_a9_hps_h2f_axi_master_awvalid),                             //                                                                .awvalid
-		.ARM_A9_HPS_h2f_axi_master_awready                                     (arm_a9_hps_h2f_axi_master_awready),                             //                                                                .awready
-		.ARM_A9_HPS_h2f_axi_master_wid                                         (arm_a9_hps_h2f_axi_master_wid),                                 //                                                                .wid
-		.ARM_A9_HPS_h2f_axi_master_wdata                                       (arm_a9_hps_h2f_axi_master_wdata),                               //                                                                .wdata
-		.ARM_A9_HPS_h2f_axi_master_wstrb                                       (arm_a9_hps_h2f_axi_master_wstrb),                               //                                                                .wstrb
-		.ARM_A9_HPS_h2f_axi_master_wlast                                       (arm_a9_hps_h2f_axi_master_wlast),                               //                                                                .wlast
-		.ARM_A9_HPS_h2f_axi_master_wvalid                                      (arm_a9_hps_h2f_axi_master_wvalid),                              //                                                                .wvalid
-		.ARM_A9_HPS_h2f_axi_master_wready                                      (arm_a9_hps_h2f_axi_master_wready),                              //                                                                .wready
-		.ARM_A9_HPS_h2f_axi_master_bid                                         (arm_a9_hps_h2f_axi_master_bid),                                 //                                                                .bid
-		.ARM_A9_HPS_h2f_axi_master_bresp                                       (arm_a9_hps_h2f_axi_master_bresp),                               //                                                                .bresp
-		.ARM_A9_HPS_h2f_axi_master_bvalid                                      (arm_a9_hps_h2f_axi_master_bvalid),                              //                                                                .bvalid
-		.ARM_A9_HPS_h2f_axi_master_bready                                      (arm_a9_hps_h2f_axi_master_bready),                              //                                                                .bready
-		.ARM_A9_HPS_h2f_axi_master_arid                                        (arm_a9_hps_h2f_axi_master_arid),                                //                                                                .arid
-		.ARM_A9_HPS_h2f_axi_master_araddr                                      (arm_a9_hps_h2f_axi_master_araddr),                              //                                                                .araddr
-		.ARM_A9_HPS_h2f_axi_master_arlen                                       (arm_a9_hps_h2f_axi_master_arlen),                               //                                                                .arlen
-		.ARM_A9_HPS_h2f_axi_master_arsize                                      (arm_a9_hps_h2f_axi_master_arsize),                              //                                                                .arsize
-		.ARM_A9_HPS_h2f_axi_master_arburst                                     (arm_a9_hps_h2f_axi_master_arburst),                             //                                                                .arburst
-		.ARM_A9_HPS_h2f_axi_master_arlock                                      (arm_a9_hps_h2f_axi_master_arlock),                              //                                                                .arlock
-		.ARM_A9_HPS_h2f_axi_master_arcache                                     (arm_a9_hps_h2f_axi_master_arcache),                             //                                                                .arcache
-		.ARM_A9_HPS_h2f_axi_master_arprot                                      (arm_a9_hps_h2f_axi_master_arprot),                              //                                                                .arprot
-		.ARM_A9_HPS_h2f_axi_master_arvalid                                     (arm_a9_hps_h2f_axi_master_arvalid),                             //                                                                .arvalid
-		.ARM_A9_HPS_h2f_axi_master_arready                                     (arm_a9_hps_h2f_axi_master_arready),                             //                                                                .arready
-		.ARM_A9_HPS_h2f_axi_master_rid                                         (arm_a9_hps_h2f_axi_master_rid),                                 //                                                                .rid
-		.ARM_A9_HPS_h2f_axi_master_rdata                                       (arm_a9_hps_h2f_axi_master_rdata),                               //                                                                .rdata
-		.ARM_A9_HPS_h2f_axi_master_rresp                                       (arm_a9_hps_h2f_axi_master_rresp),                               //                                                                .rresp
-		.ARM_A9_HPS_h2f_axi_master_rlast                                       (arm_a9_hps_h2f_axi_master_rlast),                               //                                                                .rlast
-		.ARM_A9_HPS_h2f_axi_master_rvalid                                      (arm_a9_hps_h2f_axi_master_rvalid),                              //                                                                .rvalid
-		.ARM_A9_HPS_h2f_axi_master_rready                                      (arm_a9_hps_h2f_axi_master_rready),                              //                                                                .rready
-		.clock_bridge_0_out_clk_clk                                            (clock_bridge_0_in_clk_clk),                                     //                                          clock_bridge_0_out_clk.clk
-		.System_PLL_sys_clk_clk                                                (system_pll_sys_clk_clk),                                        //                                              System_PLL_sys_clk.clk
-		.ARM_A9_HPS_h2f_axi_master_agent_clk_reset_reset_bridge_in_reset_reset (rst_controller_004_reset_out_reset),                            // ARM_A9_HPS_h2f_axi_master_agent_clk_reset_reset_bridge_in_reset.reset
-		.EBAB_video_in_reset_reset_bridge_in_reset_reset                       (rst_controller_001_reset_out_reset),                            //                       EBAB_video_in_reset_reset_bridge_in_reset.reset
-		.SDRAM_reset_reset_bridge_in_reset_reset                               (rst_controller_reset_out_reset),                                //                               SDRAM_reset_reset_bridge_in_reset.reset
-		.VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset                   (rst_controller_reset_out_reset),                                //                   VGA_Subsystem_sys_reset_reset_bridge_in_reset.reset
-		.EBAB_video_in_avalon_master_address                                   (ebab_video_in_avalon_master_address),                           //                                     EBAB_video_in_avalon_master.address
-		.EBAB_video_in_avalon_master_waitrequest                               (ebab_video_in_avalon_master_waitrequest),                       //                                                                .waitrequest
-		.EBAB_video_in_avalon_master_byteenable                                (ebab_video_in_avalon_master_byteenable),                        //                                                                .byteenable
-		.EBAB_video_in_avalon_master_read                                      (ebab_video_in_avalon_master_read),                              //                                                                .read
-		.EBAB_video_in_avalon_master_readdata                                  (ebab_video_in_avalon_master_readdata),                          //                                                                .readdata
-		.EBAB_video_in_avalon_master_write                                     (ebab_video_in_avalon_master_write),                             //                                                                .write
-		.EBAB_video_in_avalon_master_writedata                                 (ebab_video_in_avalon_master_writedata),                         //                                                                .writedata
-		.VGA_Subsystem_pixel_dma_master_address                                (vga_subsystem_pixel_dma_master_address),                        //                                  VGA_Subsystem_pixel_dma_master.address
-		.VGA_Subsystem_pixel_dma_master_waitrequest                            (vga_subsystem_pixel_dma_master_waitrequest),                    //                                                                .waitrequest
-		.VGA_Subsystem_pixel_dma_master_read                                   (vga_subsystem_pixel_dma_master_read),                           //                                                                .read
-		.VGA_Subsystem_pixel_dma_master_readdata                               (vga_subsystem_pixel_dma_master_readdata),                       //                                                                .readdata
-		.VGA_Subsystem_pixel_dma_master_readdatavalid                          (vga_subsystem_pixel_dma_master_readdatavalid),                  //                                                                .readdatavalid
-		.VGA_Subsystem_pixel_dma_master_lock                                   (vga_subsystem_pixel_dma_master_lock),                           //                                                                .lock
-		.Onchip_SRAM_s2_address                                                (mm_interconnect_0_onchip_sram_s2_address),                      //                                                  Onchip_SRAM_s2.address
-		.Onchip_SRAM_s2_write                                                  (mm_interconnect_0_onchip_sram_s2_write),                        //                                                                .write
-		.Onchip_SRAM_s2_readdata                                               (mm_interconnect_0_onchip_sram_s2_readdata),                     //                                                                .readdata
-		.Onchip_SRAM_s2_writedata                                              (mm_interconnect_0_onchip_sram_s2_writedata),                    //                                                                .writedata
-		.Onchip_SRAM_s2_chipselect                                             (mm_interconnect_0_onchip_sram_s2_chipselect),                   //                                                                .chipselect
-		.Onchip_SRAM_s2_clken                                                  (mm_interconnect_0_onchip_sram_s2_clken),                        //                                                                .clken
-		.SDRAM_s1_address                                                      (mm_interconnect_0_sdram_s1_address),                            //                                                        SDRAM_s1.address
-		.SDRAM_s1_write                                                        (mm_interconnect_0_sdram_s1_write),                              //                                                                .write
-		.SDRAM_s1_read                                                         (mm_interconnect_0_sdram_s1_read),                               //                                                                .read
-		.SDRAM_s1_readdata                                                     (mm_interconnect_0_sdram_s1_readdata),                           //                                                                .readdata
-		.SDRAM_s1_writedata                                                    (mm_interconnect_0_sdram_s1_writedata),                          //                                                                .writedata
-		.SDRAM_s1_byteenable                                                   (mm_interconnect_0_sdram_s1_byteenable),                         //                                                                .byteenable
-		.SDRAM_s1_readdatavalid                                                (mm_interconnect_0_sdram_s1_readdatavalid),                      //                                                                .readdatavalid
-		.SDRAM_s1_waitrequest                                                  (mm_interconnect_0_sdram_s1_waitrequest),                        //                                                                .waitrequest
-		.SDRAM_s1_chipselect                                                   (mm_interconnect_0_sdram_s1_chipselect),                         //                                                                .chipselect
-		.VGA_Subsystem_char_buffer_slave_address                               (mm_interconnect_0_vga_subsystem_char_buffer_slave_address),     //                                 VGA_Subsystem_char_buffer_slave.address
-		.VGA_Subsystem_char_buffer_slave_write                                 (mm_interconnect_0_vga_subsystem_char_buffer_slave_write),       //                                                                .write
-		.VGA_Subsystem_char_buffer_slave_read                                  (mm_interconnect_0_vga_subsystem_char_buffer_slave_read),        //                                                                .read
-		.VGA_Subsystem_char_buffer_slave_readdata                              (mm_interconnect_0_vga_subsystem_char_buffer_slave_readdata),    //                                                                .readdata
-		.VGA_Subsystem_char_buffer_slave_writedata                             (mm_interconnect_0_vga_subsystem_char_buffer_slave_writedata),   //                                                                .writedata
-		.VGA_Subsystem_char_buffer_slave_byteenable                            (mm_interconnect_0_vga_subsystem_char_buffer_slave_byteenable),  //                                                                .byteenable
-		.VGA_Subsystem_char_buffer_slave_waitrequest                           (mm_interconnect_0_vga_subsystem_char_buffer_slave_waitrequest), //                                                                .waitrequest
-		.VGA_Subsystem_char_buffer_slave_chipselect                            (mm_interconnect_0_vga_subsystem_char_buffer_slave_chipselect)   //                                                                .chipselect
+		.ARM_A9_HPS_h2f_axi_master_awid                      (arm_a9_hps_h2f_axi_master_awid),                                //                     ARM_A9_HPS_h2f_axi_master.awid
+		.ARM_A9_HPS_h2f_axi_master_awaddr                    (arm_a9_hps_h2f_axi_master_awaddr),                              //                                              .awaddr
+		.ARM_A9_HPS_h2f_axi_master_awlen                     (arm_a9_hps_h2f_axi_master_awlen),                               //                                              .awlen
+		.ARM_A9_HPS_h2f_axi_master_awsize                    (arm_a9_hps_h2f_axi_master_awsize),                              //                                              .awsize
+		.ARM_A9_HPS_h2f_axi_master_awburst                   (arm_a9_hps_h2f_axi_master_awburst),                             //                                              .awburst
+		.ARM_A9_HPS_h2f_axi_master_awlock                    (arm_a9_hps_h2f_axi_master_awlock),                              //                                              .awlock
+		.ARM_A9_HPS_h2f_axi_master_awcache                   (arm_a9_hps_h2f_axi_master_awcache),                             //                                              .awcache
+		.ARM_A9_HPS_h2f_axi_master_awprot                    (arm_a9_hps_h2f_axi_master_awprot),                              //                                              .awprot
+		.ARM_A9_HPS_h2f_axi_master_awvalid                   (arm_a9_hps_h2f_axi_master_awvalid),                             //                                              .awvalid
+		.ARM_A9_HPS_h2f_axi_master_awready                   (arm_a9_hps_h2f_axi_master_awready),                             //                                              .awready
+		.ARM_A9_HPS_h2f_axi_master_wid                       (arm_a9_hps_h2f_axi_master_wid),                                 //                                              .wid
+		.ARM_A9_HPS_h2f_axi_master_wdata                     (arm_a9_hps_h2f_axi_master_wdata),                               //                                              .wdata
+		.ARM_A9_HPS_h2f_axi_master_wstrb                     (arm_a9_hps_h2f_axi_master_wstrb),                               //                                              .wstrb
+		.ARM_A9_HPS_h2f_axi_master_wlast                     (arm_a9_hps_h2f_axi_master_wlast),                               //                                              .wlast
+		.ARM_A9_HPS_h2f_axi_master_wvalid                    (arm_a9_hps_h2f_axi_master_wvalid),                              //                                              .wvalid
+		.ARM_A9_HPS_h2f_axi_master_wready                    (arm_a9_hps_h2f_axi_master_wready),                              //                                              .wready
+		.ARM_A9_HPS_h2f_axi_master_bid                       (arm_a9_hps_h2f_axi_master_bid),                                 //                                              .bid
+		.ARM_A9_HPS_h2f_axi_master_bresp                     (arm_a9_hps_h2f_axi_master_bresp),                               //                                              .bresp
+		.ARM_A9_HPS_h2f_axi_master_bvalid                    (arm_a9_hps_h2f_axi_master_bvalid),                              //                                              .bvalid
+		.ARM_A9_HPS_h2f_axi_master_bready                    (arm_a9_hps_h2f_axi_master_bready),                              //                                              .bready
+		.ARM_A9_HPS_h2f_axi_master_arid                      (arm_a9_hps_h2f_axi_master_arid),                                //                                              .arid
+		.ARM_A9_HPS_h2f_axi_master_araddr                    (arm_a9_hps_h2f_axi_master_araddr),                              //                                              .araddr
+		.ARM_A9_HPS_h2f_axi_master_arlen                     (arm_a9_hps_h2f_axi_master_arlen),                               //                                              .arlen
+		.ARM_A9_HPS_h2f_axi_master_arsize                    (arm_a9_hps_h2f_axi_master_arsize),                              //                                              .arsize
+		.ARM_A9_HPS_h2f_axi_master_arburst                   (arm_a9_hps_h2f_axi_master_arburst),                             //                                              .arburst
+		.ARM_A9_HPS_h2f_axi_master_arlock                    (arm_a9_hps_h2f_axi_master_arlock),                              //                                              .arlock
+		.ARM_A9_HPS_h2f_axi_master_arcache                   (arm_a9_hps_h2f_axi_master_arcache),                             //                                              .arcache
+		.ARM_A9_HPS_h2f_axi_master_arprot                    (arm_a9_hps_h2f_axi_master_arprot),                              //                                              .arprot
+		.ARM_A9_HPS_h2f_axi_master_arvalid                   (arm_a9_hps_h2f_axi_master_arvalid),                             //                                              .arvalid
+		.ARM_A9_HPS_h2f_axi_master_arready                   (arm_a9_hps_h2f_axi_master_arready),                             //                                              .arready
+		.ARM_A9_HPS_h2f_axi_master_rid                       (arm_a9_hps_h2f_axi_master_rid),                                 //                                              .rid
+		.ARM_A9_HPS_h2f_axi_master_rdata                     (arm_a9_hps_h2f_axi_master_rdata),                               //                                              .rdata
+		.ARM_A9_HPS_h2f_axi_master_rresp                     (arm_a9_hps_h2f_axi_master_rresp),                               //                                              .rresp
+		.ARM_A9_HPS_h2f_axi_master_rlast                     (arm_a9_hps_h2f_axi_master_rlast),                               //                                              .rlast
+		.ARM_A9_HPS_h2f_axi_master_rvalid                    (arm_a9_hps_h2f_axi_master_rvalid),                              //                                              .rvalid
+		.ARM_A9_HPS_h2f_axi_master_rready                    (arm_a9_hps_h2f_axi_master_rready),                              //                                              .rready
+		.clock_bridge_0_out_clk_clk                          (clock_bridge_0_in_clk_clk),                                     //                        clock_bridge_0_out_clk.clk
+		.System_PLL_sys_clk_clk                              (system_pll_sys_clk_clk),                                        //                            System_PLL_sys_clk.clk
+		.EBAB_video_in_reset_reset_bridge_in_reset_reset     (rst_controller_001_reset_out_reset),                            //     EBAB_video_in_reset_reset_bridge_in_reset.reset
+		.Onchip_SRAM_reset_reset_bridge_in_reset_reset       (rst_controller_002_reset_out_reset),                            //       Onchip_SRAM_reset_reset_bridge_in_reset.reset
+		.SDRAM_reset_reset_bridge_in_reset_reset             (rst_controller_reset_out_reset),                                //             SDRAM_reset_reset_bridge_in_reset.reset
+		.VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset (rst_controller_reset_out_reset),                                // VGA_Subsystem_sys_reset_reset_bridge_in_reset.reset
+		.EBAB_video_in_avalon_master_address                 (ebab_video_in_avalon_master_address),                           //                   EBAB_video_in_avalon_master.address
+		.EBAB_video_in_avalon_master_waitrequest             (ebab_video_in_avalon_master_waitrequest),                       //                                              .waitrequest
+		.EBAB_video_in_avalon_master_byteenable              (ebab_video_in_avalon_master_byteenable),                        //                                              .byteenable
+		.EBAB_video_in_avalon_master_read                    (ebab_video_in_avalon_master_read),                              //                                              .read
+		.EBAB_video_in_avalon_master_readdata                (ebab_video_in_avalon_master_readdata),                          //                                              .readdata
+		.EBAB_video_in_avalon_master_write                   (ebab_video_in_avalon_master_write),                             //                                              .write
+		.EBAB_video_in_avalon_master_writedata               (ebab_video_in_avalon_master_writedata),                         //                                              .writedata
+		.VGA_Subsystem_pixel_dma_master_address              (vga_subsystem_pixel_dma_master_address),                        //                VGA_Subsystem_pixel_dma_master.address
+		.VGA_Subsystem_pixel_dma_master_waitrequest          (vga_subsystem_pixel_dma_master_waitrequest),                    //                                              .waitrequest
+		.VGA_Subsystem_pixel_dma_master_read                 (vga_subsystem_pixel_dma_master_read),                           //                                              .read
+		.VGA_Subsystem_pixel_dma_master_readdata             (vga_subsystem_pixel_dma_master_readdata),                       //                                              .readdata
+		.VGA_Subsystem_pixel_dma_master_readdatavalid        (vga_subsystem_pixel_dma_master_readdatavalid),                  //                                              .readdatavalid
+		.VGA_Subsystem_pixel_dma_master_lock                 (vga_subsystem_pixel_dma_master_lock),                           //                                              .lock
+		.Onchip_SRAM_s2_address                              (mm_interconnect_0_onchip_sram_s2_address),                      //                                Onchip_SRAM_s2.address
+		.Onchip_SRAM_s2_write                                (mm_interconnect_0_onchip_sram_s2_write),                        //                                              .write
+		.Onchip_SRAM_s2_read                                 (mm_interconnect_0_onchip_sram_s2_read),                         //                                              .read
+		.Onchip_SRAM_s2_readdata                             (mm_interconnect_0_onchip_sram_s2_readdata),                     //                                              .readdata
+		.Onchip_SRAM_s2_writedata                            (mm_interconnect_0_onchip_sram_s2_writedata),                    //                                              .writedata
+		.Onchip_SRAM_s2_byteenable                           (mm_interconnect_0_onchip_sram_s2_byteenable),                   //                                              .byteenable
+		.Onchip_SRAM_s2_chipselect                           (mm_interconnect_0_onchip_sram_s2_chipselect),                   //                                              .chipselect
+		.Onchip_SRAM_s2_clken                                (mm_interconnect_0_onchip_sram_s2_clken),                        //                                              .clken
+		.SDRAM_s1_address                                    (mm_interconnect_0_sdram_s1_address),                            //                                      SDRAM_s1.address
+		.SDRAM_s1_write                                      (mm_interconnect_0_sdram_s1_write),                              //                                              .write
+		.SDRAM_s1_read                                       (mm_interconnect_0_sdram_s1_read),                               //                                              .read
+		.SDRAM_s1_readdata                                   (mm_interconnect_0_sdram_s1_readdata),                           //                                              .readdata
+		.SDRAM_s1_writedata                                  (mm_interconnect_0_sdram_s1_writedata),                          //                                              .writedata
+		.SDRAM_s1_byteenable                                 (mm_interconnect_0_sdram_s1_byteenable),                         //                                              .byteenable
+		.SDRAM_s1_readdatavalid                              (mm_interconnect_0_sdram_s1_readdatavalid),                      //                                              .readdatavalid
+		.SDRAM_s1_waitrequest                                (mm_interconnect_0_sdram_s1_waitrequest),                        //                                              .waitrequest
+		.SDRAM_s1_chipselect                                 (mm_interconnect_0_sdram_s1_chipselect),                         //                                              .chipselect
+		.VGA_Subsystem_char_buffer_slave_address             (mm_interconnect_0_vga_subsystem_char_buffer_slave_address),     //               VGA_Subsystem_char_buffer_slave.address
+		.VGA_Subsystem_char_buffer_slave_write               (mm_interconnect_0_vga_subsystem_char_buffer_slave_write),       //                                              .write
+		.VGA_Subsystem_char_buffer_slave_read                (mm_interconnect_0_vga_subsystem_char_buffer_slave_read),        //                                              .read
+		.VGA_Subsystem_char_buffer_slave_readdata            (mm_interconnect_0_vga_subsystem_char_buffer_slave_readdata),    //                                              .readdata
+		.VGA_Subsystem_char_buffer_slave_writedata           (mm_interconnect_0_vga_subsystem_char_buffer_slave_writedata),   //                                              .writedata
+		.VGA_Subsystem_char_buffer_slave_byteenable          (mm_interconnect_0_vga_subsystem_char_buffer_slave_byteenable),  //                                              .byteenable
+		.VGA_Subsystem_char_buffer_slave_waitrequest         (mm_interconnect_0_vga_subsystem_char_buffer_slave_waitrequest), //                                              .waitrequest
+		.VGA_Subsystem_char_buffer_slave_chipselect          (mm_interconnect_0_vga_subsystem_char_buffer_slave_chipselect)   //                                              .chipselect
 	);
 
 	Computer_System_mm_interconnect_1 mm_interconnect_1 (
@@ -825,7 +909,7 @@ module Computer_System (
 		.ARM_A9_HPS_h2f_lw_axi_master_rready                        (arm_a9_hps_h2f_lw_axi_master_rready),                                          //                                                .rready
 		.System_PLL_sys_clk_clk                                     (system_pll_sys_clk_clk),                                                       //                              System_PLL_sys_clk.clk
 		.AV_Config_reset_reset_bridge_in_reset_reset                (rst_controller_reset_out_reset),                                               //           AV_Config_reset_reset_bridge_in_reset.reset
-		.pio_0_reset_reset_bridge_in_reset_reset                    (rst_controller_004_reset_out_reset),                                           //               pio_0_reset_reset_bridge_in_reset.reset
+		.pio_0_reset_reset_bridge_in_reset_reset                    (rst_controller_002_reset_out_reset),                                           //               pio_0_reset_reset_bridge_in_reset.reset
 		.VGA_Subsystem_sys_reset_reset_bridge_in_reset_reset        (rst_controller_reset_out_reset),                                               //   VGA_Subsystem_sys_reset_reset_bridge_in_reset.reset
 		.AV_Config_avalon_av_config_slave_address                   (mm_interconnect_1_av_config_avalon_av_config_slave_address),                   //                AV_Config_avalon_av_config_slave.address
 		.AV_Config_avalon_av_config_slave_write                     (mm_interconnect_1_av_config_avalon_av_config_slave_write),                     //                                                .write
@@ -836,6 +920,26 @@ module Computer_System (
 		.AV_Config_avalon_av_config_slave_waitrequest               (mm_interconnect_1_av_config_avalon_av_config_slave_waitrequest),               //                                                .waitrequest
 		.pio_0_s1_address                                           (mm_interconnect_1_pio_0_s1_address),                                           //                                        pio_0_s1.address
 		.pio_0_s1_readdata                                          (mm_interconnect_1_pio_0_s1_readdata),                                          //                                                .readdata
+		.pio_big_pen_s1_address                                     (mm_interconnect_1_pio_big_pen_s1_address),                                     //                                  pio_big_pen_s1.address
+		.pio_big_pen_s1_write                                       (mm_interconnect_1_pio_big_pen_s1_write),                                       //                                                .write
+		.pio_big_pen_s1_readdata                                    (mm_interconnect_1_pio_big_pen_s1_readdata),                                    //                                                .readdata
+		.pio_big_pen_s1_writedata                                   (mm_interconnect_1_pio_big_pen_s1_writedata),                                   //                                                .writedata
+		.pio_big_pen_s1_chipselect                                  (mm_interconnect_1_pio_big_pen_s1_chipselect),                                  //                                                .chipselect
+		.pio_max_disp_s1_address                                    (mm_interconnect_1_pio_max_disp_s1_address),                                    //                                 pio_max_disp_s1.address
+		.pio_max_disp_s1_write                                      (mm_interconnect_1_pio_max_disp_s1_write),                                      //                                                .write
+		.pio_max_disp_s1_readdata                                   (mm_interconnect_1_pio_max_disp_s1_readdata),                                   //                                                .readdata
+		.pio_max_disp_s1_writedata                                  (mm_interconnect_1_pio_max_disp_s1_writedata),                                  //                                                .writedata
+		.pio_max_disp_s1_chipselect                                 (mm_interconnect_1_pio_max_disp_s1_chipselect),                                 //                                                .chipselect
+		.pio_min_disp_s1_address                                    (mm_interconnect_1_pio_min_disp_s1_address),                                    //                                 pio_min_disp_s1.address
+		.pio_min_disp_s1_write                                      (mm_interconnect_1_pio_min_disp_s1_write),                                      //                                                .write
+		.pio_min_disp_s1_readdata                                   (mm_interconnect_1_pio_min_disp_s1_readdata),                                   //                                                .readdata
+		.pio_min_disp_s1_writedata                                  (mm_interconnect_1_pio_min_disp_s1_writedata),                                  //                                                .writedata
+		.pio_min_disp_s1_chipselect                                 (mm_interconnect_1_pio_min_disp_s1_chipselect),                                 //                                                .chipselect
+		.pio_small_pen_s1_address                                   (mm_interconnect_1_pio_small_pen_s1_address),                                   //                                pio_small_pen_s1.address
+		.pio_small_pen_s1_write                                     (mm_interconnect_1_pio_small_pen_s1_write),                                     //                                                .write
+		.pio_small_pen_s1_readdata                                  (mm_interconnect_1_pio_small_pen_s1_readdata),                                  //                                                .readdata
+		.pio_small_pen_s1_writedata                                 (mm_interconnect_1_pio_small_pen_s1_writedata),                                 //                                                .writedata
+		.pio_small_pen_s1_chipselect                                (mm_interconnect_1_pio_small_pen_s1_chipselect),                                //                                                .chipselect
 		.Pixel_DMA_Addr_Translation_slave_address                   (mm_interconnect_1_pixel_dma_addr_translation_slave_address),                   //                Pixel_DMA_Addr_Translation_slave.address
 		.Pixel_DMA_Addr_Translation_slave_write                     (mm_interconnect_1_pixel_dma_addr_translation_slave_write),                     //                                                .write
 		.Pixel_DMA_Addr_Translation_slave_read                      (mm_interconnect_1_pixel_dma_addr_translation_slave_read),                      //                                                .read
@@ -903,19 +1007,21 @@ module Computer_System (
 	);
 
 	Computer_System_mm_interconnect_4 mm_interconnect_4 (
-		.System_PLL_sys_clk_clk                                   (system_pll_sys_clk_clk),                             //                                 System_PLL_sys_clk.clk
-		.Onchip_SRAM_reset1_reset_bridge_in_reset_reset           (rst_controller_reset_out_reset),                     //           Onchip_SRAM_reset1_reset_bridge_in_reset.reset
-		.Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset (rst_controller_reset_out_reset),                     // Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
-		.Video_In_Subsystem_video_in_dma_master_address           (video_in_subsystem_video_in_dma_master_address),     //             Video_In_Subsystem_video_in_dma_master.address
-		.Video_In_Subsystem_video_in_dma_master_waitrequest       (video_in_subsystem_video_in_dma_master_waitrequest), //                                                   .waitrequest
-		.Video_In_Subsystem_video_in_dma_master_write             (video_in_subsystem_video_in_dma_master_write),       //                                                   .write
-		.Video_In_Subsystem_video_in_dma_master_writedata         (video_in_subsystem_video_in_dma_master_writedata),   //                                                   .writedata
-		.Onchip_SRAM_s1_address                                   (mm_interconnect_4_onchip_sram_s1_address),           //                                     Onchip_SRAM_s1.address
-		.Onchip_SRAM_s1_write                                     (mm_interconnect_4_onchip_sram_s1_write),             //                                                   .write
-		.Onchip_SRAM_s1_readdata                                  (mm_interconnect_4_onchip_sram_s1_readdata),          //                                                   .readdata
-		.Onchip_SRAM_s1_writedata                                 (mm_interconnect_4_onchip_sram_s1_writedata),         //                                                   .writedata
-		.Onchip_SRAM_s1_chipselect                                (mm_interconnect_4_onchip_sram_s1_chipselect),        //                                                   .chipselect
-		.Onchip_SRAM_s1_clken                                     (mm_interconnect_4_onchip_sram_s1_clken)              //                                                   .clken
+		.System_PLL_sys_clk_clk                                                              (system_pll_sys_clk_clk),                             //                                                            System_PLL_sys_clk.clk
+		.Onchip_SRAM_reset_reset_bridge_in_reset_reset                                       (rst_controller_002_reset_out_reset),                 //                                       Onchip_SRAM_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_sys_reset_reset_bridge_in_reset_reset                            (rst_controller_reset_out_reset),                     //                            Video_In_Subsystem_sys_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset_reset (rst_controller_reset_out_reset),                     // Video_In_Subsystem_video_in_dma_master_translator_reset_reset_bridge_in_reset.reset
+		.Video_In_Subsystem_video_in_dma_master_address                                      (video_in_subsystem_video_in_dma_master_address),     //                                        Video_In_Subsystem_video_in_dma_master.address
+		.Video_In_Subsystem_video_in_dma_master_waitrequest                                  (video_in_subsystem_video_in_dma_master_waitrequest), //                                                                              .waitrequest
+		.Video_In_Subsystem_video_in_dma_master_write                                        (video_in_subsystem_video_in_dma_master_write),       //                                                                              .write
+		.Video_In_Subsystem_video_in_dma_master_writedata                                    (video_in_subsystem_video_in_dma_master_writedata),   //                                                                              .writedata
+		.Onchip_SRAM_s1_address                                                              (mm_interconnect_4_onchip_sram_s1_address),           //                                                                Onchip_SRAM_s1.address
+		.Onchip_SRAM_s1_write                                                                (mm_interconnect_4_onchip_sram_s1_write),             //                                                                              .write
+		.Onchip_SRAM_s1_read                                                                 (mm_interconnect_4_onchip_sram_s1_read),              //                                                                              .read
+		.Onchip_SRAM_s1_readdata                                                             (mm_interconnect_4_onchip_sram_s1_readdata),          //                                                                              .readdata
+		.Onchip_SRAM_s1_writedata                                                            (mm_interconnect_4_onchip_sram_s1_writedata),         //                                                                              .writedata
+		.Onchip_SRAM_s1_chipselect                                                           (mm_interconnect_4_onchip_sram_s1_chipselect),        //                                                                              .chipselect
+		.Onchip_SRAM_s1_clken                                                                (mm_interconnect_4_onchip_sram_s1_clken)              //                                                                              .clken
 	);
 
 	Computer_System_irq_mapper irq_mapper (
@@ -934,7 +1040,7 @@ module Computer_System (
 		.NUM_RESET_INPUTS          (2),
 		.OUTPUT_RESET_SYNC_EDGES   ("deassert"),
 		.SYNC_DEPTH                (2),
-		.RESET_REQUEST_PRESENT     (1),
+		.RESET_REQUEST_PRESENT     (0),
 		.RESET_REQ_WAIT_TIME       (1),
 		.MIN_RST_ASSERTION_TIME    (3),
 		.RESET_REQ_EARLY_DSRT_TIME (1),
@@ -956,41 +1062,41 @@ module Computer_System (
 		.USE_RESET_REQUEST_IN15    (0),
 		.ADAPT_RESET_REQUEST       (0)
 	) rst_controller (
-		.reset_in0      (~arm_a9_hps_h2f_reset_reset),        // reset_in0.reset
-		.reset_in1      (system_pll_reset_source_reset),      // reset_in1.reset
-		.clk            (system_pll_sys_clk_clk),             //       clk.clk
-		.reset_out      (rst_controller_reset_out_reset),     // reset_out.reset
-		.reset_req      (rst_controller_reset_out_reset_req), //          .reset_req
-		.reset_req_in0  (1'b0),                               // (terminated)
-		.reset_req_in1  (1'b0),                               // (terminated)
-		.reset_in2      (1'b0),                               // (terminated)
-		.reset_req_in2  (1'b0),                               // (terminated)
-		.reset_in3      (1'b0),                               // (terminated)
-		.reset_req_in3  (1'b0),                               // (terminated)
-		.reset_in4      (1'b0),                               // (terminated)
-		.reset_req_in4  (1'b0),                               // (terminated)
-		.reset_in5      (1'b0),                               // (terminated)
-		.reset_req_in5  (1'b0),                               // (terminated)
-		.reset_in6      (1'b0),                               // (terminated)
-		.reset_req_in6  (1'b0),                               // (terminated)
-		.reset_in7      (1'b0),                               // (terminated)
-		.reset_req_in7  (1'b0),                               // (terminated)
-		.reset_in8      (1'b0),                               // (terminated)
-		.reset_req_in8  (1'b0),                               // (terminated)
-		.reset_in9      (1'b0),                               // (terminated)
-		.reset_req_in9  (1'b0),                               // (terminated)
-		.reset_in10     (1'b0),                               // (terminated)
-		.reset_req_in10 (1'b0),                               // (terminated)
-		.reset_in11     (1'b0),                               // (terminated)
-		.reset_req_in11 (1'b0),                               // (terminated)
-		.reset_in12     (1'b0),                               // (terminated)
-		.reset_req_in12 (1'b0),                               // (terminated)
-		.reset_in13     (1'b0),                               // (terminated)
-		.reset_req_in13 (1'b0),                               // (terminated)
-		.reset_in14     (1'b0),                               // (terminated)
-		.reset_req_in14 (1'b0),                               // (terminated)
-		.reset_in15     (1'b0),                               // (terminated)
-		.reset_req_in15 (1'b0)                                // (terminated)
+		.reset_in0      (~arm_a9_hps_h2f_reset_reset),    // reset_in0.reset
+		.reset_in1      (system_pll_reset_source_reset),  // reset_in1.reset
+		.clk            (system_pll_sys_clk_clk),         //       clk.clk
+		.reset_out      (rst_controller_reset_out_reset), // reset_out.reset
+		.reset_req      (),                               // (terminated)
+		.reset_req_in0  (1'b0),                           // (terminated)
+		.reset_req_in1  (1'b0),                           // (terminated)
+		.reset_in2      (1'b0),                           // (terminated)
+		.reset_req_in2  (1'b0),                           // (terminated)
+		.reset_in3      (1'b0),                           // (terminated)
+		.reset_req_in3  (1'b0),                           // (terminated)
+		.reset_in4      (1'b0),                           // (terminated)
+		.reset_req_in4  (1'b0),                           // (terminated)
+		.reset_in5      (1'b0),                           // (terminated)
+		.reset_req_in5  (1'b0),                           // (terminated)
+		.reset_in6      (1'b0),                           // (terminated)
+		.reset_req_in6  (1'b0),                           // (terminated)
+		.reset_in7      (1'b0),                           // (terminated)
+		.reset_req_in7  (1'b0),                           // (terminated)
+		.reset_in8      (1'b0),                           // (terminated)
+		.reset_req_in8  (1'b0),                           // (terminated)
+		.reset_in9      (1'b0),                           // (terminated)
+		.reset_req_in9  (1'b0),                           // (terminated)
+		.reset_in10     (1'b0),                           // (terminated)
+		.reset_req_in10 (1'b0),                           // (terminated)
+		.reset_in11     (1'b0),                           // (terminated)
+		.reset_req_in11 (1'b0),                           // (terminated)
+		.reset_in12     (1'b0),                           // (terminated)
+		.reset_req_in12 (1'b0),                           // (terminated)
+		.reset_in13     (1'b0),                           // (terminated)
+		.reset_req_in13 (1'b0),                           // (terminated)
+		.reset_in14     (1'b0),                           // (terminated)
+		.reset_req_in14 (1'b0),                           // (terminated)
+		.reset_in15     (1'b0),                           // (terminated)
+		.reset_req_in15 (1'b0)                            // (terminated)
 	);
 
 	altera_reset_controller #(
@@ -1057,8 +1163,8 @@ module Computer_System (
 	);
 
 	altera_reset_controller #(
-		.NUM_RESET_INPUTS          (2),
-		.OUTPUT_RESET_SYNC_EDGES   ("none"),
+		.NUM_RESET_INPUTS          (1),
+		.OUTPUT_RESET_SYNC_EDGES   ("deassert"),
 		.SYNC_DEPTH                (2),
 		.RESET_REQUEST_PRESENT     (0),
 		.RESET_REQ_WAIT_TIME       (1),
@@ -1083,11 +1189,11 @@ module Computer_System (
 		.ADAPT_RESET_REQUEST       (0)
 	) rst_controller_002 (
 		.reset_in0      (~arm_a9_hps_h2f_reset_reset),        // reset_in0.reset
-		.reset_in1      (system_pll_reset_source_reset),      // reset_in1.reset
-		.clk            (),                                   //       clk.clk
+		.clk            (system_pll_sys_clk_clk),             //       clk.clk
 		.reset_out      (rst_controller_002_reset_out_reset), // reset_out.reset
 		.reset_req      (),                                   // (terminated)
 		.reset_req_in0  (1'b0),                               // (terminated)
+		.reset_in1      (1'b0),                               // (terminated)
 		.reset_req_in1  (1'b0),                               // (terminated)
 		.reset_in2      (1'b0),                               // (terminated)
 		.reset_req_in2  (1'b0),                               // (terminated)
@@ -1183,8 +1289,8 @@ module Computer_System (
 	);
 
 	altera_reset_controller #(
-		.NUM_RESET_INPUTS          (1),
-		.OUTPUT_RESET_SYNC_EDGES   ("deassert"),
+		.NUM_RESET_INPUTS          (2),
+		.OUTPUT_RESET_SYNC_EDGES   ("none"),
 		.SYNC_DEPTH                (2),
 		.RESET_REQUEST_PRESENT     (0),
 		.RESET_REQ_WAIT_TIME       (1),
@@ -1209,11 +1315,11 @@ module Computer_System (
 		.ADAPT_RESET_REQUEST       (0)
 	) rst_controller_004 (
 		.reset_in0      (~arm_a9_hps_h2f_reset_reset),        // reset_in0.reset
-		.clk            (system_pll_sys_clk_clk),             //       clk.clk
+		.reset_in1      (system_pll_reset_source_reset),      // reset_in1.reset
+		.clk            (),                                   //       clk.clk
 		.reset_out      (rst_controller_004_reset_out_reset), // reset_out.reset
 		.reset_req      (),                                   // (terminated)
 		.reset_req_in0  (1'b0),                               // (terminated)
-		.reset_in1      (1'b0),                               // (terminated)
 		.reset_req_in1  (1'b0),                               // (terminated)
 		.reset_in2      (1'b0),                               // (terminated)
 		.reset_req_in2  (1'b0),                               // (terminated)

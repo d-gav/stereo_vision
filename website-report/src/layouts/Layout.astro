@@ -1,0 +1,493 @@
+---
+import { withBase } from '../lib/base';
+---
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<link rel="icon" type="image/svg+xml" href={withBase('/favicon.svg')} />
+		<link rel="icon" href={withBase('/favicon.ico')} />
+		<meta name="generator" content={Astro.generator} />
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+			rel="stylesheet"
+		/>
+		<title>Real-Time Stereo Vision on the DE1-SoC — ECE 5760 Final Project</title>
+		<meta
+			name="description"
+			content="A real-time FPGA stereo-vision depth system on the Terasic DE1-SoC, built by Daniel, Demetrios, and Ezra for Cornell ECE 5760."
+		/>
+	</head>
+	<body>
+		<slot />
+
+		<dialog id="lightbox" class="lightbox">
+			<div class="lightbox-toolbar">
+				<span class="zoom-display" id="lightbox-zoom">100%</span>
+				<button class="zoom-btn" data-zoom-action="out" type="button" aria-label="Zoom out">−</button>
+				<button class="zoom-btn" data-zoom-action="reset" type="button" aria-label="Reset zoom">⊙</button>
+				<button class="zoom-btn" data-zoom-action="in" type="button" aria-label="Zoom in">+</button>
+				<span class="lightbox-hint">scroll to zoom · drag to pan · double-click to reset</span>
+				<button class="lightbox-close" type="button" aria-label="Close">×</button>
+			</div>
+			<div class="lightbox-frame" id="lightbox-frame">
+				<img id="lightbox-img" alt="" />
+			</div>
+			<p class="lightbox-caption" id="lightbox-caption"></p>
+		</dialog>
+
+		<script is:inline>
+			(() => {
+				const lightbox = document.getElementById('lightbox');
+				if (!lightbox) return;
+				const img = document.getElementById('lightbox-img');
+				const frame = document.getElementById('lightbox-frame');
+				const caption = document.getElementById('lightbox-caption');
+				const zoomDisplay = document.getElementById('lightbox-zoom');
+				const closeBtn = lightbox.querySelector('.lightbox-close');
+
+				let scale = 1;
+				let tx = 0;
+				let ty = 0;
+				let isDragging = false;
+				let dragStartX = 0;
+				let dragStartY = 0;
+
+				function apply() {
+					img.style.transform = 'translate(' + tx + 'px, ' + ty + 'px) scale(' + scale + ')';
+					zoomDisplay.textContent = Math.round(scale * 100) + '%';
+				}
+
+				function reset(smooth) {
+					scale = 1;
+					tx = 0;
+					ty = 0;
+					if (smooth) {
+						img.classList.add('smooth');
+						apply();
+						setTimeout(() => img.classList.remove('smooth'), 200);
+					} else {
+						apply();
+					}
+				}
+
+				function zoomBy(factor, anchorX, anchorY) {
+					const rect = frame.getBoundingClientRect();
+					if (anchorX === undefined) anchorX = rect.width / 2;
+					if (anchorY === undefined) anchorY = rect.height / 2;
+					const ax = anchorX - rect.width / 2;
+					const ay = anchorY - rect.height / 2;
+					const newScale = Math.max(0.25, Math.min(10, scale * factor));
+					const ratio = newScale / scale;
+					tx = ax + ratio * (tx - ax);
+					ty = ay + ratio * (ty - ay);
+					scale = newScale;
+					apply();
+				}
+
+				document.querySelectorAll('[data-lightbox]').forEach((trigger) => {
+					trigger.addEventListener('click', () => {
+						img.src = trigger.dataset.src;
+						img.alt = trigger.dataset.alt || '';
+						caption.textContent = trigger.dataset.caption || '';
+						caption.style.display = trigger.dataset.caption ? '' : 'none';
+						reset();
+						lightbox.showModal();
+					});
+				});
+
+				closeBtn.addEventListener('click', () => lightbox.close());
+				lightbox.addEventListener('click', (e) => {
+					if (e.target === lightbox) lightbox.close();
+				});
+
+				lightbox.querySelectorAll('[data-zoom-action]').forEach((btn) => {
+					btn.addEventListener('click', () => {
+						const action = btn.dataset.zoomAction;
+						img.classList.add('smooth');
+						if (action === 'in') zoomBy(1.4);
+						else if (action === 'out') zoomBy(1 / 1.4);
+						else if (action === 'reset') reset();
+						setTimeout(() => img.classList.remove('smooth'), 200);
+					});
+				});
+
+				frame.addEventListener('wheel', (e) => {
+					e.preventDefault();
+					const rect = frame.getBoundingClientRect();
+					const factor = e.deltaY > 0 ? 0.88 : 1.13;
+					zoomBy(factor, e.clientX - rect.left, e.clientY - rect.top);
+				}, { passive: false });
+
+				frame.addEventListener('mousedown', (e) => {
+					isDragging = true;
+					dragStartX = e.clientX - tx;
+					dragStartY = e.clientY - ty;
+					frame.classList.add('is-grabbing');
+					e.preventDefault();
+				});
+
+				window.addEventListener('mousemove', (e) => {
+					if (!isDragging) return;
+					tx = e.clientX - dragStartX;
+					ty = e.clientY - dragStartY;
+					apply();
+				});
+
+				window.addEventListener('mouseup', () => {
+					if (!isDragging) return;
+					isDragging = false;
+					frame.classList.remove('is-grabbing');
+				});
+
+				frame.addEventListener('dblclick', () => reset(true));
+
+				let touch = null;
+				frame.addEventListener('touchstart', (e) => {
+					if (e.touches.length === 1) {
+						touch = { mode: 'pan', sx: e.touches[0].clientX - tx, sy: e.touches[0].clientY - ty };
+					} else if (e.touches.length === 2) {
+						const dx = e.touches[0].clientX - e.touches[1].clientX;
+						const dy = e.touches[0].clientY - e.touches[1].clientY;
+						touch = {
+							mode: 'pinch',
+							startDist: Math.hypot(dx, dy),
+							startScale: scale,
+							cx: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+							cy: (e.touches[0].clientY + e.touches[1].clientY) / 2
+						};
+					}
+				}, { passive: true });
+
+				frame.addEventListener('touchmove', (e) => {
+					if (!touch) return;
+					e.preventDefault();
+					if (touch.mode === 'pan' && e.touches.length === 1) {
+						tx = e.touches[0].clientX - touch.sx;
+						ty = e.touches[0].clientY - touch.sy;
+						apply();
+					} else if (touch.mode === 'pinch' && e.touches.length === 2) {
+						const dx = e.touches[0].clientX - e.touches[1].clientX;
+						const dy = e.touches[0].clientY - e.touches[1].clientY;
+						const dist = Math.hypot(dx, dy);
+						const target = Math.max(0.25, Math.min(10, touch.startScale * (dist / touch.startDist)));
+						const rect = frame.getBoundingClientRect();
+						const ax = touch.cx - rect.left - rect.width / 2;
+						const ay = touch.cy - rect.top - rect.height / 2;
+						const ratio = target / scale;
+						tx = ax + ratio * (tx - ax);
+						ty = ay + ratio * (ty - ay);
+						scale = target;
+						apply();
+					}
+				}, { passive: false });
+
+				frame.addEventListener('touchend', () => { touch = null; });
+
+				document.addEventListener('keydown', (e) => {
+					if (!lightbox.open) return;
+					if (e.key === '0') reset(true);
+					else if (e.key === '+' || e.key === '=') { img.classList.add('smooth'); zoomBy(1.4); setTimeout(() => img.classList.remove('smooth'), 200); }
+					else if (e.key === '-' || e.key === '_') { img.classList.add('smooth'); zoomBy(1 / 1.4); setTimeout(() => img.classList.remove('smooth'), 200); }
+				});
+			})();
+		</script>
+	</body>
+</html>
+
+<style is:global>
+	:root {
+		--bg: #0e1116;
+		--bg-elev: #161b22;
+		--bg-card: #1c232d;
+		--border: #2a323d;
+		--text: #e6edf3;
+		--text-dim: #9aa7b4;
+		--text-muted: #6e7b8a;
+		--accent: #b31b1b; /* Cornell red */
+		--accent-hot: #e23232;
+		--accent-soft: rgba(179, 27, 27, 0.16);
+		--code-bg: #11161d;
+		--shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+		--container-width: 1100px;
+		--reading-width: 880px;
+		--figure-width: 820px;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
+	html,
+	body {
+		margin: 0;
+		padding: 0;
+		background: var(--bg);
+		color: var(--text);
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial,
+			sans-serif;
+		font-size: 16px;
+		line-height: 1.65;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		scroll-behavior: smooth;
+	}
+
+	body {
+		background:
+			radial-gradient(1100px 600px at 80% -10%, rgba(179, 27, 27, 0.10), transparent 60%),
+			radial-gradient(900px 500px at -10% 20%, rgba(50, 90, 200, 0.08), transparent 60%),
+			var(--bg);
+	}
+
+	a {
+		color: var(--accent-hot);
+		text-decoration: none;
+		border-bottom: 1px dotted rgba(226, 50, 50, 0.5);
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+
+	a:hover {
+		color: #ff7575;
+		border-bottom-color: #ff7575;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		color: var(--text);
+		margin: 0 0 0.5em;
+	}
+
+	h1 {
+		font-size: clamp(2rem, 4vw, 3rem);
+		line-height: 1.1;
+	}
+
+	h2 {
+		font-size: clamp(1.5rem, 2.5vw, 2rem);
+		line-height: 1.2;
+		margin-top: 0;
+		padding-bottom: 0.4em;
+		border-bottom: 1px solid var(--border);
+	}
+
+	h3 {
+		font-size: 1.3rem;
+		color: var(--text);
+		margin-top: 1.8em;
+	}
+
+	h4 {
+		font-size: 1.05rem;
+		color: var(--text-dim);
+		font-family: Inter, sans-serif;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-top: 1.4em;
+	}
+
+	p {
+		margin: 0 0 1em;
+		color: var(--text);
+	}
+
+	ul,
+	ol {
+		padding-left: 1.4em;
+		margin: 0 0 1em;
+	}
+
+	li {
+		margin-bottom: 0.4em;
+	}
+
+	li::marker {
+		color: var(--accent-hot);
+	}
+
+	code {
+		font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo,
+			Consolas, monospace;
+		font-size: 0.88em;
+		background: var(--code-bg);
+		color: #f0c674;
+		padding: 0.12em 0.4em;
+		border-radius: 4px;
+		border: 1px solid var(--border);
+	}
+
+	strong {
+		color: #ffffff;
+		font-weight: 600;
+	}
+
+	em {
+		color: var(--text-dim);
+	}
+
+	blockquote {
+		margin: 1.5em 0;
+		padding: 0.6em 1.2em;
+		border-left: 3px solid var(--accent);
+		background: var(--accent-soft);
+		color: var(--text);
+		border-radius: 0 8px 8px 0;
+	}
+
+	hr {
+		border: none;
+		border-top: 1px solid var(--border);
+		margin: 3em 0;
+	}
+
+	::selection {
+		background: var(--accent);
+		color: #fff;
+	}
+
+	/* ---- Lightbox ---- */
+	dialog.lightbox {
+		border: none;
+		background: transparent;
+		padding: 0;
+		margin: auto;
+		width: 98vw;
+		height: 98vh;
+		max-width: none;
+		max-height: none;
+		color: var(--text);
+	}
+
+	dialog.lightbox::backdrop {
+		background: rgba(8, 10, 14, 0.92);
+		backdrop-filter: blur(6px);
+	}
+
+	dialog.lightbox[open] {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.lightbox-toolbar {
+		flex: 0 0 auto;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 8px 14px;
+		background: rgba(20, 24, 32, 0.88);
+		backdrop-filter: blur(12px);
+		border: 1px solid rgba(255, 255, 255, 0.08);
+		border-radius: 8px;
+		color: #fff;
+		font-size: 0.85rem;
+	}
+
+	.lightbox-toolbar .zoom-display {
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.78rem;
+		color: var(--text-dim);
+		min-width: 52px;
+		text-align: left;
+	}
+
+	.lightbox-toolbar .zoom-btn,
+	.lightbox-toolbar .lightbox-close {
+		background: rgba(255, 255, 255, 0.08);
+		border: 1px solid rgba(255, 255, 255, 0.18);
+		color: #ffffff;
+		width: 32px;
+		height: 32px;
+		border-radius: 6px;
+		font-size: 1.1rem;
+		line-height: 1;
+		cursor: pointer;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-family: inherit;
+		padding: 0;
+		transition: background 0.15s ease, transform 0.12s ease;
+	}
+
+	.lightbox-toolbar .zoom-btn:hover,
+	.lightbox-toolbar .lightbox-close:hover {
+		background: rgba(255, 255, 255, 0.2);
+	}
+
+	.lightbox-toolbar .zoom-btn:active {
+		transform: scale(0.95);
+	}
+
+	.lightbox-toolbar .lightbox-close {
+		font-size: 1.3rem;
+		margin-left: 4px;
+	}
+
+	.lightbox-toolbar .lightbox-hint {
+		flex: 1 1 auto;
+		text-align: center;
+		color: var(--text-muted);
+		font-size: 0.74rem;
+		letter-spacing: 0.02em;
+	}
+
+	.lightbox-frame {
+		flex: 1 1 auto;
+		position: relative;
+		background: #ffffff;
+		border-radius: 8px;
+		overflow: hidden;
+		cursor: grab;
+		user-select: none;
+		touch-action: none;
+	}
+
+	.lightbox-frame.is-grabbing {
+		cursor: grabbing;
+	}
+
+	.lightbox-frame img {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+		transform-origin: center center;
+		user-select: none;
+		-webkit-user-drag: none;
+		will-change: transform;
+	}
+
+	.lightbox-frame img.smooth {
+		transition: transform 0.18s ease;
+	}
+
+	.lightbox-caption {
+		flex: 0 0 auto;
+		max-width: 900px;
+		margin: 0 auto;
+		padding: 0 8px;
+		font-size: 0.85rem;
+		color: var(--text-dim);
+		font-style: italic;
+		text-align: center;
+		line-height: 1.45;
+	}
+
+	@media (max-width: 700px) {
+		.lightbox-toolbar .lightbox-hint {
+			display: none;
+		}
+	}
+</style>

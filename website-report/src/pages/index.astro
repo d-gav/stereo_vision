@@ -1,0 +1,1158 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Nav from '../components/Nav.astro';
+import Hero from '../components/Hero.astro';
+import Figure from '../components/Figure.astro';
+import { withBase } from '../lib/base';
+
+const animationUrl = withBase('/animations/mem_block_intf.html');
+---
+
+<Layout>
+	<Nav />
+	<main>
+		<div class="container">
+			<Hero />
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="intro">
+				<h2>Introduction</h2>
+				<p>
+					Stereo vision is a technique for extracting a 3D scene from two 2D images. By setting up
+					two cameras slightly offset from each other and pointed at the same picture, we can
+					measure the difference in where features appear in the two images — a direct function
+					of the depth of that feature. <strong>We demonstrate stereo vision running in real
+					time on an FPGA.</strong>
+				</p>
+				<p>
+					Stereo vision is a powerful technique, but it is computationally intensive. Most
+					algorithms use <strong>block matching</strong>: for each pixel in the reference image,
+					select a block around it, and find the block in the other image which best matches it by
+					sliding it across the frame. This process is expensive — each pixel of the image
+					requires many calculations on many pixels at many positions. Basic block matching is
+					embarrassingly parallel, but realizing this parallelism requires getting pixels from
+					memory in parallel, and reusing data read from memory optimally.
+				</p>
+				<p>
+					These challenges align well with the DE1-SoC. The FPGA on the board has enough
+					configurable M10K memory for <em>each row of pixels to be stored in its own memory
+					bank</em>, allowing full columns of both frames to be accessed simultaneously. Most of
+					the LUTs are utilized to implement the block matching algorithm — a sum of absolute
+					differences (SAD) applied to the block. Finally, the DSPs are used for rectification,
+					the process of transforming the warped camera image to a rectilinear projection.
+				</p>
+				<p>
+					Stereo vision is an incredibly practical method of getting depth information. Cameras
+					are cheap and typically already present in places where stereo vision may be utilized,
+					like autonomous vehicles and robots. While physical systems like LiDAR are also capable
+					of extracting depth information, such systems are complex, expensive, and heavy. Stereo
+					vision can be implemented wherever there are two conventional cameras.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="high-level">
+				<h2>High-Level Design</h2>
+				<p>
+					Our pipeline runs an endless loop of <strong>capture → rectify → match → display</strong>.
+					Two analog cameras feed the DE1-SoC's Video-In subsystem, which writes interlaced PAL
+					frames into an on-chip RAM that we replaced with a custom row-banked variant. A radial
+					undistortion pass rewrites the captured frame in place, and a 24-way parallel SAD engine
+					sweeps disparity hypotheses across the rectified pair, streaming the resulting depth
+					map directly to the VGA framebuffer.
+				</p>
+				<Figure
+					src="/diagrams/system_architecture.svg"
+					alt="High-level system architecture diagram"
+					caption="System architecture: two PAL cameras feed Video-In DMA → row-banked on-chip RAM → radial undistort → 24-way SAD engine → VGA framebuffer. The ARM HPS only tunes parameters."
+				/>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="algorithm">
+				<h2>The Algorithm</h2>
+
+				<h3>Stereo Vision and Block Matching</h3>
+				<p>
+					Stereo vision works by determining <strong>disparities</strong> between the same
+					features in two frames. The disparity of a feature is defined as the difference between
+					its position in the reference image and its position in the other image. Disparity is
+					inversely proportional to depth, scaled by the distance between the two cameras.
+				</p>
+				<p>
+					We create this disparity map by block-matching every pixel in the reference (left) image
+					to a position in the other (right) image. Block matching selects a rectangular section
+					of pixels centered on the pixel whose disparity we are trying to find in the reference
+					image. Then, starting at the same position in the other image, we compare this block to
+					every block in the other image in one direction up to a runtime-programmable maximum
+					disparity. On each comparison, we calculate a difference between the reference and
+					object block. When we have compared the reference block to every block up to a maximum
+					disparity value, we pick the disparity that minimizes the difference between the
+					reference and comparison block.
+				</p>
+				<Figure
+					src="/diagrams/sad_block_matching.svg"
+					alt="SAD block matching illustration"
+					caption="Block-matching geometry: a reference window in the left image is compared against shifted candidate windows in the right image up to the max-disparity bound. The candidate with the smallest summed pixel difference wins."
+				/>
+
+				<h3>Sum of Absolute Differences (SAD)</h3>
+				<p>
+					Block matching relies on a way to calculate the difference between two different blocks
+					of pixels. We experimented with many approaches — a Census transform with Hamming
+					distance among them — but we found we got the best results in software testing using
+					the simplest, <strong>sum of absolute differences (SAD)</strong>:
+				</p>
+				<div class="equation">
+					SAD = Σ |d<sub>a</sub> − d<sub>b</sub>|
+				</div>
+				<p>This is, in essence, an L1 norm of the difference between the two blocks.</p>
+
+				<h3>1-Directional Semi-Global Matching</h3>
+				<p>
+					Semi-Global Matching (SGM) is an algorithm used in computer vision to compute a dense
+					disparity map using a pair of rectified stereo images. The algorithm computes the
+					similarity of each pixel on one stereo image with each pixel in a subset of pixels from
+					the other stereo image. For each pixel with coordinates (<code>x, y</code>), the set of
+					candidates is selected as {'{(x̂, y) | x̂ ≥ x, x̂ ≤ x + D}'}, where <code>D</code> is the
+					maximum allowed disparity shift.
+				</p>
+				<p>
+					However, relying only on a pixel-matching algorithm produces a lot of incorrect matches
+					— especially in textureless or monocolored areas. To combat this, SGM uses a cost
+					function that applies penalties for having vastly different disparities for
+					adjacent/close pixels. Generally the cost function to be minimized is of the form:
+				</p>
+				<div class="equation">
+					E(<strong>d</strong>) = Σ<sub>p</sub> D(p, d<sub>p</sub>) + Σ<sub>p,q∈𝒩</sub> R(p, d<sub>p</sub>, q, d<sub>q</sub>)
+				</div>
+				<p>
+					where <code>D(p, d<sub>p</sub>)</code> is the dissimilarity cost — how different the
+					pixels look — and <code>R(p, d<sub>p</sub>, q, d<sub>q</sub>)</code> is the smoothness
+					cost — how different the disparity-map pixels are in a given region. SGM attempts to
+					minimize this equation by finding the disparity that is most similar to the initial
+					coordinate while making sure that the final disparity-map pixel remains smooth with
+					respect to its surrounding pixels. <strong>In this project we adapted the algorithm to
+					better suit our needs</strong> — we run a single horizontal sweep, which gives us most
+					of the smoothing benefit at a small fraction of the hardware cost.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="software-prep">
+				<h2>Software Preprocessing</h2>
+				<p>
+					Before any of this landed in hardware, every algorithmic choice was first prototyped
+					in Python and validated against captured stereo pairs. The Python work serves three
+					roles at once: a parameter-sweep playground for finding the right operating point,
+					a golden reference for cross-checking the C and RTL implementations, and the offline
+					calibration tool that produces the lens-correction coefficients the FPGA actually
+					consumes.
+				</p>
+				<Figure
+					src="/diagrams/model_alignment_workflow.svg"
+					alt="Model alignment workflow"
+					caption="The cross-implementation pipeline: Python is the algorithm playground and golden reference, C mirrors the same parameters on the HPS, and the RTL is the production target. All three share parameter names by design, so any disagreement between them is a real implementation bug rather than parameter drift."
+				/>
+				<p>
+					The three implementations share the same parameter names — window size, max
+					disparity, vertical shift, block size, number of SAD units. When a Python experiment
+					locks in a value, the C reference picks it up unchanged and the RTL constants follow.
+					That alignment is what makes hardware debugging tractable: if the FPGA disparity map
+					disagrees with the Python reference at the same parameter setting, the discrepancy
+					has to be a real RTL issue, not a config mismatch.
+				</p>
+
+				<h3>Lens calibration</h3>
+				<p>
+					The calibration work walked from "no calibration, just an analytic fisheye model" to
+					"real calibration baked into the FPGA as a small polynomial." The first attempt
+					parameterised the two cameras' wide-angle lenses under several analytic projections
+					— equidistant, equisolid, stereographic, rectilinear — and remapped the cropped
+					active region with OpenCV, blending between identity and the model by a tunable
+					correction strength. An autotune loop scored each candidate remap with edge-tracking
+					and Hough-line "is this line straight after warp?" objectives. This never produced a
+					usable stereo pair: the center looked corrected, the periphery didn't.
+				</p>
+				<p>
+					Switching to a real <strong>CharUco-board calibration</strong> with a fisheye
+					intrinsic model gave per-lens calibration matrices, which OpenCV's standard
+					rectification pipeline turned into a per-pixel gather map. That map was packed into
+					a 21-bit <code>{'{valid, src_y, src_x}'}</code> ROM format the RTL could consume
+					directly. The full LUT was too big to keep on-chip alongside the SAD engine and the
+					framebuffers, so a final pass compressed it into a small fixed-point polynomial — a
+					2D degree-6 fit in Q18, and a purely radial fit in Q15 with per-side optical-center
+					offsets. <strong>The radial form is what survives in the final RTL</strong>, because
+					it gives most of the quality at a tiny fraction of the DSP/LUT cost.
+				</p>
+				<p>
+					Each lens was calibrated independently, and the analog front end clips pixels
+					asymmetrically off each side of every captured frame before the left/right split. The
+					two cameras therefore have different optical-center offsets, and those offsets aren't
+					symmetric about the midline. The final RTL reflects this with <strong>two completely
+					separate 256-entry Q15 scale tables</strong> (one per camera) and <strong>four
+					per-side optical-center constants</strong> — a destination-side center and a
+					source-side center for each camera.
+				</p>
+
+				<h3>Picking the matcher and operating point</h3>
+				<p>
+					The first family of disparity experiments was about finding the right matcher and
+					operating point. OpenCV's BM and SGBM matchers (with P1 = 8·blockSize²,
+					P2 = 32·blockSize², 3-way SGBM mode) served as a golden reference, and we wrote a
+					custom windowed-SAD from scratch with box-filter aggregation and a winner-take-all
+					loop over disparity. Both L1 and L2 cost modes were swept.
+				</p>
+				<p>
+					The sweep driver walked max-disparities {'{'}24, 32, 48, 64, 96{'}'} against window
+					sizes {'{'}5, 7, 9, 11, 13{'}'}, and a parallel sweep pushed the grid much further
+					(window 3..33, max-disp up to 224) to see how flat the metric landscape was. The
+					result is what's hardwired into the RTL: <strong>9×9 window, max-disp 32</strong>.
+					That number isn't arbitrary — it's the smallest setting in the sweep where the
+					disparity map kept its structure on our specific captures. The SGM penalty constants
+					exposed to the HPS at runtime follow the same P1 = 8·blockSize² /
+					P2 = 32·blockSize² formula OpenCV uses internally.
+				</p>
+
+				<h3>Cost metric and preprocessing</h3>
+				<p>
+					A second family of experiments changed the cost metric itself, because raw
+					absolute-difference SAD struggled on low-texture and exposure-mismatched regions. A
+					<strong>Census + Hamming</strong> path replaces each pixel with the sign-pattern of
+					its neighbours and matches by box-filtered popcount-XOR distances — invariant to
+					local brightness differences between the two cameras, which we definitely had. The
+					sweep driver also ran a preprocessing grid over CLAHE on/off, median-blur kernel
+					sizes, and a Gaussian high-pass before matching.
+				</p>
+				<p>
+					The conclusion was mixed: Census beat SAD on textureless surfaces but was worse on
+					edges with real depth steps, and each preprocessing knob fixed one failure mode while
+					introducing another. <strong>The RTL keeps SAD as the primary path</strong> and
+					leaves Census as a parallel implementation we can swap in; CLAHE and median-blur
+					stayed as runtime knobs on the C reference rather than burned into the RTL.
+				</p>
+
+				<h3>The 2D (d, v<sub>y</sub>) search</h3>
+				<p>
+					The third family was the 2D (d, v<sub>y</sub>) search — the cleanest example of a
+					Python finding we couldn't get into the FPGA in time. OpenCV's SGBM assumes
+					perfectly horizontal epipolar lines, and ours weren't: each lens was calibrated
+					independently, the two cameras weren't perfectly co-planar, and remapping left
+					sub-pixel row error that SGBM couldn't see through. So the Python and C matchers
+					also try ±V row shifts of the right image for each candidate disparity and keep the
+					(d, v<sub>y</sub>) pair with minimum aggregated cost. Real images need 1–3 rows of
+					slack across the frame.
+				</p>
+				<p>
+					This was the largest-quality jump in the whole Python sweep, and it's a first-class
+					parameter in the C reference matcher. On the RTL side we never shipped it — the
+					row-banked on-chip RAM, the per-stripe SAD units, and the radial-mapper ring buffer
+					already filled the project's time budget, and a 2D (d, v<sub>y</sub>) search would
+					have needed the SAD engine to consume <code>BLOCK_SIZE + 2·V</code> rows of
+					right-image context at once instead of <code>BLOCK_SIZE</code>. So vshift stayed a
+					Python/C-only result that explains the residual row-misalignment artifacts we still
+					see in the FPGA disparity map.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="hardware">
+				<h2>Hardware Design</h2>
+				<p>
+					Our stereo vision system is built on the Terasic DE1-SoC. The Cyclone V FPGA fabric
+					hosts a baseline system that provides a bridge to the ARM HPS, a Video-In subsystem
+					that decodes the analog camera feeds into a single interlaced frame, and a VGA-out
+					pixel DMA driving a framebuffer in SDRAM. To achieve real-time performance, we
+					extended this baseline with three custom hardware subsystems that together form our
+					depth pipeline:
+				</p>
+				<ol class="big-list">
+					<li>
+						<strong>Row-Banked On-Chip Memory.</strong> A custom memory architecture that
+						exposes a parallel read bus, allowing the SAD engine to fetch one byte from every
+						row of the frame simultaneously.
+					</li>
+					<li>
+						<strong>Radial Undistortion Pass.</strong> An in-place rectification pipeline that
+						corrects lens distortion before matching begins.
+					</li>
+					<li>
+						<strong>Parallel Block-Matching Engine.</strong> A 24-way parallel SAD compute unit
+						that produces a dense disparity map, incorporating an SGM-inspired smoothness
+						penalty.
+					</li>
+				</ol>
+				<p>
+					These subsystems are sequenced by a four-state top-level finite state machine (FSM)
+					that cycles through filling memory with rectified pixels, draining staging buffers,
+					running the SAD compute, and reading back the results. Crucial parameters like window
+					size, maximum disparity, and stripe height are configured at synthesis to match our
+					software models, while SGM penalties are exposed to the HPS for runtime tuning.
+				</p>
+				<Figure
+					src="/diagrams/rtl_data_path.svg"
+					alt="RTL data path"
+					caption="RTL data path: Video-In DMA writes raw pixels into the row-banked SRAM, the radial mapper rewrites them in place via the staging ring, and the SAD engine reads parallel columns through the side-door port-B conduit."
+				/>
+				<Figure
+					src="/diagrams/frame_layout_memory_map.svg"
+					alt="Frame layout and memory map"
+					caption="Frame layout and memory map: 640×288 captured PAL frame split into left and right sub-images, stored at FPGA_ONCHIP_BASE = 0xC8000000 with 1024-byte stride. The disparity map is written into rows 288..479 of the VGA framebuffer at SDRAM_BASE = 0xC0000000."
+				/>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="memory">
+				<h2>Row-Banked On-Chip Memory</h2>
+				<p>
+					A key constraint shaped our entire architecture: a 9×9 reference block compared against
+					a wider search window requires fetching dozens of pixels per disparity hypothesis. A
+					standard single-port memory caps throughput at one pixel per cycle, which would make
+					the cost-per-disparity dozens of clock cycles.
+				</p>
+				<p>
+					To realize the embarrassingly parallel nature of SAD, we built a custom memory
+					architecture that physically banks the frame along its Y-axis. Each of the 200 image
+					rows is stored in its own dedicated memory block. While write access is multiplexed
+					between the Video-In DMA and the HPS, we implemented a private, parallel read bus.
+					This allows the hardware to fetch <strong>an entire column of pixels — one byte from
+					every row — in a single clock cycle</strong>. This massive increase in read bandwidth
+					is what makes the 24-way parallel SAD economically reachable.
+				</p>
+				<p>Implementing this massive fan-in required specific architectural optimizations:</p>
+				<ul>
+					<li>
+						<strong>Direct Memory Instantiation.</strong> Relying on standard inference for the
+						memory blocks proved unreliable across different coding styles, leading to internal
+						synthesis errors. We explicitly instantiated dual-port RAM primitives for each row
+						to ensure stability.
+					</li>
+					<li>
+						<strong>Two-Stage Read-Data Multiplexing.</strong> The 200-way multiplexer required
+						for the read bus created a severe routing hotspot. We resolved this by splitting it
+						into a registered 16-way intra-group multiplexer followed by a 13-way inter-group
+						multiplexer. This added a cycle of latency but dropped placement and routing
+						complexity by an order of magnitude.
+					</li>
+					<li>
+						<strong>Global Write Arbiter.</strong> Rather than replicating write logic 200
+						times, a single arbiter broadcasts the winning write data and address to every row,
+						with per-row logic gating only the byte enables. This saved over 3,000 ALMs of
+						logic resources.
+					</li>
+				</ul>
+				<Figure
+					src="/diagrams/mem_block_intf_fsm.svg"
+					alt="Memory block interface FSM"
+					caption="The mem_block_intf FSM coordinates the Avalon s1/s2 writes, the autonomous Video-In DMA, and the SAD engine's side-door reads against the shared row-banked M10Ks."
+				/>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="rectification">
+				<h2>Rectification</h2>
+				<p>
+					Block matching only works if corresponding features lie on the same horizontal
+					scanline in both images. Raw cameras with cheap wide-angle lenses don't give you that
+					for free — straight lines in the world bend, and the two cameras' lenses don't match
+					each other exactly. The analog front end on the DE1-SoC also clips about 40 pixels
+					off each side of every captured frame before the left/right split, so each camera's
+					true optical center doesn't sit at the geometric center of its cropped half. All of
+					this has to be undone before SAD ever runs. Rectification is the geometric remapping
+					that fixes it, and we bake the whole pass directly into the FPGA so the SAD engine
+					never sees a raw pixel.
+				</p>
+				<Figure
+					src="/diagrams/radial_rectification.svg"
+					alt="Radial lens rectification diagram"
+					caption="Radial rectification: for each rectified output pixel we compute its radial offset from the lens center, scale it by an interpolated calibration coefficient, and re-anchor on the source-side lens center to get the raw source pixel to sample."
+				/>
+				<p>
+					Because the two cameras' optical centers don't match and aren't symmetric about the
+					split, the final RTL carries <strong>two completely independent per-camera
+					calibrations</strong>: a separate radial scale table for each side, plus a separate
+					destination-side optical center and source-side optical center per side. The pipeline
+					selects which calibration to use based on which half of the frame the current
+					destination pixel falls in. The offline calibration work that produces those tables
+					and centers is described in the <a href="#software-prep">Software Preprocessing</a>
+					section.
+				</p>
+				<p>
+					The rest of this section walks the hardware pipeline in the order it runs: the radial
+					mapper that converts a destination pixel into a source pixel, the staging ring that
+					lets us rewrite the frame in place without corrupting our own input, and the
+					four-phase scheduler that keeps the rectified frame consistent against an autonomous
+					capture DMA.
+				</p>
+
+				{/* ---- Radial Mapper FSM ---- */}
+				<h3>The 11-stage Radial Mapper</h3>
+				<p>
+					The radial mapper is the hardware that consumes the per-camera calibration. It uses
+					an <strong>11-stage fixed-point pipeline</strong>: it consumes one destination pixel
+					per cycle and emits the corresponding source coordinate eleven cycles later —
+					calculating the vector to the image center, applying a radial coefficient,
+					interpolating from the calibration lookup table, and applying center offsets.
+				</p>
+				<Figure
+					src="/diagrams/radial_mapper_fsm.svg"
+					alt="Radial mapper FSM"
+					caption="Eleven-state radial mapper: ST_IDLE → ST_VEC → ST_R2 → ST_POS → ST_LUT → ST_INTERP → ST_SCALE → ST_MUL → ST_OFFSET → ST_CHECK → ST_DONE."
+				/>
+				<p>
+					The mapper is an eleven-state machine that takes one destination pixel
+					(<code>dst_x, dst_y</code>) and produces one source pixel (<code>src_x, src_y</code>)
+					over eleven clock cycles:
+				</p>
+				<ol class="fsm-list">
+					<li>
+						<strong>ST_IDLE.</strong> Latch the destination coordinate, decide whether the
+						pixel lives in the left or right half of the side-by-side frame, and load the four
+						per-side calibration constants — destination lens center (C<sub>x</sub>, C<sub>y</sub>)
+						and source lens center (C<sub>src,x</sub>, C<sub>src,y</sub>).
+					</li>
+					<li>
+						<strong>ST_VEC.</strong> Subtract the destination center to get a Q8 offset vector
+						(<code>dx, dy</code>) pointing from the lens center to the pixel.
+					</li>
+					<li>
+						<strong>ST_R2.</strong> Square each component and sum them to get r², the squared
+						radial distance from the lens center.
+					</li>
+					<li>
+						<strong>ST_POS.</strong> Multiply r² by the constant 92 to produce a 32-bit Q16 LUT
+						position, whose upper bits are the LUT index and whose lower sixteen bits are the
+						interpolation fraction between adjacent table entries.
+					</li>
+					<li>
+						<strong>ST_LUT.</strong> Read the two LUT entries flanking that index, s₀ =
+						LUT[idx] and s₁ = LUT[idx+1], clamping to the last entry past the end of the table.
+					</li>
+					<li>
+						<strong>ST_INTERP.</strong> Compute the difference (s₁ − s₀) and multiply it by the
+						saved fraction, giving the partial slope-times-distance term of a linear
+						interpolation.
+					</li>
+					<li>
+						<strong>ST_SCALE.</strong> Add that interpolated correction back onto s₀ (with
+						round-to-nearest) to finish the interpolation and produce a smooth Q15 scale factor
+						for this exact radius.
+					</li>
+					<li>
+						<strong>ST_MUL.</strong> Multiply the original (<code>dx, dy</code>) vector by that
+						scale, stretching or shrinking it radially to the source-side geometry.
+					</li>
+					<li>
+						<strong>ST_OFFSET.</strong> Re-anchor the scaled vector on the source-side lens
+						center by adding (C<sub>src,x</sub>, C<sub>src,y</sub>), producing the candidate
+						source coordinate in Q8 fixed-point.
+					</li>
+					<li>
+						<strong>ST_CHECK.</strong> Round the Q8 coordinate to integer pixels, apply the
+						right-half offset of 319 if appropriate, bounds-check against the captured-frame
+						size, and drive the output registers <code>src_x</code>, <code>src_y</code>, and
+						<code>valid</code>.
+					</li>
+					<li>
+						<strong>ST_DONE.</strong> Pulse <code>done</code>, drop <code>busy</code>, and
+						return to <code>ST_IDLE</code>, ready to accept the next destination pixel.
+					</li>
+				</ol>
+				<p>
+					Because this is a strictly sequential state machine rather than a pipelined one, the
+					next pixel has to wait until the current eleven-cycle traversal completes before it
+					can begin.
+				</p>
+
+				{/* ---- 6.3 In-place constraint + ring ---- */}
+				<h3>In-place rewriting and the staging ring</h3>
+				<p>
+					The mapper tells us <em>which</em> raw pixel to read for every rectified output pixel.
+					The harder problem is <em>where</em> to put the result. Two hard constraints shape the
+					rest of the pipeline:
+				</p>
+				<ol>
+					<li>
+						The on-chip SRAM is only about <strong>200 KB</strong>, which is just barely
+						enough to hold one 640×288 grayscale frame. There is not enough room for both a
+						raw copy and a rectified copy, so the rectified frame has to overwrite the raw
+						frame in the same memory, byte for byte.
+					</li>
+					<li>
+						The Video-In subsystem's DMA is <strong>autonomous</strong>: it streams freshly
+						captured PAL frames into the SRAM continuously on its own clock, without
+						coordinating with anything else on the chip.
+					</li>
+				</ol>
+				<p>Every odd piece of the rectification pipeline is a direct consequence of one of these two facts.</p>
+
+				<h4>The row-drift problem</h4>
+				<p>
+					Rectification itself is conceptually simple. For every output pixel
+					(<code>dst_x, dst_y</code>) we want to produce, the radial mapper tells us which raw
+					pixel (<code>src_x, src_y</code>) it came from in the captured frame, so we read that
+					raw byte out of SRAM and stash a rectified byte back into SRAM at the destination
+					position. The catch is that the lens distortion makes the mapper's source row drift by
+					up to about <strong>twelve rows above or below the destination row</strong>. So while
+					we are working on rectified row 60, the mapper might still ask us to read raw row 50
+					as a source pixel. If we had already overwritten raw row 50 with its rectified version
+					several rows earlier, we would now be reading our own rectified output as input, which
+					produces garbage.
+				</p>
+				<p>
+					The general rule is that raw row <code>r</code> is safe to overwrite only once every
+					later destination row that might still touch it is done reading from it. With a
+					maximum vertical drift of <code>K = 12</code>, that means raw row <code>r</code> is
+					safe only after destination row <code>r + K</code> is finished.
+				</p>
+
+				<h4>How the 13-slot ring solves it</h4>
+				<p>
+					This is where the <code>undistort_ring</code> comes in. Instead of writing each
+					rectified row straight back into SRAM, we stash it in a thirteen-slot circular buffer
+					for <code>K</code> more destination rows before committing it. When we finish
+					destination row 0 we put it in slot 0; row 1 into slot 1; and so on until row 12 fills
+					slot 12. Once we finish row 13 the ring is full, so before we put row 13 into slot 0
+					we first drain the old contents of slot 0 (rectified row 0) into SRAM row 0. At that
+					moment we are past row 13, the worst-case source row we could still need is row 0,
+					and we are already done with it — so raw row 0 is safe to overwrite. The ring is, in
+					essence, a <code>K</code>-row delay line that guarantees the safety margin holds for
+					every raw row.
+				</p>
+
+				{/* ---- 6.4 Four-phase scheduler ---- */}
+				<h3>The four-phase scheduler</h3>
+				<p>
+					The ring buffer is half the solution. The other half handles the autonomous DMA. The
+					Video-In DMA, left to itself, would just keep writing fresh raw frames into the SRAM
+					all the way through rectification and matching, randomly clobbering rectified rows we
+					just produced and feeding the SAD matcher a mix of rectified and raw bytes. To stop
+					that, the design holds a <strong>write-lock</strong> on the SRAM's s1 port for the
+					entire rectify-then-match window, which makes the DMA's writes silently fail. That
+					lock is essential for SAD to see a consistent frame — but it also means that while
+					the lock is held, no new frames are getting captured.
+				</p>
+				<p>
+					So the top-level FSM serializes the whole system into four phases that take turns
+					holding and releasing the lock:
+				</p>
+				<Figure
+					src="/diagrams/rectification_pipeline.svg"
+					alt="Rectification pipeline phases"
+					caption="The four-phase top-level scheduler: WAIT lets the DMA refresh SRAM, FILL rewrites raw → rectified in place via the ring, DRAIN flushes the last K rows from the ring, and COMPUTE runs SAD over the fully rectified frame."
+				/>
+				<ul>
+					<li>
+						<strong>WAIT.</strong> The lock is released for ~50 ms — comfortably longer than
+						one 40-ms PAL frame — so the autonomous Video-In DMA is guaranteed to lay down at
+						least one fresh capture.
+					</li>
+					<li>
+						<strong>FILL.</strong> The lock re-asserts. The radial mapper walks every
+						destination pixel in raster order, raw bytes come out of SRAM, rectified bytes go
+						into the ring, and the ring's oldest slot continuously drains back into SRAM in
+						place.
+					</li>
+					<li>
+						<strong>DRAIN.</strong> The last thirteen rectified rows still sitting in the ring
+						after FILL ends are flushed to their matching SRAM rows, leaving SRAM holding a
+						fully rectified frame.
+					</li>
+					<li>
+						<strong>COMPUTE.</strong> The SRAM is still locked, and the parallel SAD engine
+						sweeps the rectified frame, streaming disparities straight to the VGA framebuffer.
+						When it completes, the cycle returns to WAIT.
+					</li>
+				</ul>
+				<p>
+					Both the ring buffer and the WAIT phase are forced moves once you commit to fitting
+					only one frame on chip and sharing that frame with an autonomous capture path. The
+					full rectification subsystem — calibration coefficients, mapper FSM, ring buffer, and
+					four-phase scheduler — exists so that the SAD engine in the next section can simply
+					assume a clean, rectified frame is sitting in SRAM whenever COMPUTE fires.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="sad-engine">
+				<h2>SAD Block-Matching Engine</h2>
+				<p>
+					With a rectified frame sitting in the row-banked SRAM, the block matcher is the
+					engine that actually computes disparities. The choice of SAD as the cost function,
+					the 9×9 window, the max-disparity bound, and the SGM penalty formulation were all
+					locked in during the Python sweep work — see the
+					<a href="#software-prep">Software Preprocessing</a> section for that pathfinding.
+					The hardware below implements the winner of those sweeps.
+				</p>
+
+				<h3>The parallel-stripe architecture</h3>
+				<p>
+					The block matcher implements a parallel-stripe sweep over the rectified frames through
+					several interconnected components:
+				</p>
+				<ul>
+					<li>
+						<strong>Striping.</strong> The 200-row frame is divided into 24 horizontal stripes.
+						Each stripe is assigned its own dedicated SAD engine with a private sliding window.
+						All 24 engines are clocked together, evaluating one disparity hypothesis at 24
+						different vertical positions simultaneously.
+					</li>
+					<li>
+						<strong>Column Prefetch.</strong> A three-state handshake interface sits between
+						the main engine and the SRAM. It translates stripe requests into parallel memory
+						reads, latching full columns for both the reference and search images.
+					</li>
+					<li>
+						<strong>Sliding Window.</strong> To optimally reuse data read from memory, each
+						stripe utilizes a shift register file for its reference block. As the window shifts
+						right across the image, it only needs to insert the freshly-prefetched column,
+						keeping the rest of the block stable and eliminating redundant reads.
+					</li>
+					<li>
+						<strong>Outer FSM.</strong> The control logic manages three nested loops: sweeping
+						the disparity hypothesis up to the maximum limit, sliding the reference block along
+						the X-axis, and shifting the windows down the Y-axis to cover the full stripe.
+					</li>
+					<li>
+						<strong>1-Directional SGM.</strong> We integrated our adapted SGM algorithm
+						directly into the hardware. For each disparity hypothesis, the engine calculates a
+						penalized cost: the raw SAD value plus a smoothness penalty. If the hypothesis
+						differs from the adjacent pixel's best disparity by one, a small penalty is
+						applied; if it differs by more, a larger penalty is applied. This single-pass
+						approximation of SGM requires minimal hardware (a small adder and multiplexer per
+						unit) but significantly smooths the output.
+					</li>
+				</ul>
+
+				<h3>Cycle-by-cycle animation</h3>
+				<p>
+					The animation below walks through the <code>mem_block_intf</code> pipeline one clock
+					at a time, showing how the column prefetch, the per-stripe sliding windows, and the
+					SAD compute units stay in lockstep. Three units (red, orange, indigo) are highlighted
+					so you can watch how the same column read feeds multiple stripes in parallel.
+				</p>
+				<div class="animation-wrap">
+					<iframe
+						src={animationUrl}
+						title="mem_block_intf cycle-by-cycle animation"
+						loading="lazy"
+					></iframe>
+					<div class="animation-actions">
+						<a
+							href={animationUrl}
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Open the animation full-screen ↗
+						</a>
+					</div>
+				</div>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="hps">
+				<h2>HPS Software Design</h2>
+				<p>
+					The HPS software does not perform any load-bearing computational tasks. It is used as
+					the user interface, allowing the user to set parameters from the command line. The
+					command-line interface is implemented as a simple read-eval-print loop (REPL). The
+					user can set a parameter by typing the name of the parameter and value, e.g.
+					<code>maxd 85</code> sets the maximum disparity value to 85. Updates to parameter
+					values are processed in real time. The HPS maps a PIO port for each of the
+					configurable parameters:
+				</p>
+				<ul>
+					<li><strong>maxd</strong> — the maximum disparity value which is checked.</li>
+					<li><strong>mind</strong> — the minimum disparity value which is checked.</li>
+					<li><strong>P1</strong> — the penalty assigned to a disparity value one away from the previous value.</li>
+					<li><strong>P2</strong> — the penalty assigned to a disparity value more than one away from the previous value.</li>
+					<li><strong>edge</strong> — enable the Altera Edge Detection IP.</li>
+				</ul>
+
+				<h3>Software Control Interface</h3>
+				<p>
+					Communication between the ARM processor and the FPGA is handled through Parallel I/O
+					(PIO) ports via the Lightweight HPS-to-FPGA bridge. The C program running on the ARM
+					processor maps the physical hardware addresses — including the bridge, VGA buffers,
+					and SRAM — into virtual memory using Linux's <code>/dev/mem</code> interface.
+				</p>
+				<p>
+					Because the FPGA-side PIOs are strictly output-only from the processor's perspective,
+					the software maintains a local mirror of all tuning parameters. Upon booting, the
+					program immediately initializes the hardware with a known-good default configuration,
+					establishing baseline SGM penalties and disparity bounds so the stereo pipeline
+					begins functioning immediately.
+				</p>
+				<p>
+					The REPL accepts terminal commands over SSH, allowing the user to adjust hardware
+					parameters on the fly. Through this interface, users can dynamically tune the
+					semi-global matching penalties, alter maximum and minimum disparity bounds, or toggle
+					edge detection. The software sanitizes user input — such as clamping negative values
+					— and pushes the updates to the hardware registers, altering the FPGA's behavior on
+					the very next frame.
+				</p>
+
+				<h3>Frame Capture Utility</h3>
+				<p>
+					To evaluate the hardware's performance, we integrated a custom frame-capture utility
+					directly into the control software. When triggered via the REPL, the software reads
+					the SDRAM-backed VGA framebuffer and <strong>constructs a complete, uncompressed PNG
+					file entirely from scratch</strong>. We then copy these off the HPS using the
+					<code>scp</code> command.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="results">
+				<h2>Results</h2>
+
+				<h3>Speed</h3>
+				<p>
+					We were able to synthesize our design with <strong>24 parallel SAD units</strong>
+					executing simultaneously. At this level of parallel computation, we found that the
+					framerate was ultimately <strong>bottlenecked by the undistortion pipeline</strong>.
+					When the pipeline is full, it drops frames from the video input subsystem. In
+					practice, this results in a 50 ms pause between a new frame, ultimately limiting the
+					framerate with rectification enabled to <strong>20 FPS</strong>.
+				</p>
+				<p>
+					With rectification disabled we got worse results — rectification is necessary for
+					horizontal sweeps through the frame to correspond exactly with disparity changes —
+					but we did find a significant improvement in performance. With N = 24, the frame was
+					split into <code>ceil(288/24)</code>-tall stripes, and each worker had to do
+					<code>stripe_height · frame_width · max_disp + frame_width · 5 + stripe_height · 5</code>
+					computations per frame. For our setup, this was approximately 231,672 cycles. At the
+					achieved clock frequency of 50 MHz, this meant that a single frame was computed in
+					0.00463 ms, corresponding with a frame rate of <strong>215 FPS</strong> —
+					significantly exceeding the 25 FPS framerate of the PAL video standard we were using.
+				</p>
+				<p>
+					In retrospect, dedicating more hardware resources and design effort to speeding up the
+					rectification pipeline would have made computing faster than the 25 FPS PAL cameras
+					achievable. However, this also shows that our highly parallel block matching
+					implementation is incredibly performant, and would scale well to more frequent
+					rectified video input.
+				</p>
+
+				<div class="metric-grid">
+					<div class="metric">
+						<div class="metric-value">20<span class="unit">FPS</span></div>
+						<div class="metric-label">End-to-end with rectification</div>
+					</div>
+					<div class="metric">
+						<div class="metric-value">215<span class="unit">FPS</span></div>
+						<div class="metric-label">SAD engine in isolation</div>
+					</div>
+					<div class="metric">
+						<div class="metric-value">24<span class="unit">×</span></div>
+						<div class="metric-label">Parallel SAD units</div>
+					</div>
+					<div class="metric">
+						<div class="metric-value">50<span class="unit">MHz</span></div>
+						<div class="metric-label">Achieved clock frequency</div>
+					</div>
+				</div>
+
+				<h3>Accuracy</h3>
+				<p>
+					We found that the stereo vision system performed best at a distance of <strong>1–3 m</strong>
+					from the camera setup, with a camera baseline distance of <strong>6 cm</strong>. At
+					this distance, it is possible to differentiate objects in the foreground from the
+					background, with bodies and objects appearing as light, monochrome silhouettes against
+					a dark, noisy background. The vision system is additionally able to pick up on
+					gradients for objects which are angled.
+				</p>
+
+				<h3>Resource Utilization</h3>
+				<p class="todo">
+					[TODO: Insert final Quartus fitter report — ALMs, M10Ks, DSPs, registers — once the
+					last working SOF is rebuilt.]
+				</p>
+
+				<h3>Safety and Usability</h3>
+				<p>
+					The system runs entirely on low-voltage lab hardware — the DE1-SoC board plus two
+					analog cameras and a VGA monitor — with no actuators, RF transmitters, lasers, or
+					human-connected electronics. All parameter tuning is done over SSH through the REPL,
+					and the disparity map is rendered live to the VGA output so anyone in the room can
+					see whether a parameter change helped or hurt.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="conclusions">
+				<h2>Conclusions</h2>
+				<p>
+					The end-to-end stereo-vision pipeline met our top-line goal: a real-time disparity
+					map computed entirely on the DE1-SoC, with the FPGA doing all of the load-bearing
+					work and the ARM HPS reduced to a thin parameter-tuning shell. The 24-way parallel
+					SAD engine ran far above the camera framerate when isolated (~215 FPS at 50 MHz), and
+					the in-place radial undistortion pipeline successfully gave the matcher horizontal
+					epipolar lines without needing a second frame's worth of on-chip RAM.
+				</p>
+				<p>
+					What worked best was the <strong>three-implementation discipline</strong>: Python as
+					the algorithm playground, C on the HPS as a near-identical scalar reference, and the
+					SystemVerilog RTL as the production target. Sharing parameter names
+					(<code>window_w/window_h</code>, <code>max_disparity</code>, <code>v_shift</code>,
+					<code>BLOCK_SIZE</code>, <code>MAX_DISP</code>, <code>NUM_SAD_UNITS</code>) across
+					all three meant every algorithmic decision had a golden reference to validate
+					against.
+				</p>
+				<p>
+					What we would do differently next time: dedicate more hardware budget to the
+					rectification pipeline (which is the current ceiling on framerate), ship the 2D
+					<code>(d, v_y)</code> search that the Python and C reference matchers both use to
+					handle imperfect rectification, and budget for proper camera mounting and shared
+					calibration rather than calibrating each lens independently. A deeper SGM pass — more
+					than one sweep direction — is the obvious quality lever we left on the table.
+				</p>
+
+				<h3>Intellectual Property and Standards</h3>
+				<p>
+					The project sits on top of the Cornell / U. Toronto <em>Computer System 15</em>
+					640×480 video-mod baseline, which we forked under the course's reuse policy. The
+					Video-In subsystem, VGA Pixel DMA, Lightweight HPS-to-FPGA bridge, and the Altera
+					Edge Detection IP are all Intel/Altera Qsys components used unmodified. Algorithm
+					prototyping and the calibration pipeline use OpenCV (Apache 2.0). Icarus Verilog and
+					Pillow back the RTL image testbench. All custom RTL, C, and Python code was written
+					by the project team; nothing in the design required reverse-engineering, NDAs, or
+					sample parts. There are no patent encumbrances we are aware of on plain SAD block
+					matching or single-direction SGM cost aggregation.
+				</p>
+				<p>
+					The system conforms to the standard PAL (25 FPS interlaced) video timing on the
+					capture side and the DE1-SoC's 640×480 VGA timing on the display side. No custom
+					standards work was required.
+				</p>
+			</section>
+
+			{/* ------------------------------------------------------------------ */}
+			<section id="appendix">
+				<h2>Appendix</h2>
+
+				<h3>A. Required Permissions</h3>
+				<ul>
+					<li>
+						<strong>Course website report permission.</strong> [TODO: choose approve or
+						do-not-approve using the exact wording from the course page.]
+					</li>
+					<li>
+						<strong>Course YouTube video permission.</strong> [TODO: choose approve or
+						do-not-approve using the exact wording from the course page.]
+					</li>
+				</ul>
+
+				<h3>B. Source Code Listings</h3>
+				<p>Key files in the final build:</p>
+				<ul class="code-list">
+					<li>
+						<code>computer_15_640_video_mod/verilog/DE1_SoC_Computer.v</code> — top-level
+						integration.
+					</li>
+					<li>
+						<code>block_match.sv</code>, <code>block_match_pkg.sv</code> — parameterized
+						parallel SAD engine and shared parameter package.
+					</li>
+					<li>
+						<code>mem_block_intf_d.v</code> — active row-banked memory interface (the
+						<code>_d</code> variant, not the older snapshot).
+					</li>
+					<li>
+						<code>column_prefetch_parallel.sv</code> — parallel row-read column prefetch.
+					</li>
+					<li>
+						<code>stereo_onchip_ram.sv</code> — custom Avalon-drop-in row-banked SRAM with
+						side-door SAD conduit.
+					</li>
+					<li>
+						<code>stereo_radial_mapper_q15_pipe.v</code>, <code>radial_scale_lut_q15.vh</code>
+						— pipelined radial undistortion mapper and its calibration LUT.
+					</li>
+					<li>
+						<code>undistort_ring.sv</code>, <code>rectification_map.sv</code> — staging ring and
+						scheduler.
+					</li>
+					<li>
+						<code>stereo_c/</code> — HPS REPL, frame-capture utility, NEON SAD reference.
+					</li>
+					<li>
+						<code>sterio-vision-python/stereo_depth_system/methods.py</code> — Python matcher
+						registry (SAD-L1/L2, Census+Hamming, vshift variants, OpenCV BM/SGBM golden).
+					</li>
+					<li>
+						<code>run_stereo_experiments.py</code> — sweep driver.
+					</li>
+					<li>
+						<code>stereo_rtl_test/</code> — Icarus Verilog image testbench.
+					</li>
+				</ul>
+
+				<h3>C. Team Task List</h3>
+				<ul>
+					<li><strong>Daniel.</strong> [TODO]</li>
+					<li><strong>Demetrios.</strong> [TODO]</li>
+					<li><strong>Ezra.</strong> [TODO]</li>
+				</ul>
+
+				<h3>D. References</h3>
+				<ul>
+					<li>Cornell ECE 5760 / U. Toronto Computer System 15 640×480 video-mod baseline.</li>
+					<li>Terasic DE1-SoC user manual and Cyclone V device handbook.</li>
+					<li>Intel/Altera Avalon and Qsys IP documentation.</li>
+					<li>OpenCV stereo matching documentation: StereoBM, StereoSGBM, fisheye calibration.</li>
+					<li>
+						Hirschmüller, H. <em>Stereo Processing by Semiglobal Matching and Mutual Information</em>.
+						IEEE TPAMI, 2008.
+					</li>
+					<li>Icarus Verilog and Pillow documentation.</li>
+				</ul>
+			</section>
+
+			<footer class="page-footer">
+				<p>
+					Cornell University · ECE 5760 — Advanced Microcontroller Design and System-on-Chip ·
+					Spring 2026
+				</p>
+				<p class="small">Daniel · Demetrios · Ezra</p>
+			</footer>
+		</div>
+	</main>
+</Layout>
+
+<style>
+	main {
+		margin-left: 260px;
+		min-height: 100vh;
+	}
+
+	.container {
+		max-width: var(--container-width);
+		padding: 0 48px 80px;
+		margin: 0 auto;
+	}
+
+	section {
+		padding: 56px 0 0;
+		scroll-margin-top: 24px;
+	}
+
+	section + section {
+		padding-top: 56px;
+	}
+
+	/* Prose content stays at a comfortable reading width, centered inside the wider container. */
+	section > p,
+	section > ul,
+	section > ol,
+	section > h2,
+	section > h3,
+	section > h4,
+	section > .equation,
+	section > .big-list,
+	section > .fsm-list,
+	section > .metric-grid,
+	section > .code-list,
+	#hero > * {
+		max-width: var(--reading-width);
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Animation iframe matches the figure column. (Figures themselves are sized inside
+	   Figure.astro because Astro CSS scoping prevents a parent-scoped rule from styling
+	   an element rendered by a child component.) */
+	section > .animation-wrap {
+		max-width: var(--figure-width);
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	.equation {
+		font-family: 'Source Serif 4', 'Cambria Math', serif;
+		font-size: 1.25rem;
+		text-align: center;
+		padding: 1.2em 1em;
+		margin: 1.5em 0;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-left: 3px solid var(--accent);
+		border-radius: 8px;
+		color: var(--text);
+	}
+
+	.big-list {
+		counter-reset: list;
+		list-style: none;
+		padding-left: 0;
+	}
+
+	.big-list li {
+		counter-increment: list;
+		position: relative;
+		padding: 14px 18px 14px 56px;
+		margin-bottom: 12px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 8px;
+	}
+
+	.big-list li::before {
+		content: counter(list);
+		position: absolute;
+		left: 18px;
+		top: 14px;
+		width: 26px;
+		height: 26px;
+		background: var(--accent);
+		color: white;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.8rem;
+		font-weight: 600;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: 50%;
+	}
+
+	.fsm-list {
+		counter-reset: fsm;
+		list-style: none;
+		padding-left: 0;
+	}
+
+	.fsm-list li {
+		counter-increment: fsm;
+		position: relative;
+		padding: 6px 0 6px 48px;
+		margin-bottom: 4px;
+	}
+
+	.fsm-list li::before {
+		content: counter(fsm);
+		position: absolute;
+		left: 0;
+		top: 8px;
+		width: 32px;
+		text-align: right;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.78rem;
+		color: var(--accent-hot);
+		font-weight: 600;
+	}
+
+	.metric-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+		gap: 14px;
+		margin: 1.8em 0;
+	}
+
+	.metric {
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		padding: 18px 16px;
+		text-align: left;
+	}
+
+	.metric-value {
+		font-family: 'Source Serif 4', serif;
+		font-size: 2rem;
+		font-weight: 600;
+		color: #fff;
+		line-height: 1.1;
+	}
+
+	.metric-value .unit {
+		font-size: 0.9rem;
+		color: var(--accent-hot);
+		font-family: 'JetBrains Mono', monospace;
+		margin-left: 6px;
+		font-weight: 500;
+	}
+
+	.metric-label {
+		font-size: 0.82rem;
+		color: var(--text-dim);
+		margin-top: 4px;
+	}
+
+	.code-list code {
+		font-size: 0.82em;
+	}
+
+	.todo {
+		padding: 10px 14px;
+		background: rgba(240, 198, 116, 0.08);
+		border: 1px dashed rgba(240, 198, 116, 0.4);
+		border-radius: 6px;
+		color: #f0c674;
+		font-size: 0.9rem;
+		font-family: 'JetBrains Mono', monospace;
+	}
+
+	.animation-wrap {
+		margin: 1.8em 0;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.animation-wrap iframe {
+		width: 100%;
+		height: 780px;
+		border: 0;
+		display: block;
+	}
+
+	.animation-actions {
+		padding: 10px 16px;
+		background: var(--bg-card);
+		border-top: 1px solid var(--border);
+		text-align: right;
+		font-size: 0.85rem;
+	}
+
+	.animation-actions a {
+		border-bottom: none;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.8rem;
+	}
+
+	@media (max-width: 900px) {
+		.animation-wrap iframe {
+			height: 1100px;
+		}
+	}
+
+	.page-footer {
+		margin-top: 100px;
+		padding-top: 32px;
+		border-top: 1px solid var(--border);
+		text-align: center;
+		color: var(--text-muted);
+		font-size: 0.85rem;
+	}
+
+	.page-footer p {
+		color: var(--text-muted);
+		margin: 0.3em 0;
+	}
+
+	.page-footer .small {
+		font-size: 0.75rem;
+		font-family: 'JetBrains Mono', monospace;
+	}
+
+	@media (max-width: 1024px) {
+		main {
+			margin-left: 0;
+		}
+
+		.container {
+			padding: 0 24px 60px;
+		}
+	}
+</style>

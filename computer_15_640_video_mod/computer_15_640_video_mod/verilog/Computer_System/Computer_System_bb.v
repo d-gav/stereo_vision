@@ -82,6 +82,14 @@ module Computer_System (
 	memory_mem_odt,
 	memory_mem_dm,
 	memory_oct_rzqin,
+	onchip_sram_1_sad_port_re,
+	onchip_sram_1_sad_port_col,
+	onchip_sram_1_sad_port_rdata,
+	onchip_sram_s1_lock_lock,
+	pio_big_pen_external_connection_export,
+	pio_max_disp_external_connection_export,
+	pio_min_disp_external_connection_export,
+	pio_small_pen_external_connection_export,
 	pio_test_test_export,
 	sdram_addr,
 	sdram_ba,
@@ -195,6 +203,14 @@ module Computer_System (
 	output		memory_mem_odt;
 	output	[3:0]	memory_mem_dm;
 	input		memory_oct_rzqin;
+	input		onchip_sram_1_sad_port_re;
+	input	[9:0]	onchip_sram_1_sad_port_col;
+	output	[1599:0]	onchip_sram_1_sad_port_rdata;
+	input		onchip_sram_s1_lock_lock;
+	output	[31:0]	pio_big_pen_external_connection_export;
+	output	[31:0]	pio_max_disp_external_connection_export;
+	output	[31:0]	pio_min_disp_external_connection_export;
+	output	[31:0]	pio_small_pen_external_connection_export;
 	input	[31:0]	pio_test_test_export;
 	output	[12:0]	sdram_addr;
 	output	[1:0]	sdram_ba;

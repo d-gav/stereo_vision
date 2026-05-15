@@ -1,0 +1,90 @@
+---
+---
+
+<header id="hero">
+	<div class="kicker">Cornell ECE 5760 · Final Project · Spring 2026</div>
+	<h1>Real-Time Stereo Vision on the DE1-SoC</h1>
+	<p class="soundbite">
+		No GPU, no LiDAR — just two cameras, a Cyclone V, and a live depth map at video rate.
+	</p>
+	<div class="byline">
+		<span>Daniel</span>
+		<span class="sep">·</span>
+		<span>Demetrios</span>
+		<span class="sep">·</span>
+		<span>Ezra</span>
+	</div>
+	<div class="chips">
+		<span class="chip">Terasic DE1-SoC</span>
+		<span class="chip">Cyclone V FPGA</span>
+		<span class="chip">SystemVerilog</span>
+		<span class="chip">ARM HPS / C</span>
+		<span class="chip">Python golden model</span>
+		<span class="chip accent">SAD + 1D SGM @ 20 FPS</span>
+	</div>
+</header>
+
+<style>
+	#hero {
+		padding: 80px 0 56px;
+		border-bottom: 1px solid var(--border);
+		margin-bottom: 56px;
+	}
+
+	.kicker {
+		font-size: 0.78rem;
+		color: var(--accent-hot);
+		text-transform: uppercase;
+		letter-spacing: 0.18em;
+		font-weight: 600;
+		margin-bottom: 18px;
+	}
+
+	#hero h1 {
+		margin: 0 0 0.35em;
+		max-width: 18ch;
+	}
+
+	.soundbite {
+		font-family: 'Source Serif 4', serif;
+		font-size: 1.35rem;
+		font-style: italic;
+		color: var(--text-dim);
+		max-width: 60ch;
+		margin: 0 0 1.5em;
+		line-height: 1.4;
+	}
+
+	.byline {
+		font-size: 0.95rem;
+		color: var(--text-dim);
+		margin-bottom: 1.5em;
+	}
+
+	.sep {
+		margin: 0 0.4em;
+		color: var(--text-muted);
+	}
+
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 8px;
+	}
+
+	.chip {
+		font-size: 0.78rem;
+		padding: 5px 12px;
+		background: var(--bg-card);
+		border: 1px solid var(--border);
+		border-radius: 999px;
+		color: var(--text-dim);
+		font-family: 'JetBrains Mono', monospace;
+	}
+
+	.chip.accent {
+		background: var(--accent-soft);
+		border-color: var(--accent);
+		color: #ffd6d6;
+	}
+</style>

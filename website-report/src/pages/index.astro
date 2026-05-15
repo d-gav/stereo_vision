@@ -602,6 +602,30 @@ import Figure from '../components/Figure.astro';
 						unit) but significantly smooths the output.
 					</li>
 				</ul>
+
+				<h3>Cycle-by-cycle animation</h3>
+				<p>
+					The animation below walks through the <code>mem_block_intf</code> pipeline one clock
+					at a time, showing how the column prefetch, the per-stripe sliding windows, and the
+					SAD compute units stay in lockstep. Three units (red, orange, indigo) are highlighted
+					so you can watch how the same column read feeds multiple stripes in parallel.
+				</p>
+				<div class="animation-wrap">
+					<iframe
+						src="/animations/mem_block_intf.html"
+						title="mem_block_intf cycle-by-cycle animation"
+						loading="lazy"
+					></iframe>
+					<div class="animation-actions">
+						<a
+							href="/animations/mem_block_intf.html"
+							target="_blank"
+							rel="noopener noreferrer"
+						>
+							Open the animation full-screen ↗
+						</a>
+					</div>
+				</div>
 			</section>
 
 			{/* ------------------------------------------------------------------ */}
@@ -1018,6 +1042,41 @@ import Figure from '../components/Figure.astro';
 		color: #f0c674;
 		font-size: 0.9rem;
 		font-family: 'JetBrains Mono', monospace;
+	}
+
+	.animation-wrap {
+		margin: 1.8em 0;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		background: #ffffff;
+	}
+
+	.animation-wrap iframe {
+		width: 100%;
+		height: 780px;
+		border: 0;
+		display: block;
+	}
+
+	.animation-actions {
+		padding: 10px 16px;
+		background: var(--bg-card);
+		border-top: 1px solid var(--border);
+		text-align: right;
+		font-size: 0.85rem;
+	}
+
+	.animation-actions a {
+		border-bottom: none;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.8rem;
+	}
+
+	@media (max-width: 900px) {
+		.animation-wrap iframe {
+			height: 1100px;
+		}
 	}
 
 	.page-footer {

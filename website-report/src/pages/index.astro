@@ -3,6 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
 import Figure from '../components/Figure.astro';
+
+const base = import.meta.env.BASE_URL;
+const animationUrl = `${base}animations/mem_block_intf.html`;
 ---
 
 <Layout>
@@ -630,13 +633,13 @@ import Figure from '../components/Figure.astro';
 				</p>
 				<div class="animation-wrap">
 					<iframe
-						src="/animations/mem_block_intf.html"
+						src={animationUrl}
 						title="mem_block_intf cycle-by-cycle animation"
 						loading="lazy"
 					></iframe>
 					<div class="animation-actions">
 						<a
-							href="/animations/mem_block_intf.html"
+							href={animationUrl}
 							target="_blank"
 							rel="noopener noreferrer"
 						>

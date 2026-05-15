@@ -7,6 +7,11 @@ interface Props {
 }
 
 const { src, caption, alt, background = 'white' } = Astro.props;
+
+// Make `/foo/bar.svg` style props resolve under the configured base path
+// (e.g. GitHub Pages serves the site under /stereo_vision/).
+const base = import.meta.env.BASE_URL;
+const resolvedSrc = src.startsWith('/') ? `${base}${src.slice(1)}` : src;
 ---
 
 <figure class:list={[`bg-${background}`]}>
@@ -14,12 +19,12 @@ const { src, caption, alt, background = 'white' } = Astro.props;
 		class="image-trigger"
 		type="button"
 		data-lightbox
-		data-src={src}
+		data-src={resolvedSrc}
 		data-alt={alt}
 		data-caption={caption ?? ''}
 		aria-label={`Expand: ${alt}`}
 	>
-		<img src={src} alt={alt} loading="lazy" />
+		<img src={resolvedSrc} alt={alt} loading="lazy" />
 		<span class="zoom-icon" aria-hidden="true">
 			<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
 				<circle cx="11" cy="11" r="7"></circle>

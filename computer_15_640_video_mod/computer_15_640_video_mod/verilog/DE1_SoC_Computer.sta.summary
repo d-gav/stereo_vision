@@ -264,7 +264,7 @@ TNS   : -61.068
 
 Type  : Fast 1100mV 85C Model Setup 'clk_vga'
 Slack : -7.444
-TNS   : -183.986
+TNS   : -183.381
 
 Type  : Fast 1100mV 85C Model Setup 'clk_dram'
 Slack : 1.427
@@ -312,6 +312,10 @@ TNS   : 0.000
 
 Type  : Fast 1100mV 85C Model Hold 'CLOCK_50'
 Slack : 0.180
+TNS   : 0.000
+
+Type  : Fast 1100mV 85C Model Hold 'CLOCK_50'
+Slack : 0.182
 TNS   : 0.000
 
 Type  : Fast 1100mV 85C Model Hold 'clk_vga'

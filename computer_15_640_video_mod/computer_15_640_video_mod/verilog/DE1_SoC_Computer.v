@@ -658,8 +658,18 @@ wire [9:0] disp_vga_y = mbi_disp_y + FRAME_HEIGHT;
 wire [31:0] disp_stream_vga_addr = vga_out_base_address +
 	{22'b0, mbi_disp_x} + ({22'b0, disp_vga_y} << 10);
 
-// Debug: show top_phase on HEX
-assign hex3_hex0 = {6'b0, top_phase, 8'b0};
+// Debug HEX assembly. Field layout documented above the HexDigit instances.
+// Verilog continuous-assigns can forward-reference wires, so the signals
+// declared further down (mux_bus_*, stereo_active, fp_*_dbg, bus_grant)
+// resolve fine at elaboration.
+assign hex_word = {
+    /* HEX5 */ 3'b000, top_phase[0],
+    /* HEX4 */ state,
+    /* HEX3 */ 1'b0, fp_bus_state_dbg,
+    /* HEX2 */ stereo_active, bus_grant, mux_bus_read, mux_bus_write,
+    /* HEX1 */ fp_ack_wait_dbg[7:4],
+    /* HEX0 */ fp_ack_wait_dbg[3:0]
+};
 
 // Radial mapper — feed original-frame coordinates (add Y_CROP_OFFSET to dst_y)
 wire [9:0] mapper_dst_y = video_in_y_cood + Y_CROP_OFFSET;
@@ -672,8 +682,137 @@ stereo_radial_mapper_q15 stereo_radial_mapper_inst (
 	.busy()
 );
 
-// SW[4] = stereo enable
-wire stereo_enabled = SW[4];
+// SW inputs are asynchronous slider switches with mechanical bounce.
+// Two-FF synchronizers prevent metastability and glitching the bus mux
+// (pipe_active) mid-transaction when SW[4] is toggled at runtime.
+reg sw0_q1, sw0_q2;
+reg sw3_q1, sw3_q2;
+reg sw4_q1, sw4_q2;
+always @(posedge CLOCK2_50) begin
+	sw0_q1 <= SW[0]; sw0_q2 <= sw0_q1;
+	sw3_q1 <= SW[3]; sw3_q2 <= sw3_q1;
+	sw4_q1 <= SW[4]; sw4_q2 <= sw4_q1;
+end
+wire sw0_sync = sw0_q2;
+wire sw3_sync = sw3_q2;
+
+// SW[4] = stereo enable (raw, asynchronously toggled by user).
+wire stereo_enabled = sw4_q2;
+
+//=======================================================
+// Streaming FILL controller (pipelined mapper + bus + BRAM + VGA)
+//
+// When stereo is enabled this replaces the legacy per-pixel PHASE_FILL FSM.
+// The controller drives the EBAB master (one camera read + one VGA write
+// per pixel) and the stereo BRAM. The legacy FSM is left in place for the
+// non-stereo debug-display mode; muxes below select which one drives each
+// shared signal at any given cycle.
+//=======================================================
+wire        fp_done;
+wire [31:0] fp_bus_addr;
+wire        fp_bus_read;
+wire        fp_bus_write;
+wire [3:0]  fp_bus_byte_enable;
+wire [31:0] fp_bus_write_data;
+wire                          fp_bram_wr_en;
+wire [STRIPE_W-1:0]           fp_bram_wr_stripe;
+wire [ROW_IN_STRIPE_W-1:0]    fp_bram_wr_row_in_stripe;
+wire [BRAM_COL_W-1:0]         fp_bram_wr_col;
+wire [7:0]                    fp_bram_wr_data;
+wire [2:0]                    fp_bus_state_dbg;
+wire [7:0]                    fp_ack_wait_dbg;
+
+// stereo_active is the LATCHED version of stereo_enabled. The bus mux
+// (pipe_active below) keys off this, NOT stereo_enabled directly: SW[4]
+// toggling combinationally tore the EBAB transactions in half (legacy
+// FSM mid-read, mux flips, fp_bus_read = 0 dropped read on the wire,
+// EBAB stranded an outstanding response, design wedged until reflash).
+//
+// Update only when both controllers are fully quiet on the shared bus and
+// BRAM. While the toggling side has an in-flight transaction, stereo_active
+// stays put -- the in-flight FSM drains naturally before ownership flips.
+reg stereo_active;
+wire stereo_safe = (state == 4'd0)
+                && !bus_read    && !bus_write    && !bram_wr_en
+                && !fp_bus_read && !fp_bus_write && !fp_bram_wr_en;
+
+always @(posedge CLOCK2_50 or negedge KEY[0]) begin
+    if (!KEY[0])         stereo_active <= 1'b0;
+    else if (stereo_safe) stereo_active <= stereo_enabled;
+end
+
+// pipe_active gates whose signals reach the EBAB / BRAM. While pipe_active is
+// true (PHASE_FILL with stereo on), the legacy bus_*/bram_wr_* registers are
+// kept off the wires. fp_go is purely combinational from this gate plus SW[0],
+// minus the one cycle that fp_done is asserted -- otherwise the controller
+// would race-restart between done and the phase transition.
+wire pipe_active = (top_phase == PHASE_FILL) && stereo_active;
+wire fp_go       = pipe_active && sw0_sync && !fp_done;
+
+// Bus-issue throttle, identical to the legacy PHASE_FILL gate. Without this
+// the EBAB / VGA pixel buffer falls behind: removing the timer historically
+// caused the VGA display to stop updating entirely. The pipelined mapper
+// inside fill_pipe still runs at 1 px/cycle into its FIFO; only new bus
+// transactions (camera read or VGA write) are issued at the throttled rate.
+// PHASE_COMPUTE's disparity-write start uses the same gate -- previously
+// it was implicitly throttled by SAD compute time, but bursts of 24 emits
+// per column went out back-to-back which can over-feed the bridge.
+wire bus_grant = ((timer & 32'd5) == 32'd0);
+
+// Muxed bus signals -- these are what actually go to the EBAB master.
+wire [31:0] mux_bus_addr        = pipe_active ? fp_bus_addr        : bus_addr;
+wire        mux_bus_read        = pipe_active ? fp_bus_read        : bus_read;
+wire [3:0]  mux_bus_byte_enable = pipe_active ? fp_bus_byte_enable : bus_byte_enable;
+wire        mux_bus_write       = pipe_active ? fp_bus_write       : bus_write;
+wire [31:0] mux_bus_write_data  = pipe_active ? fp_bus_write_data  : bus_write_data;
+
+// Muxed BRAM write signals -- what actually goes to stereo_bram.
+wire                          mux_bram_wr_en             = pipe_active ? fp_bram_wr_en             : bram_wr_en;
+wire [STRIPE_W-1:0]           mux_bram_wr_stripe         = pipe_active ? fp_bram_wr_stripe         : bram_wr_stripe;
+wire [ROW_IN_STRIPE_W-1:0]    mux_bram_wr_row_in_stripe  = pipe_active ? fp_bram_wr_row_in_stripe  : bram_wr_row_in_stripe;
+wire [BRAM_COL_W-1:0]         mux_bram_wr_col            = pipe_active ? fp_bram_wr_col            : bram_wr_col;
+wire [7:0]                    mux_bram_wr_data           = pipe_active ? fp_bram_wr_data           : bram_wr_data;
+
+fill_pipe_controller #(
+    .FULL_FRAME_WIDTH    (FULL_FRAME_WIDTH),
+    .FRAME_HEIGHT        (FRAME_HEIGHT),
+    .FULL_ROW_WIDTH      (FULL_ROW_WIDTH),
+    .Y_CROP_OFFSET       (Y_CROP_OFFSET),
+    .HALF_FRAME_WIDTH    (HALF_FRAME_WIDTH),
+    .LEFT_LUT_WIDTH      (LEFT_LUT_WIDTH),
+    .INTER_CAMERA_GAP    (INTER_CAMERA_GAP),
+    .RIGHT_OUTPUT_X_START(RIGHT_OUTPUT_X_START),
+    .STRIPE_HEIGHT       (STRIPE_HEIGHT),
+    .NUM_STRIPES         (NUM_STRIPES),
+    .MAPPER_LATENCY      (11)
+) u_fill_pipe (
+    .clk                   (CLOCK2_50),
+    // Held in reset whenever stereo_active = 0 so the controller can't be
+    // partway through an FSM transition when the bus mux switches owners.
+    // Combined with stereo_active's safe-update gating this guarantees fp_*
+    // outputs are 0 in any cycle the legacy FSM owns the bus.
+    .reset_n               (KEY[0] && stereo_active),
+    .go                    (fp_go),
+    .bus_grant             (bus_grant),
+
+    .bus_addr              (fp_bus_addr),
+    .bus_read              (fp_bus_read),
+    .bus_write             (fp_bus_write),
+    .bus_byte_enable       (fp_bus_byte_enable),
+    .bus_write_data        (fp_bus_write_data),
+    .bus_read_data         (bus_read_data),
+    .bus_ack               (bus_ack),
+
+    .bram_wr_en            (fp_bram_wr_en),
+    .bram_wr_stripe        (fp_bram_wr_stripe),
+    .bram_wr_row_in_stripe (fp_bram_wr_row_in_stripe),
+    .bram_wr_col           (fp_bram_wr_col),
+    .bram_wr_data          (fp_bram_wr_data),
+
+    .done                  (fp_done),
+    .bus_state_dbg         (fp_bus_state_dbg),
+    .ack_wait_dbg          (fp_ack_wait_dbg)
+);
 
 //=======================================================
 // Main FSM: FILL → COMPUTE → WRITEBACK → FILL ...
@@ -908,8 +1047,12 @@ always @(posedge CLOCK2_50) begin
 				state <= 4'd1;
 			end
 
-			// Handle streaming disparity output
-			if (mbi_disp_valid && state != 4'd13 && state != 4'd14) begin
+			// Handle streaming disparity output. Same bus_grant throttle as
+			// PHASE_FILL: a column's worth of emits arrives in a back-to-back
+			// burst from mem_block_intf, and the EBAB clock-bridge can't keep
+			// up at full rate. We let mem_block_intf wait by holding off the
+			// disp_ack chain (state stays at 1 until bus_grant goes high).
+			if (mbi_disp_valid && state != 4'd13 && state != 4'd14 && bus_grant) begin
 				// New disparity pixel ready — write to VGA
 				state <= 4'd13;
 				bus_write <= 1'b1;
@@ -1034,7 +1177,7 @@ Computer_System The_System (
 	.ebab_video_in_external_interface_write       (bus_write),       //  .write
 	.ebab_video_in_external_interface_write_data  (bus_write_data),  //.write_data
 	.ebab_video_in_external_interface_acknowledge (bus_ack), //  .acknowledge
-	.ebab_video_in_external_interface_read_data   (bus_read_data),   
+	.ebab_video_in_external_interface_read_data   (bus_read_data),
 	// clock bridge for EBAb_video_in_external_interface_acknowledge
 	.clock_bridge_0_in_clk_clk                    (CLOCK_50),
 		

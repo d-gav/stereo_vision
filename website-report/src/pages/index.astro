@@ -845,10 +845,124 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					significantly improves performance on monochrome surfaces and on larger objects
 					generally.
 				</p>
+				<p>
+					To make the smoothing benefit concrete, we swept the SGM penalty configuration on
+					the live FPGA pipeline against a fixed scene — a person holding a dark box in the
+					lab. The top half of each VGA capture is the rectified stereo pair (left/right
+					cameras), and the bottom half is the disparity map the matcher emits. Looking at
+					the <strong>left half of each disparity map</strong> (the textured foreground) is
+					the cleanest way to compare: the right half is dominated by the textureless wall
+					beyond the box, where SAD has no signal to match against and even SGM can't
+					recover the depth.
+				</p>
+				<div class="penalty-grid">
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-penalty/IMG_9558.jpg')}
+							data-alt="No SGM penalty"
+							data-caption="No SGM penalty (P1 = 0, P2 = 0). Raw SAD only."
+							aria-label="Expand: No SGM penalty"
+						>
+							<img
+								src={withBase('/images/variable-penalty/IMG_9558.jpg')}
+								alt="Disparity map with no SGM penalty"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>No penalty</strong> (P1 = 0, P2 = 0). Raw SAD with no smoothing.
+							The box silhouette is recoverable but the disparity is grainy — every pixel
+							argues independently and adjacent disparities jump around freely.
+						</figcaption>
+					</figure>
+
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-penalty/IMG_9559.jpg')}
+							data-alt="P2 only"
+							data-caption="P2 only (large-jump penalty). Small steps unpenalised, big jumps suppressed."
+							aria-label="Expand: P2-only penalty"
+						>
+							<img
+								src={withBase('/images/variable-penalty/IMG_9559.jpg')}
+								alt="Disparity map with P2-only penalty"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>P2 only</strong> (P1 = 0, P2 &gt; 0). Penalises only the
+							|d<sub>p</sub> − d<sub>p−1</sub>| &gt; 1 case. Single-step disparity
+							drift is still free, so the foreground takes on a washed-out, stripey
+							look — the matcher avoids large jumps but accumulates small ones across
+							the row.
+						</figcaption>
+					</figure>
+
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-penalty/IMG_9560.jpg')}
+							data-alt="Both penalties"
+							data-caption="Both penalties (P1 and P2). Full 1-D SGM smoothing."
+							aria-label="Expand: both P1 and P2 penalties"
+						>
+							<img
+								src={withBase('/images/variable-penalty/IMG_9560.jpg')}
+								alt="Disparity map with both P1 and P2 penalties"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>Both penalties</strong> (P1 &gt; 0, P2 &gt; 0). The full 1-D SGM
+							form. The box is the brightest, sharpest-edged region in any of the four
+							frames, and the person's body resolves cleanly behind it — small drifts
+							are now suppressed too, so within a real surface the disparity locks in.
+						</figcaption>
+					</figure>
+
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/variable-penalty/IMG_9561.jpg')}
+							data-alt="Larger penalties"
+							data-caption="Both penalties at larger magnitudes — over-smoothing."
+							aria-label="Expand: larger P1 and P2 penalties"
+						>
+							<img
+								src={withBase('/images/variable-penalty/IMG_9561.jpg')}
+								alt="Disparity map with larger P1 and P2 penalties"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>Larger P1 and P2.</strong> Same form as the previous panel but
+							with the magnitudes turned up. The smoothness term starts to outvote the
+							SAD term, so structure that the matcher actually has evidence for gets
+							flattened into broad bands and the silhouette loses its crispness.
+						</figcaption>
+					</figure>
+				</div>
+				<p>
+					The takeaway matches what the cost function predicts: the SGM term is most
+					useful when both P1 and P2 are nonzero (panel 3) — P1 alone or P2 alone leaves
+					the half it doesn't penalise free to drift, and pushing both magnitudes too high
+					(panel 4) starts erasing real depth structure. The values exposed at runtime
+					over the HPS REPL (<code>P1</code>, <code>P2</code>) let us pick the operating
+					point per scene without recompiling.
+				</p>
 				<p class="todo">
-					[TODO: Insert disparity-map photos at 1 m, 2 m, and 3 m distances showing the
-					silhouette quality at each. Also a side-by-side of "with vs. without SGM penalty"
-					on a monochrome surface (e.g. blank wall) to make the smoothing benefit visible.]
+					[TODO: Disparity-map photos at 1 m, 2 m, and 3 m distances showing how silhouette
+					quality degrades with range — separate from the penalty sweep above.]
 				</p>
 
 				<h3>Resource Utilization</h3>
@@ -1271,6 +1385,61 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		color: #f0c674;
 		font-size: 0.9rem;
 		font-family: 'JetBrains Mono', monospace;
+	}
+
+	.penalty-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 18px;
+		margin: 1.8em auto;
+		max-width: var(--figure-width, 820px);
+	}
+
+	.penalty-cell {
+		margin: 0;
+		padding: 0;
+	}
+
+	.penalty-cell .image-trigger {
+		position: relative;
+		display: block;
+		width: 100%;
+		border: 1px solid var(--border);
+		border-radius: 8px;
+		overflow: hidden;
+		padding: 6px;
+		background: #ffffff;
+		cursor: zoom-in;
+		transition: border-color 0.15s ease;
+	}
+
+	.penalty-cell .image-trigger:hover {
+		border-color: var(--accent);
+	}
+
+	.penalty-cell .image-trigger:focus-visible {
+		outline: 2px solid var(--accent-hot);
+		outline-offset: 2px;
+	}
+
+	.penalty-cell img {
+		width: 100%;
+		height: auto;
+		display: block;
+		border-radius: 4px;
+	}
+
+	.penalty-cell figcaption {
+		font-size: 0.82rem;
+		color: var(--text-dim);
+		margin-top: 8px;
+		line-height: 1.45;
+	}
+
+	@media (max-width: 720px) {
+		.penalty-grid {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	.animation-wrap {

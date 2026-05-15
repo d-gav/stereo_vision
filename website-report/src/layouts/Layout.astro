@@ -2,22 +2,179 @@
 <html lang="en">
 	<head>
 		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
 		<link rel="icon" href="/favicon.ico" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro Basics</title>
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link
+			href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap"
+			rel="stylesheet"
+		/>
+		<title>Real-Time Stereo Vision on the DE1-SoC — ECE 5760 Final Project</title>
+		<meta
+			name="description"
+			content="A real-time FPGA stereo-vision depth system on the Terasic DE1-SoC, built by Daniel, Demetrios, and Ezra for Cornell ECE 5760."
+		/>
 	</head>
 	<body>
 		<slot />
 	</body>
 </html>
 
-<style>
+<style is:global>
+	:root {
+		--bg: #0e1116;
+		--bg-elev: #161b22;
+		--bg-card: #1c232d;
+		--border: #2a323d;
+		--text: #e6edf3;
+		--text-dim: #9aa7b4;
+		--text-muted: #6e7b8a;
+		--accent: #b31b1b; /* Cornell red */
+		--accent-hot: #e23232;
+		--accent-soft: rgba(179, 27, 27, 0.16);
+		--code-bg: #11161d;
+		--shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+		--max-width: 1200px;
+		--reading-width: 760px;
+	}
+
+	* {
+		box-sizing: border-box;
+	}
+
 	html,
 	body {
 		margin: 0;
-		width: 100%;
-		height: 100%;
+		padding: 0;
+		background: var(--bg);
+		color: var(--text);
+		font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial,
+			sans-serif;
+		font-size: 16px;
+		line-height: 1.65;
+		-webkit-font-smoothing: antialiased;
+		text-rendering: optimizeLegibility;
+		scroll-behavior: smooth;
+	}
+
+	body {
+		background:
+			radial-gradient(1100px 600px at 80% -10%, rgba(179, 27, 27, 0.10), transparent 60%),
+			radial-gradient(900px 500px at -10% 20%, rgba(50, 90, 200, 0.08), transparent 60%),
+			var(--bg);
+	}
+
+	a {
+		color: var(--accent-hot);
+		text-decoration: none;
+		border-bottom: 1px dotted rgba(226, 50, 50, 0.5);
+		transition: color 0.15s ease, border-color 0.15s ease;
+	}
+
+	a:hover {
+		color: #ff7575;
+		border-bottom-color: #ff7575;
+	}
+
+	h1,
+	h2,
+	h3,
+	h4 {
+		font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+		font-weight: 600;
+		letter-spacing: -0.01em;
+		color: var(--text);
+		margin: 0 0 0.5em;
+	}
+
+	h1 {
+		font-size: clamp(2rem, 4vw, 3rem);
+		line-height: 1.1;
+	}
+
+	h2 {
+		font-size: clamp(1.5rem, 2.5vw, 2rem);
+		line-height: 1.2;
+		margin-top: 0;
+		padding-bottom: 0.4em;
+		border-bottom: 1px solid var(--border);
+	}
+
+	h3 {
+		font-size: 1.3rem;
+		color: var(--text);
+		margin-top: 1.8em;
+	}
+
+	h4 {
+		font-size: 1.05rem;
+		color: var(--text-dim);
+		font-family: Inter, sans-serif;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		margin-top: 1.4em;
+	}
+
+	p {
+		margin: 0 0 1em;
+		color: var(--text);
+	}
+
+	ul,
+	ol {
+		padding-left: 1.4em;
+		margin: 0 0 1em;
+	}
+
+	li {
+		margin-bottom: 0.4em;
+	}
+
+	li::marker {
+		color: var(--accent-hot);
+	}
+
+	code {
+		font-family: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo,
+			Consolas, monospace;
+		font-size: 0.88em;
+		background: var(--code-bg);
+		color: #f0c674;
+		padding: 0.12em 0.4em;
+		border-radius: 4px;
+		border: 1px solid var(--border);
+	}
+
+	strong {
+		color: #ffffff;
+		font-weight: 600;
+	}
+
+	em {
+		color: var(--text-dim);
+	}
+
+	blockquote {
+		margin: 1.5em 0;
+		padding: 0.6em 1.2em;
+		border-left: 3px solid var(--accent);
+		background: var(--accent-soft);
+		color: var(--text);
+		border-radius: 0 8px 8px 0;
+	}
+
+	hr {
+		border: none;
+		border-top: 1px solid var(--border);
+		margin: 3em 0;
+	}
+
+	::selection {
+		background: var(--accent);
+		color: #fff;
 	}
 </style>

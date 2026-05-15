@@ -1,0 +1,68 @@
+---
+interface Props {
+	src: string;
+	caption?: string;
+	alt: string;
+	wide?: boolean;
+	background?: 'white' | 'card' | 'none';
+}
+
+const { src, caption, alt, wide = false, background = 'white' } = Astro.props;
+---
+
+<figure class:list={[{ wide }, `bg-${background}`]}>
+	<div class="image">
+		<img src={src} alt={alt} loading="lazy" />
+	</div>
+	{caption && <figcaption set:html={caption} />}
+</figure>
+
+<style>
+	figure {
+		margin: 2em 0;
+		padding: 0;
+	}
+
+	figure.wide {
+		max-width: none;
+	}
+
+	.image {
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		padding: 18px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	figure.bg-white .image {
+		background: #ffffff;
+	}
+
+	figure.bg-card .image {
+		background: var(--bg-card);
+	}
+
+	figure.bg-none .image {
+		background: transparent;
+		padding: 0;
+		border: none;
+	}
+
+	img {
+		max-width: 100%;
+		height: auto;
+		display: block;
+	}
+
+	figcaption {
+		font-size: 0.85rem;
+		color: var(--text-dim);
+		text-align: center;
+		margin-top: 10px;
+		line-height: 1.5;
+		font-style: italic;
+	}
+</style>

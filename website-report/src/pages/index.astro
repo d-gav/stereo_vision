@@ -241,11 +241,14 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					The sweep driver walked max-disparities {'{'}24, 32, 48, 64, 96{'}'} against window
 					sizes {'{'}5, 7, 9, 11, 13{'}'}, and a parallel sweep pushed the grid much further
 					(window 3..33, max-disp up to 224) to see how flat the metric landscape was. The
-					result is what's hardwired into the RTL: <strong>9×9 window, max-disp 32</strong>.
-					That number isn't arbitrary — it's the smallest setting in the sweep where the
-					disparity map kept its structure on our specific captures. The SGM penalty constants
-					exposed to the HPS at runtime follow the same P1 = 8·blockSize² /
-					P2 = 32·blockSize² formula OpenCV uses internally.
+					sweep result was a <strong>9×9 window at max-disp 32</strong> — the smallest
+					setting where the disparity map kept its structure on our specific captures — and
+					that's the operating point baked into the C reference. The final synthesized RTL
+					ultimately ships at <strong>5×5</strong> because the ALM budget at 24 parallel
+					SAD workers couldn't absorb a 9×9 worker (per-worker logic grows exponentially
+					with the block radius); see <a href="#results">Resource Utilization</a> for that
+					trade-off. The SGM penalty constants exposed to the HPS at runtime follow the
+					same P1 = 8·blockSize² / P2 = 32·blockSize² formula OpenCV uses internally.
 				</p>
 				<p class="todo">
 					[TODO: Sweep-results visualization — a small grid (window size × max-disp) of
@@ -359,10 +362,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			<section id="memory">
 				<h2>Row-Banked On-Chip Memory</h2>
 				<p>
-					A key constraint shaped our entire architecture: a 9×9 reference block compared against
-					a wider search window requires fetching dozens of pixels per disparity hypothesis. A
-					standard single-port memory caps throughput at one pixel per cycle, which would make
-					the cost-per-disparity dozens of clock cycles.
+					A key constraint shaped our entire architecture: even a small reference block
+					compared against a wider search window requires fetching dozens of pixels per
+					disparity hypothesis. A standard single-port memory caps throughput at one pixel
+					per cycle, which would make the cost-per-disparity dozens of clock cycles.
 				</p>
 				<p>
 					To realize the embarrassingly parallel nature of SAD, we built a custom memory
@@ -633,10 +636,11 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					With a rectified frame sitting in the row-banked SRAM, the block matcher is the
 					engine that actually computes disparities. The choice of SAD as the cost function,
-					the 9×9 window, the max-disparity bound, and the SGM penalty formulation were all
-					locked in during the Python sweep work — see the
-					<a href="#software-prep">Software Preprocessing</a> section for that pathfinding.
-					The hardware below implements the winner of those sweeps.
+					the max-disparity bound, and the SGM penalty formulation were all locked in during
+					the Python sweep work — see the <a href="#software-prep">Software Preprocessing</a>
+					section for that pathfinding. The synthesized RTL block size (5×5) is set by the
+					ALM budget rather than by the sweep result; see
+					<a href="#results">Resource Utilization</a> for that trade-off.
 				</p>
 
 				<h3>The parallel-stripe architecture</h3>
@@ -923,23 +927,6 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					resources on a simpler in-stream transform rather than the multi-cycle FSM that
 					currently consumes most of the frame time.
 				</p>
-				<p>
-					Smaller things we'd also change: shared per-mount calibration rather than calibrating
-					each lens independently, proper camera mounting to keep the two cameras coplanar,
-					and shipping the 2D <code>(d, v<sub>y</sub>)</code> search the Python and C reference
-					matchers already use.
-				</p>
-				<p>
-					What worked best was the <strong>three-implementation discipline</strong>: Python as
-					the algorithm playground, C on the HPS as a near-identical scalar reference, and the
-					SystemVerilog RTL as the production target. Sharing parameter names
-					(<code>window_w/window_h</code>, <code>max_disparity</code>, <code>v_shift</code>,
-					<code>BLOCK_SIZE</code>, <code>MAX_DISP</code>, <code>NUM_SAD_UNITS</code>) across
-					all three meant every algorithmic decision had a golden reference to validate
-					against — any disagreement between FPGA output and the Python reference at the same
-					parameter setting had to be a real RTL bug.
-				</p>
-
 				<h3>Intellectual Property and Standards</h3>
 				<p>
 					The project sits on top of the Cornell / U. Toronto <em>Computer System 15</em>

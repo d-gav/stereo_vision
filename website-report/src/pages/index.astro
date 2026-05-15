@@ -3,9 +3,9 @@ import Layout from '../layouts/Layout.astro';
 import Nav from '../components/Nav.astro';
 import Hero from '../components/Hero.astro';
 import Figure from '../components/Figure.astro';
+import { withBase } from '../lib/base';
 
-const base = import.meta.env.BASE_URL;
-const animationUrl = `${base}animations/mem_block_intf.html`;
+const animationUrl = withBase('/animations/mem_block_intf.html');
 ---
 
 <Layout>

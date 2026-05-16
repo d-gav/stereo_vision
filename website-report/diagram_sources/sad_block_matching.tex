@@ -62,7 +62,7 @@
   \draw[flow, dashed] (33,39) -- (108,39);
   \draw[flow, dashed] (33,39) -- (123,39);
 
-  \draw[decorate, decoration={brace, amplitude=4pt}, draw=muted] (93,30) -- (136,30);
+  \draw[decorate, decoration={brace, mirror, amplitude=4pt}, draw=muted] (93,30) -- (136,30);
   \node[labeltext] at (114.5,24) {candidate disparities\\0..MAX\_DISP};
 
   \node[compute_block, minimum width=38mm] (sad) at (71,5) {$\sum |L(x,y)-R(x-d,y)|$\\choose lowest cost};

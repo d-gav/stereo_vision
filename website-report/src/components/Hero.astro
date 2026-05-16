@@ -5,22 +5,15 @@
 	<div class="kicker">Cornell ECE 5760 · Final Project · Spring 2026</div>
 	<h1>Real-Time Stereo Vision on the DE1-SoC</h1>
 	<p class="soundbite">
-		No GPU, no LiDAR — just two cameras, a Cyclone V, and a live depth map at video rate.
+		A real-time stereo depth pipeline running on the DE1-SoC's Cyclone V FPGA, with two
+		analog PAL cameras as input and a live disparity map rendered to VGA.
 	</p>
 	<div class="byline">
-		<span>Daniel</span>
+		<span>Daniel Teleshevsky <span class="netid">dt532</span></span>
 		<span class="sep">·</span>
-		<span>Demetrios</span>
+		<span>Demetri Gavalas <span class="netid">deg273</span></span>
 		<span class="sep">·</span>
-		<span>Ezra</span>
-	</div>
-	<div class="chips">
-		<span class="chip">Terasic DE1-SoC</span>
-		<span class="chip">Cyclone V FPGA</span>
-		<span class="chip">SystemVerilog</span>
-		<span class="chip">ARM HPS / C</span>
-		<span class="chip">Python golden model</span>
-		<span class="chip accent">SAD + 1D SGM @ ~10 FPS</span>
+		<span>Ezra Reiss <span class="netid">er495</span></span>
 	</div>
 </header>
 
@@ -66,25 +59,10 @@
 		color: var(--text-muted);
 	}
 
-	.chips {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 8px;
-	}
-
-	.chip {
-		font-size: 0.78rem;
-		padding: 5px 12px;
-		background: var(--bg-card);
-		border: 1px solid var(--border);
-		border-radius: 999px;
-		color: var(--text-dim);
+	.netid {
 		font-family: 'JetBrains Mono', monospace;
-	}
-
-	.chip.accent {
-		background: var(--accent-soft);
-		border-color: var(--accent);
-		color: #ffd6d6;
+		font-size: 0.82rem;
+		color: var(--text-muted);
+		margin-left: 0.3em;
 	}
 </style>

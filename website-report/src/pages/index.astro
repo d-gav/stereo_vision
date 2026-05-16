@@ -17,10 +17,25 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			{/* ------------------------------------------------------------------ */}
 			<section id="intro">
 				<h2>Introduction</h2>
-				<p class="todo">
-					[TODO: Hero — embed the final demo video (live disparity map running on the DE1-SoC)
-					and a hero photo of the physical rig: the two analog cameras on their mount, the
-					DE1-SoC, and the VGA monitor showing the depth map.]
+				<div class="hero-video">
+					<iframe
+						src="https://www.youtube-nocookie.com/embed/2kO5oo-ufuU?rel=0&modestbranding=1&playsinline=1"
+						title="Project demo — real-time stereo vision on the DE1-SoC"
+						loading="lazy"
+						allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+						allowfullscreen
+					></iframe>
+				</div>
+				<p class="disclaimer">
+					<strong>Note on the demo above:</strong> this clip is best read as a walkthrough
+					of <em>what the system does</em> — what hardware is on the bench, what the
+					rectified pair looks like coming off the cameras, and what the live disparity
+					map looks like on the VGA monitor. It is <strong>not</strong> the right artifact
+					for judging the matcher's quality: the two camera feeds were inadvertently
+					swapped during this take, which inverts the sign of the disparity and breaks
+					the depth interpretation. For accurate accuracy and performance evidence — the
+					penalty sweep, the distance sweep, and the side-by-side block-size /
+					worker-count motion clips — see the <a href="#results">Results</a> section.
 				</p>
 				<p>
 					Stereo vision is a technique for extracting a 3D scene from two 2D images. By setting up
@@ -223,11 +238,63 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					per-side optical-center constants</strong> — a destination-side center and a
 					source-side center for each camera.
 				</p>
-				<p class="todo">
-					[TODO: Calibration board photo + before/after rectification pair. Ideally a CharUco
-					capture next to the rectified version with overlaid epipolar lines, so the
-					"horizontal lines should stay horizontal" property is visible.]
+				<p>
+					The two captures below are the live VGA output of the same scene — a person
+					holding a tape measure horizontally across the camera frame — first with the
+					raw, uncalibrated wide-angle lens, then with the per-lens calibration table
+					driving the radial mapper.
 				</p>
+				<div class="penalty-grid">
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/delensing-calibration/lens-uncalibrated.jpg')}
+							data-alt="Uncalibrated wide-angle lens"
+							data-caption="Uncalibrated — straight tape measure bowed by raw fisheye distortion."
+							aria-label="Expand: uncalibrated lens"
+						>
+							<img
+								src={withBase('/images/delensing-calibration/lens-uncalibrated.jpg')}
+								alt="VGA capture with uncalibrated wide-angle lens — ruler is visibly bent"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>Uncalibrated.</strong> The tape measure is physically straight,
+							but the raw wide-angle lens makes it bow noticeably and squeeze the
+							spacing between numbers as you move from the center to the edges of the
+							frame — classic radial fisheye distortion.
+						</figcaption>
+					</figure>
+
+					<figure class="penalty-cell">
+						<button
+							class="image-trigger"
+							type="button"
+							data-lightbox
+							data-src={withBase('/images/delensing-calibration/lens-calibrated.jpg')}
+							data-alt="With per-lens calibration applied"
+							data-caption="Calibrated — the ruler is much closer to a straight line, but tick spacing isn't perfectly uniform."
+							aria-label="Expand: calibrated lens"
+						>
+							<img
+								src={withBase('/images/delensing-calibration/lens-calibrated.jpg')}
+								alt="VGA capture with the radial mapper applying the per-lens calibration"
+								loading="lazy"
+							/>
+						</button>
+						<figcaption>
+							<strong>Calibrated.</strong> With the per-camera radial scale table
+							running on the FPGA, the same ruler is much closer to a straight line.
+							It's not perfect though — the spacing between the small tick marks
+							isn't perfectly uniform across the frame, which is the residual error
+							that motivated the polynomial-fit pass and the eventual move to a
+							full-LUT mapper for higher-quality builds.
+						</figcaption>
+					</figure>
+				</div>
 
 				<h3>Picking the matcher and operating point</h3>
 				<p>
@@ -767,36 +834,30 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Speed</h3>
 				<p>
-					The final synthesized design ships with <strong>12 parallel SAD units</strong>
-					executing simultaneously. At this level of parallel computation, the framerate
-					was ultimately <strong>bottlenecked by the un-pipelined undistortion pipeline</strong>.
-					The four scheduler phases run sequentially because the SRAM lock is held through
-					<code>FILL → DRAIN → COMPUTE</code> and only <code>WAIT</code> releases it for
-					the autonomous Video-In DMA, so the cycle time adds up: <strong>~50 ms</strong>
-					of WAIT (long enough for one full 40-ms PAL frame to land), <strong>~90 ms</strong>
-					of un-pipelined rectification through FILL+DRAIN, and <strong>~9 ms</strong> of SAD
-					compute — about <strong>150 ms per frame</strong>, or roughly
-					<strong>7 FPS</strong> end-to-end with rectification enabled. The 12 → 24 worker
-					choice barely moves this number because rectification dominates by an order of
-					magnitude.
+					We were able to synthesize our design with <strong>12 parallel SAD units</strong>
+					executing simultaneously. At this level of parallel computation, we found that the
+					framerate was ultimately bottlenecked by the undistortion pipeline. When the
+					pipeline is full, it drops frames from the video input subsystem. In practice,
+					with WAIT, un-pipelined rectification, and SAD compute running sequentially
+					against the SRAM lock, the cycle takes about <strong>150 ms per frame</strong>,
+					ultimately limiting the framerate with rectification enabled to roughly
+					<strong>7 FPS</strong>.
 				</p>
 				<p>
-					With rectification disabled we got worse results — rectification is necessary for
-					horizontal sweeps through the frame to correspond exactly with disparity changes —
-					but we did find a significant improvement in performance. With N = 12, the frame was
-					split into <code>ceil(288/12)</code>-tall stripes, and each worker had to do
-					<code>stripe_height · frame_width · max_disp + frame_width · 5 + stripe_height · 5</code>
-					computations per frame. For our setup, this was approximately 463,000 cycles. At the
-					achieved clock frequency of 50 MHz, that's about <strong>9.3 ms per frame</strong>,
-					corresponding with a frame rate of roughly <strong>108 FPS</strong> — still
-					comfortably exceeding the 25 FPS framerate of the PAL video standard we were using.
-				</p>
-				<p>
-					In retrospect, dedicating more hardware resources and design effort to speeding up the
-					rectification pipeline would have made computing faster than the 25 FPS PAL cameras
-					achievable. However, this also shows that our highly parallel block matching
-					implementation is incredibly performant, and would scale well to more frequent
-					rectified video input.
+					With rectification disabled, we got worse results, since rectification is
+					necessary for horizontal sweeps through the frame to correspond exactly with
+					disparity changes. However, we did find a significant improvement in performance.
+					With N = 12, the frame was split into <code>ceil(288/12)</code> tall stripes, and
+					each worker had to do <code>stripe_height * frame_width * max_disp + frame_width *
+					5 + stripe_height * 5</code> computations per frame. For our setup, this was
+					approximately 463,000 cycles. At the achieved clock frequency of 50 MHz, this
+					meant that a single frame was computed in 9.3 ms, corresponding with a frame rate
+					of about <strong>108 FPS</strong>, significantly exceeding the 25 FPS framerate
+					of the PAL video standard we were using. In retrospect, dedicating more hardware
+					resources and design effort to speeding up the rectification pipeline would have
+					made computing faster than the 25 FPS PAL cameras achievable. However, this also
+					shows that our highly parallel block matching implementation is incredibly
+					performant, and would scale well to more frequent rectified video input.
 				</p>
 
 				<div class="metric-grid">
@@ -827,24 +888,24 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Accuracy</h3>
 				<p>
-					We found that the stereo vision system performed best at a distance of <strong>1–3 m</strong>
-					from the camera setup, with a camera baseline distance of <strong>6 cm</strong>. At
-					this distance, it is possible to differentiate objects in the foreground from the
-					background, with bodies and objects appearing as light, monochrome silhouettes against
-					a dark, noisy background. The vision system is additionally able to pick up on
-					gradients for objects which are angled towards or away from the camera, showing the
-					change in the object's depth across the frame.
+					We found that the stereo vision system performed the best at a distance of
+					<strong>1–3 m</strong> from the camera setup, with a camera distance of
+					<strong>6 cm</strong>. At this distance, it is possible to differentiate objects
+					in the foreground from the background, with bodies and objects appearing as
+					light, monochrome silhouettes against a dark, noisy background. The vision system
+					is additionally able to pick up on gradients for objects which are angled towards
+					or away from the camera, showing the change in the object's depth from the screen.
 				</p>
 				<p>
-					A known issue with basic block matching is that it performs poorly on monochromatic,
-					untextured surfaces. Block matching assigns similar costs to every disparity within
-					such a surface — every block looks identical without a-priori knowledge of where in
-					the surface that block is. We ameliorate this with the simple SGM-inspired penalty
-					described in <a href="#algorithm">the Algorithm section</a>, which smooths the
-					disparity map by penalizing discontinuities. This 1-way smoothing creates a
-					noticeable difference between the left and right edges of objects, but it
-					significantly improves performance on monochrome surfaces and on larger objects
-					generally.
+					A known issue with basic block matching is that it performs poorly on
+					monochromatic, untextured surfaces. This is because block matching assigns
+					similar costs to every disparity within the surface, since they all appear
+					identical without a priori knowledge of where that part of the block is within
+					the surface. We ameliorate this using a simple, SGM-inspired penalty to SAD
+					values to smooth out surfaces. This 1-way smoothing creates a noticeable
+					difference between the left and right edges of objects, but it does significantly
+					increase performance on monochrome surfaces, and larger objects in general,
+					because it penalizes discontinuities in the disparity map.
 				</p>
 				<p>
 					To make the smoothing benefit concrete, we swept the SGM penalty configuration on
@@ -1124,43 +1185,54 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Resource Utilization</h3>
 				<p>
-					The final synthesized design ships with a <strong>5×5 block size and 12 parallel
-					SAD workers</strong>. The limiting resources were ALM usage for the SAD compute
-					units and routing closure after introducing the custom row-banked memory:
-					increasing the number of workers grows the ALM count roughly linearly, and
-					increasing the block size grows the per-worker logic <strong>exponentially with the
-					radius of the block</strong>. An earlier configuration on the standard inferred
-					SRAM closed timing at 24 workers, but once the 200-way MMIO mux for the row-banked
-					memory (see below) consumed enough routing real estate, only 12 workers fit in the
-					remaining placement budget. A 5×5 block was the largest we could afford while still
-					keeping enough workers to avoid bottlenecking the disparity-map computation.
+					We were able to successfully compile our design with a <strong>block size of 5
+					and 12 parallel SAD workers</strong>. We found that the limiting resource on the
+					size of the design we could synthesize was the ALM usage needed to create larger
+					or greater numbers of SAD compute units, together with the routing closure of the
+					custom row-banked memory. Increasing the number of workers increases the ALM
+					count roughly linearly, while increasing the block size increases the per-worker
+					logic exponentially with respect to the radius of the block. A block size of 5×5
+					was the largest we could achieve while still having enough workers to not
+					bottleneck the disparity map computation.
 				</p>
 				<p>
-					We initially struggled with M10K block usage because we were inadvertently
-					<strong>double-buffering the incoming frame data</strong>. This was an artifact of two
-					separate architectural decisions: (1) we wrote the incoming pixel data into a memory
-					that was fragmented row-wise, and (2) we stored the rectified frame in that same
-					memory. As a result we were initially using two separate frame memories — a monolithic
-					on-chip SRAM written by the Video-In subsystem, plus the segmented row-banked memory
-					that the SAD compute units read in parallel — and copying rectified pixels between
-					them.
+					We initially struggled with M10K memory block usage because we inadvertently
+					double-buffered incoming frame data. This was an artifact of two separate
+					architectural decisions: the first was to put incoming pixel data into memory
+					that was fragmented row-wise, the second was to store a rectified frame in that
+					memory. As a result, we were initially using two separate memories for frame
+					data: one was a monolithic on-chip SRAM synthesized from many M10Ks, which was
+					written to by the video-in subsystem. Data from this memory was then rectified
+					and copied to the segmented memory where it would be read in parallel by the SAD
+					compute units. To resolve this redundancy, we wrote our own memory block, which
+					exposed two interfaces: an Avalon MMIO interface to be written to by video
+					input, and a parallel, asynchronous interface to be read from by the compute
+					unit. This effectively halved our M10K utilization. Importantly, it allowed us
+					to use a separate M10K unit for each row of each image, which allowed for
+					maximum data parallelism. This memory block required many (<strong>13,268</strong>)
+					ALMs, as the MMIO interface required muxing between 200 separate block RAMs
+					which are physically spread across the die. This also led to very long compile
+					times, as the fitter would struggle with this routing issue.
 				</p>
 				<p>
-					To resolve this redundancy we wrote our own memory block exposing two interfaces: an
-					Avalon MMIO interface to be written to by Video-In, and a parallel asynchronous
-					interface to be read by the compute units. This effectively <strong>halved our M10K
-					utilization</strong> and let us dedicate one M10K per row of each image — the
-					condition for maximum read parallelism. The custom memory block costs about
-					<strong>13,268 ALMs</strong> on its own because the MMIO interface has to mux across
-					200 separate block RAMs spread physically across the die, and that fan-in is also
-					what gives us our very long Quartus compile times — the fitter struggles with the
-					routing.
+					The actual Quartus fitter numbers below back up the architecture analysis above.
 				</p>
-				<p class="todo">
-					[TODO: Insert final Quartus fitter report — exact ALMs / M10Ks / DSPs / registers /
-					Fmax — once the last working SOF is rebuilt. Ideally a screenshot of the resource
-					summary panel.]
-				</p>
+				<Figure
+					src="/images/hardware-utilization/stereo-resource-utilization-summary.png"
+					alt="Quartus Fitter resource summary for the final SOF"
+					caption="Final fitter summary on the Cyclone V <code>5CSEMA5F31C6</code>: <strong>24,079 / 32,070 ALMs (75%)</strong>, 17,112 registers, <strong>237 / 397 RAM blocks (60%)</strong>, <strong>17 / 87 DSPs (20%)</strong>, and 1.88 / 4.07 Mbit of block memory used. The 75% ALM utilization is exactly what made adding more SAD workers a placement problem rather than a logic-availability problem."
+				/>
+				<Figure
+					src="/images/hardware-utilization/stereo-resource-utilization-per-module.png"
+					alt="Per-module ALM, M10K, memory-bit, and DSP usage breakdown"
+					caption="Per-module utilization breakdown. The two costs the prose calls out are visible directly: <strong><code>mem_block_intf</code> consumes 13,268 ALMs</strong> on its own (the 200-way MMIO mux), and <strong><code>stereo_onchip_ram</code> uses 200 M10Ks</strong> — exactly one per image row, the condition that makes the parallel column-fetch work. <code>undistort_ring</code> takes the remaining 13 M10Ks (the K = 12 + 1 staging-ring slots), and <code>stereo_radial_mapper</code> uses 6 of the 17 total DSPs for the Q15 multiplier chain. The four runtime PIOs at the bottom (<code>pio_small_pen</code> = P1, <code>pio_big_pen</code> = P2, <code>pio_max_disp</code>, <code>pio_min_disp</code>) are the HPS REPL parameters."
+				/>
+				<Figure
+					src="/images/hardware-utilization/stereo-chip-planner.png"
+					alt="Cyclone V chip planner showing logic placement density"
+					background="card"
+					caption="Chip Planner view of where the design landed on the Cyclone V fabric. The Hard Processor System block (ARM A9 / PLLs / DMA / Memory Controller) sits on the right and is independent of FPGA logic; the dense blue/purple regions to its left are the SAD engines, the row-banked memory mux, the radial mapper, and the SRAM controllers all packed into the fabric. The gaps and irregular shapes around them are what made fitting a 13th SAD worker unroutable — there's still <em>logic</em> budget left, but no contiguous <em>placement</em> budget."
+				/>
 
 				<h3>Safety and Usability</h3>
 				<p>
@@ -1176,48 +1248,56 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			<section id="conclusions">
 				<h2>Conclusions</h2>
 				<p>
-					The end-to-end stereo-vision pipeline met our top-line goal: a real-time disparity
-					map computed entirely on the DE1-SoC, with the FPGA doing all of the load-bearing
-					work and the ARM HPS reduced to a thin parameter-tuning shell. The 12-way parallel
-					SAD engine ran well above the camera framerate when isolated (~108 FPS at 50 MHz), and
-					the in-place radial undistortion pipeline successfully gave the matcher horizontal
-					epipolar lines without needing a second frame's worth of on-chip RAM.
+					Our project demonstrated that fast block matching and stereo vision is
+					achievable on the DE1-SoC using inexpensive PAL cameras. We were successfully
+					able to demonstrate rectification, highly performant and parallel block
+					matching, and a realistic depth map drawn to the VGA screen. Achieving this goal
+					required solving a variety of problems. We had to measure and understand the
+					geometry of the camera lenses we were using, utilizing OpenCV to calibrate our
+					cameras. We tested a number of different block matching algorithms with
+					different parameters and preprocessing techniques against our real-life camera
+					setup, allowing us to thoroughly search the design space before implementing
+					anything on the FPGA. It also required us to thoroughly understand the
+					Cyclone V's capabilities, in particular the configuration of on-chip memory and
+					utilization of the Avalon MMIO and streaming interfaces, enabling our blocks to
+					talk directly to the Avalon video input IP. Finally, it required thorough
+					consideration of the hardware architecture that was best suited for the task.
 				</p>
 				<p>
-					What we would do differently next time falls into two architectural decisions that
-					over-constrained the design from the start. <strong>First: storing an entire frame of
-					video in memory and then exploiting row parallelism for matching.</strong> Lines of
-					video are received sequentially, so a leaner approach would have been a small line
-					buffer of the most recent horizontal lines, with parallelism spent across disparity
-					sweeps rather than across rows. We could have hit the same compute throughput with
-					substantially less M10K and ALM budget — and the savings would have unblocked the
-					things we left on the table (deeper SGM sweeps, the 2D <code>(d, v<sub>y</sub>)</code>
-					search, a larger block size).
+					There are some architectural decisions that we made that either overcomplicated
+					or constrained our design from the get-go that we would change for a future
+					implementation. For starters, our implementation relies on storing an entire
+					frame of video in memory, and then exploiting row parallelism to speed up
+					computation. Because lines of video are received sequentially, a better approach
+					would be to keep a much smaller line buffer of horizontal lines of video input,
+					and parallelize across disparity sweeps rather than rows. This would have
+					allowed us the same or better performance, as we would be able to exploit the
+					same level of parallelism while using much less memory and ALMs.
 				</p>
 				<p>
-					<strong>Second: the rectification pipeline was the single largest bottleneck on
-					throughput</strong> — the un-pipelined rectification took ~90 ms per frame, against
-					only ~4 ms for the disparity computation itself. We hadn't anticipated rectification
-					would be necessary at all when the architecture was set, so we never gave it a
-					first-class design pass. The cleanest implementation would have been to modify pixel
-					coordinates in-stream against a lookup table, but two issues steered us away: the
-					reverse mapping from rectified back to raw coordinates is awkward, and an explicit
-					LUT large enough for the full mapping doesn't fit on chip alongside the SAD engine.
-					Knowing rectification would dominate the runtime, we would have spent more on-chip
-					resources on a simpler in-stream transform rather than the multi-cycle FSM that
-					currently consumes most of the frame time.
+					Additionally, the greatest bottleneck on our video throughput was the
+					rectification process. The latency for the un-pipelined rectification was 90 ms,
+					significantly longer than the ~9 ms it took to compute the disparity map.
+					Initially, we did not realize that this would even be necessary, and so we did
+					not lay out a clear architecture for how the process should work. The clearest
+					way to do the rectification would be to simply modify pixel coordinates in
+					stream with a look-up table. We encountered two issues: one was that it was
+					difficult to reverse the mapping from rectified coordinates to actual
+					coordinates, and the second was memory usage for the look-up table. This
+					combination of challenges led us to a massively overcomplicated multi-cycle
+					rectification process that consumed many cycles of latency. This overcomplicated
+					what should have been a relatively simple transformation that in principle could
+					have been done serially in stream with a minimal impact on frame throughput. If
+					we had anticipated that this would dominate the computation time, we would have
+					spent much more design effort and been willing to spend more on-chip resources
+					to simplify the pipeline.
 				</p>
 				<h3>Intellectual Property and Standards</h3>
 				<p>
-					The project sits on top of the Cornell / U. Toronto <em>Computer System 15</em>
-					640×480 video-mod baseline, which we forked under the course's reuse policy. The
-					Video-In subsystem, VGA Pixel DMA, Lightweight HPS-to-FPGA bridge, and the Altera
-					Edge Detection IP are all Intel/Altera Qsys components used unmodified. Algorithm
-					prototyping and the calibration pipeline use OpenCV (Apache 2.0). Icarus Verilog and
-					Pillow back the RTL image testbench. All custom RTL, C, and Python code was written
-					by the project team; nothing in the design required reverse-engineering, NDAs, or
-					sample parts. There are no patent encumbrances we are aware of on plain SAD block
-					matching or single-direction SGM cost aggregation.
+					We utilized some Altera IP in our design, in particular the video input IP, DMA
+					controllers, VGA driver, and the memory-mapped IO standard. We used OpenCV for
+					offline lens calibration and design-space exploration. We used iVerilog for RTL
+					simulation and testing. We did not use any other code in our RTL or HPS code.
 				</p>
 				<p>
 					The system conforms to the standard PAL (25 FPS interlaced) video timing on the
@@ -1289,62 +1369,51 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>C. Work Distribution and AI</h3>
 				<p>
-					We divided the work for this project equally across team members.
-					<strong>Ezra</strong> contributed most significantly to the offline (software)
-					design-space exploration, the lens rectification, and the memory-banking RTL.
-					<strong>Demetrios</strong> contributed most significantly to the block-matching RTL
-					and top-level architecture. <strong>Daniel</strong> helped with RTL simulation.
+					We divided work for this project equally across members. Ezra contributed most
+					significantly to the offline (software) design-space exploration, as well as
+					the lens rectification and memory-banking RTL. Demetrios contributed most
+					significantly to the block matching RTL and top-level architecture. Daniel
+					helped with RTL simulation.
 				</p>
 				<p>
-					We used generative AI tools to varying degrees in different parts of the project:
-				</p>
-				<ul>
-					<li>
-						<strong>Block-matching RTL.</strong> We wrote the majority of the RTL ourselves
-						and used generative AI (Claude Code, Microsoft Copilot) to identify or fix bugs.
-						This was useful for catching subtle bugs (e.g. a shift register that did not
-						actually shift the last index) and for trivial state-transition fixes spotted in
-						the waveform.
-					</li>
-					<li>
-						<strong>Segmented memory + Avalon MMIO.</strong> We used generative AI to tweak
-						the RTL to conform to the Avalon interface standard, and to write the TCL script
-						that gets the module to appear as instantiable IP in the Qsys GUI.
-					</li>
-					<li>
-						<strong>Lens rectification RTL.</strong> Significantly AI-driven on both sides —
-						the OpenCV code that extracts lens parameters from a set of images, and the RTL
-						that explored several different implementations targeting different
-						hardware-utilization points.
-					</li>
-					<li>
-						<strong>Software design-space exploration.</strong> AI was used heavily to try
-						out different block-matching algorithms combined with different preprocessing
-						and filtering steps without rewriting the harness for each.
-					</li>
-					<li>
-						<strong>Figures and animations for this report.</strong> We fed snippets of our
-						RTL into AI to generate diagrams and the interactive block-matching animation
-						embedded above.
-					</li>
-				</ul>
-				<p>
-					Our overall takeaway: <strong>generative AI was a productivity multiplier in some
-					places and made bad ideas tractable in others.</strong> It was most effective for
-					design-space exploration, where it let us get a sense of what kinds of results were
-					achievable very quickly. It also accelerated RTL by catching bugs and writing
-					testbenches.
+					We utilized generative AI tools to varying degrees for different parts of the
+					project. For the block matching RTL, we wrote the majority of the RTL
+					ourselves, and used generative AI tools (Claude Code, Microsoft Copilot) to
+					identify bugs, or fix bugs that we had identified. This was useful for catching
+					subtle bugs (e.g., we mistakenly wrote a shift register that did not shift the
+					last index) and simplified the process of fixing more trivial bugs (e.g., small
+					changes to state transition logic that we noticed in the waveform). For the
+					segmented memory with Avalon MMIO integration, we used generative AI to tweak
+					our RTL to conform to the Avalon interface standard, as well as to write a TCL
+					script to get our module to appear in the Qsys GUI as a piece of IP that could
+					be instantiated. The lens rectification RTL was more significantly AI-driven.
+					On the software side, it generated most of the OpenCV code to extract lens
+					parameters from a set of images, and on the hardware side we used it to
+					generate a number of different implementations targeting different hardware
+					utilization. We also used generative AI heavily for software design-space
+					exploration: it allowed us to easily try out different block matching
+					algorithms combined with different preprocessing steps and filtering. Finally,
+					we used AI to generate some figures and interactive animations for this report,
+					by giving it snippets of our RTL and asking it to create different kinds of
+					displays (e.g., the interactive block matching animation).
 				</p>
 				<p>
-					In other places, however, it produced overly complicated, poorly architected
-					solutions we wouldn't have attempted to write ourselves. The clearest example is the
-					rectification pipeline, which was significantly AI-generated and turned into the
-					major performance bottleneck — the solution is correct, but it's incredibly hard to
-					optimize or modify. By contrast, our block-matching RTL was almost entirely written
-					by us (with AI used only to test and fix bugs), and that RTL is comparatively
-					performant, easy to iterate on, and easy to understand conceptually. AI is
-					impressive at producing correct RTL, but it tends to create solutions that are
-					complex and difficult to iterate on without rigid guidance.
+					We found that generative AI was in some ways a productivity multiplier, but in
+					other ways made bad ideas tractable. AI was most effective for design-space
+					exploration, because it allowed us to get a sense of what kinds of results were
+					achievable, and how, very quickly. It also accelerated the process of writing
+					RTL by catching and fixing bugs and writing useful testbenches. However, in
+					some places it made overly complicated and poorly architected solutions
+					possible — solutions we wouldn't attempt to write on our own. In particular,
+					the RTL for the rectification pipeline, which was significantly AI-generated,
+					was needlessly complex and served as a major performance bottleneck. Although
+					the solution was correct, it was incredibly difficult to optimize and modify.
+					On the other hand, our block matching RTL was almost entirely written by us,
+					just utilizing AI to test and fix bugs. This RTL was comparatively very
+					performant, easy to iterate on, and easy to understand conceptually. While the
+					ability of generative AI to produce correct RTL is impressive, it tends to
+					create solutions that are complex and difficult to iterate on without rigid
+					guidance.
 				</p>
 
 				<h3>D. References</h3>
@@ -1629,6 +1698,69 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		.distance-cell:nth-child(3) { grid-column: 1; grid-row: 2; }
 		.distance-cell:nth-child(4) { grid-column: 2; grid-row: 2; }
 		.distance-cell:nth-child(5) { grid-column: 1 / span 2; grid-row: 3; }
+	}
+
+	/* Hero demo video at the very top of Introduction. Sound is intentionally enabled. */
+	.hero-video {
+		position: relative;
+		width: 100%;
+		max-width: 720px;
+		margin: 1.4em auto;
+		aspect-ratio: 16 / 9;
+		border: 1px solid var(--border);
+		border-radius: 10px;
+		overflow: hidden;
+		background: #000000;
+	}
+
+	.hero-video iframe {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		border: 0;
+		display: block;
+	}
+
+	/* Loud caveat callout for the demo video — warning palette, deliberately hard to scroll past. */
+	.disclaimer {
+		position: relative;
+		margin: 1.4em auto;
+		max-width: var(--reading-width);
+		padding: 18px 22px 18px 26px;
+		background: rgba(231, 90, 62, 0.12);
+		border: 1px solid rgba(231, 90, 62, 0.55);
+		border-left: 6px solid #e75a3e;
+		border-radius: 6px;
+		color: var(--text);
+		font-size: 1rem;
+		line-height: 1.6;
+		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+	}
+
+	.disclaimer::before {
+		content: 'Heads up';
+		display: inline-block;
+		margin: 0 10px 8px 0;
+		padding: 3px 10px 4px;
+		background: #e75a3e;
+		color: #ffffff;
+		font-family: 'JetBrains Mono', monospace;
+		font-size: 0.72rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		border-radius: 3px;
+		vertical-align: middle;
+	}
+
+	.disclaimer strong:first-of-type {
+		display: block;
+		margin-bottom: 4px;
+	}
+
+	.disclaimer strong {
+		color: #e75a3e;
 	}
 
 	/* Side-by-side YouTube comparison — sits in the same 1040px column the grids use. */

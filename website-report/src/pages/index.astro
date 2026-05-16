@@ -19,36 +19,25 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<h2>Introduction</h2>
 				<div class="hero-video">
 					<iframe
-						src="https://www.youtube-nocookie.com/embed/2kO5oo-ufuU?rel=0&modestbranding=1&playsinline=1"
-						title="Project demo — real-time stereo vision on the DE1-SoC"
+						src="https://www.youtube-nocookie.com/embed/ViyVhZbpIIE?mute=1&rel=0&modestbranding=1&playsinline=1"
+						title="Live stereo vision demo on the DE1-SoC"
 						loading="lazy"
 						allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 						allowfullscreen
 					></iframe>
 				</div>
-				<p class="disclaimer">
-					<strong>Note on the demo above:</strong> this clip is best read as a walkthrough
-					of <em>what the system does</em> — what hardware is on the bench, what the
-					rectified pair looks like coming off the cameras, and what the live disparity
-					map looks like on the VGA monitor. It is <strong>not</strong> the right artifact
-					for judging the matcher's quality: the two camera feeds were inadvertently
-					swapped during this take, which inverts the sign of the disparity and breaks
-					the depth interpretation. For accurate accuracy and performance evidence — the
-					penalty sweep, the distance sweep, and the side-by-side block-size /
-					worker-count motion clips — see the <a href="#results">Results</a> section.
-				</p>
 				<p>
 					Stereo vision is a technique for extracting a 3D scene from two 2D images. By setting up
 					two cameras slightly offset from each other and pointed at the same picture, we can
-					measure the difference in where features appear in the two images — a direct function
-					of the depth of that feature. <strong>We demonstrate stereo vision running in real
-					time on an FPGA.</strong>
+					measure the difference in where features appear in the two images, a direct function
+					of the depth of that feature. We demonstrate stereo vision running in real
+					time on an FPGA.
 				</p>
 				<p>
 					Stereo vision is a powerful technique, but it is computationally intensive. Most
-					algorithms use <strong>block matching</strong>: for each pixel in the reference image,
+					algorithms use block matching: for each pixel in the reference image,
 					select a block around it, and find the block in the other image which best matches it by
-					sliding it across the frame. This process is expensive — each pixel of the image
+					sliding it across the frame. This process is expensive, each pixel of the image
 					requires many calculations on many pixels at many positions. Basic block matching is
 					embarrassingly parallel, but realizing this parallelism requires getting pixels from
 					memory in parallel, and reusing data read from memory optimally.
@@ -57,7 +46,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					These challenges align well with the DE1-SoC. The FPGA on the board has enough
 					configurable M10K memory for <em>each row of pixels to be stored in its own memory
 					bank</em>, allowing full columns of both frames to be accessed simultaneously. Most of
-					the LUTs are utilized to implement the block matching algorithm — a sum of absolute
+					the LUTs are utilized to implement the block matching algorithm, a sum of absolute
 					differences (SAD) applied to the block. Finally, the DSPs are used for rectification,
 					the process of transforming the warped camera image to a rectilinear projection.
 				</p>
@@ -74,7 +63,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			<section id="high-level">
 				<h2>High-Level Design</h2>
 				<p>
-					Our pipeline runs an endless loop of <strong>capture → rectify → match → display</strong>.
+					Our pipeline runs an endless loop of capture → rectify → match → display.
 					Two analog cameras feed the DE1-SoC's Video-In subsystem, which writes interlaced PAL
 					frames into an on-chip RAM that we replaced with a custom row-banked variant. A radial
 					undistortion pass rewrites the captured frame in place, and a 12-way parallel SAD engine
@@ -94,16 +83,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Stereo Vision and Block Matching</h3>
 				<p>
-					Stereo vision works by determining <strong>disparities</strong> between the same
+					Stereo vision works by determining disparities between the same
 					features in two frames. The disparity of a feature is defined as the difference between
 					its position in the reference image and its position in the other image. Disparity is
 					inversely proportional to depth, scaled by the distance between the two cameras.
-				</p>
-				<p class="todo">
-					[TODO: Stereo triangulation diagram — two camera frustums converging on objects in 3D
-					(the cones-and-trees scene from the PDF works well). Caption should call out that the
-					same object appears at different x-positions in the two frames, and that pixel offset
-					= disparity ∝ 1/depth.]
 				</p>
 				<p>
 					We create this disparity map by block-matching every pixel in the reference (left) image
@@ -125,9 +108,9 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<h3>Sum of Absolute Differences (SAD)</h3>
 				<p>
 					Block matching relies on a way to calculate the difference between two different blocks
-					of pixels. We experimented with many approaches — a Census transform with Hamming
-					distance among them — but we found we got the best results in software testing using
-					the simplest, <strong>sum of absolute differences (SAD)</strong>:
+					of pixels. We experimented with many approaches, a Census transform with Hamming
+					distance among them, but we found we got the best results in software testing using
+					the simplest, sum of absolute differences (SAD):
 				</p>
 				<div class="equation">
 					SAD = Σ |d<sub>a</sub> − d<sub>b</sub>|
@@ -144,32 +127,32 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					maximum allowed disparity shift.
 				</p>
 				<p>
-					However, relying only on a pixel-matching algorithm produces a lot of incorrect matches
-					— especially in textureless or monocolored areas. To combat this, SGM uses a cost
+					However, relying only on a pixel-matching algorithm produces a lot of incorrect matches,
+					especially in textureless or monocolored areas. To combat this, SGM uses a cost
 					function that applies penalties for having vastly different disparities for
 					adjacent/close pixels. Generally the cost function to be minimized is of the form:
 				</p>
 				<div class="equation">
-					E(<strong>d</strong>) = Σ<sub>p</sub> D(p, d<sub>p</sub>) + Σ<sub>p,q∈𝒩</sub> R(p, d<sub>p</sub>, q, d<sub>q</sub>)
+					E(d) = Σ<sub>p</sub> D(p, d<sub>p</sub>) + Σ<sub>p, q∈𝒩</sub> R(p, d<sub>p</sub>, q, d<sub>q</sub>)
 				</div>
 				<p>
-					where <code>D(p, d<sub>p</sub>)</code> is the dissimilarity cost — how different the
-					pixels look — and <code>R(p, d<sub>p</sub>, q, d<sub>q</sub>)</code> is the smoothness
-					cost — how different the disparity-map pixels are in a given region. SGM attempts to
+					where <code>D(p, d<sub>p</sub>)</code> is the dissimilarity cost, how different the
+					pixels look, and <code>R(p, d<sub>p</sub>, q, d<sub>q</sub>)</code> is the smoothness
+					cost, how different the disparity-map pixels are in a given region. SGM attempts to
 					minimize this equation by finding the disparity that is most similar to the initial
 					coordinate while making sure that the final disparity-map pixel remains smooth with
 					respect to its surrounding pixels.
 				</p>
 				<p>
-					<strong>In this project we adapted the algorithm to better suit our needs.</strong>
+					In this project we adapted the algorithm to better suit our needs.
 					Standard SGM reduces the 2D optimization above into a sum of 1D optimizations along
 					multiple scan paths, recursively accumulating cost along each direction. Full
 					multidirectional aggregation is great at smoothing but a poor fit for our project:
 					each path direction would need its own running cost array of size <code>D</code> in
 					memory, and any reverse-direction path would require a second copy of the cost volume
-					or a second pass over the frame. <strong>Our SRAM was already saturated</strong>
+					or a second pass over the frame. Our SRAM was already saturated
 					holding the rectified frame and ring buffer, so we collapsed the smoothness down to a
-					single 1D path along the horizontal left-to-right direction — the natural sweeping
+					single 1D path along the horizontal left-to-right direction, the natural sweeping
 					order of the block matcher. The penalty cost minimized per pixel is then:
 				</p>
 				<div class="equation">
@@ -183,8 +166,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 			</section>
 
 			{/* ------------------------------------------------------------------ */}
-			<section id="software-prep">
-				<h2>Software Preprocessing</h2>
+			<section id="software-pathfinding">
+				<h2>Software Pathfinding</h2>
 				<p>
 					Before any of this landed in hardware, every algorithmic choice was first prototyped
 					in Python and validated against captured stereo pairs. The Python work serves three
@@ -193,13 +176,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					calibration tool that produces the lens-correction coefficients the FPGA actually
 					consumes.
 				</p>
-				<Figure
-					src="/diagrams/model_alignment_workflow.svg"
-					alt="Model alignment workflow"
-					caption="The cross-implementation pipeline: Python is the algorithm playground and golden reference, C mirrors the same parameters on the HPS, and the RTL is the production target. All three share parameter names by design, so any disagreement between them is a real implementation bug rather than parameter drift."
-				/>
 				<p>
-					The three implementations share the same parameter names — window size, max
+					The three implementations share the same parameter names, window size, max
 					disparity, vertical shift, block size, number of SAD units. When a Python experiment
 					locks in a value, the C reference picks it up unchanged and the RTL constants follow.
 					That alignment is what makes hardware debugging tractable: if the FPGA disparity map
@@ -211,36 +189,36 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					The calibration work walked from "no calibration, just an analytic fisheye model" to
 					"real calibration baked into the FPGA as a small polynomial." The first attempt
-					parameterised the two cameras' wide-angle lenses under several analytic projections
-					— equidistant, equisolid, stereographic, rectilinear — and remapped the cropped
+					parameterised the two cameras' wide-angle lenses under several analytic projections,
+					equidistant, equisolid, stereographic, rectilinear, and remapped the cropped
 					active region with OpenCV, blending between identity and the model by a tunable
 					correction strength. An autotune loop scored each candidate remap with edge-tracking
 					and Hough-line "is this line straight after warp?" objectives. This never produced a
 					usable stereo pair: the center looked corrected, the periphery didn't.
 				</p>
 				<p>
-					Switching to a real <strong>CharUco-board calibration</strong> with a fisheye
+					Switching to a real CharUco-board calibration with a fisheye
 					intrinsic model gave per-lens calibration matrices, which OpenCV's standard
 					rectification pipeline turned into a per-pixel gather map. That map was packed into
 					a 21-bit <code>{'{valid, src_y, src_x}'}</code> ROM format the RTL could consume
 					directly. The full LUT was too big to keep on-chip alongside the SAD engine and the
-					framebuffers, so a final pass compressed it into a small fixed-point polynomial — a
+					framebuffers, so a final pass compressed it into a small fixed-point polynomial, a
 					2D degree-6 fit in Q18, and a purely radial fit in Q15 with per-side optical-center
-					offsets. <strong>The radial form is what survives in the final RTL</strong>, because
+					offsets. The radial form is what survives in the final RTL, because
 					it gives most of the quality at a tiny fraction of the DSP/LUT cost.
 				</p>
 				<p>
 					Each lens was calibrated independently, and the analog front end clips pixels
 					asymmetrically off each side of every captured frame before the left/right split. The
 					two cameras therefore have different optical-center offsets, and those offsets aren't
-					symmetric about the midline. The final RTL reflects this with <strong>two completely
-					separate 256-entry Q15 scale tables</strong> (one per camera) and <strong>four
-					per-side optical-center constants</strong> — a destination-side center and a
+					symmetric about the midline. The final RTL reflects this with two completely
+					separate 256-entry Q15 scale tables (one per camera) and four
+					per-side optical-center constants, a destination-side center and a
 					source-side center for each camera.
 				</p>
 				<p>
-					The two captures below are the live VGA output of the same scene — a person
-					holding a tape measure horizontally across the camera frame — first with the
+					The two captures below are the live VGA output of the same scene, a person
+					holding a tape measure horizontally across the camera frame, first with the
 					raw, uncalibrated wide-angle lens, then with the per-lens calibration table
 					driving the radial mapper.
 				</p>
@@ -252,20 +230,20 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/delensing-calibration/lens-uncalibrated.jpg')}
 							data-alt="Uncalibrated wide-angle lens"
-							data-caption="Uncalibrated — straight tape measure bowed by raw fisheye distortion."
+							data-caption="Uncalibrated, straight tape measure bowed by raw fisheye distortion."
 							aria-label="Expand: uncalibrated lens"
 						>
 							<img
 								src={withBase('/images/delensing-calibration/lens-uncalibrated.jpg')}
-								alt="VGA capture with uncalibrated wide-angle lens — ruler is visibly bent"
+								alt="VGA capture with uncalibrated wide-angle lens, ruler is visibly bent"
 								loading="lazy"
 							/>
 						</button>
 						<figcaption>
-							<strong>Uncalibrated.</strong> The tape measure is physically straight,
+							Uncalibrated. The tape measure is physically straight,
 							but the raw wide-angle lens makes it bow noticeably and squeeze the
 							spacing between numbers as you move from the center to the edges of the
-							frame — classic radial fisheye distortion.
+							frame, classic radial fisheye distortion.
 						</figcaption>
 					</figure>
 
@@ -276,7 +254,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/delensing-calibration/lens-calibrated.jpg')}
 							data-alt="With per-lens calibration applied"
-							data-caption="Calibrated — the ruler is much closer to a straight line, but tick spacing isn't perfectly uniform."
+							data-caption="Calibrated, the ruler is much closer to a straight line, but tick spacing isn't perfectly uniform."
 							aria-label="Expand: calibrated lens"
 						>
 							<img
@@ -286,9 +264,9 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							/>
 						</button>
 						<figcaption>
-							<strong>Calibrated.</strong> With the per-camera radial scale table
+							Calibrated. With the per-camera radial scale table
 							running on the FPGA, the same ruler is much closer to a straight line.
-							It's not perfect though — the spacing between the small tick marks
+							It's not perfect though, the spacing between the small tick marks
 							isn't perfectly uniform across the frame, which is the residual error
 							that motivated the polynomial-fit pass and the eventual move to a
 							full-LUT mapper for higher-quality builds.
@@ -308,27 +286,22 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					The sweep driver walked max-disparities {'{'}24, 32, 48, 64, 96{'}'} against window
 					sizes {'{'}5, 7, 9, 11, 13{'}'}, and a parallel sweep pushed the grid much further
 					(window 3..33, max-disp up to 224) to see how flat the metric landscape was. The
-					sweep result was a <strong>9×9 window at max-disp 32</strong> — the smallest
-					setting where the disparity map kept its structure on our specific captures — and
+					sweep result was a 9×9 window at max-disp 32, the smallest
+					setting where the disparity map kept its structure on our specific captures, and
 					that's the operating point baked into the C reference. The final synthesized RTL
-					ultimately ships at <strong>5×5</strong> because the ALM and routing budget at
+					ultimately ships at 5×5 because the ALM and routing budget at
 					12 parallel SAD workers couldn't absorb a 9×9 worker (per-worker logic grows
 					exponentially with the block radius); see <a href="#results">Resource
 					Utilization</a> for that trade-off. The SGM penalty constants exposed to the HPS at runtime follow the
 					same P1 = 8·blockSize² / P2 = 32·blockSize² formula OpenCV uses internally.
-				</p>
-				<p class="todo">
-					[TODO: Sweep-results visualization — a small grid (window size × max-disp) of
-					thumbnail disparity maps from the parameter sweep so a reader can see why 9×9 / 32
-					was the operating point we landed on. Even 4–6 representative tiles is enough.]
 				</p>
 
 				<h3>Cost metric and preprocessing</h3>
 				<p>
 					A second family of experiments changed the cost metric itself, because raw
 					absolute-difference SAD struggled on low-texture and exposure-mismatched regions. A
-					<strong>Census + Hamming</strong> path replaces each pixel with the sign-pattern of
-					its neighbours and matches by box-filtered popcount-XOR distances — invariant to
+					Census + Hamming path replaces each pixel with the sign-pattern of
+					its neighbours and matches by box-filtered popcount-XOR distances, invariant to
 					local brightness differences between the two cameras, which we definitely had. The
 					sweep driver also ran a preprocessing grid over CLAHE on/off, median-blur kernel
 					sizes, and a Gaussian high-pass before matching.
@@ -336,19 +309,14 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					The conclusion was mixed: Census beat SAD on textureless surfaces but was worse on
 					edges with real depth steps, and each preprocessing knob fixed one failure mode while
-					introducing another. <strong>The RTL keeps SAD as the primary path</strong> and
+					introducing another. The RTL keeps SAD as the primary path and
 					leaves Census as a parallel implementation we can swap in; CLAHE and median-blur
 					stayed as runtime knobs on the C reference rather than burned into the RTL.
-				</p>
-				<p class="todo">
-					[TODO: SAD vs. Census side-by-side disparity maps on the same input pair, ideally one
-					tile showing a textureless region (where Census wins) and one with sharp depth steps
-					(where SAD wins).]
 				</p>
 
 				<h3>The 2D (d, v<sub>y</sub>) search</h3>
 				<p>
-					The third family was the 2D (d, v<sub>y</sub>) search — the cleanest example of a
+					The third family was the 2D (d, v<sub>y</sub>) search, the cleanest example of a
 					Python finding we couldn't get into the FPGA in time. OpenCV's SGBM assumes
 					perfectly horizontal epipolar lines, and ours weren't: each lens was calibrated
 					independently, the two cameras weren't perfectly co-planar, and remapping left
@@ -359,19 +327,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<p>
 					This was the largest-quality jump in the whole Python sweep, and it's a first-class
-					parameter in the C reference matcher. On the RTL side we never shipped it — the
+					parameter in the C reference matcher. On the RTL side we never shipped it, the
 					row-banked on-chip RAM, the per-stripe SAD units, and the radial-mapper ring buffer
 					already filled the project's time budget, and a 2D (d, v<sub>y</sub>) search would
 					have needed the SAD engine to consume <code>BLOCK_SIZE + 2·V</code> rows of
 					right-image context at once instead of <code>BLOCK_SIZE</code>. So vshift stayed a
 					Python/C-only result that explains the residual row-misalignment artifacts we still
 					see in the FPGA disparity map.
-				</p>
-				<p class="todo">
-					[TODO: <code>vshift_color.png</code> preview from the Python sweep — the per-pixel
-					best-(d, v<sub>y</sub>) overlay where blue = right-image shifted up, green = no
-					vertical shift, red = shifted down. Makes the 1–3 row residual misalignment across
-					the frame visible at a glance.]
 				</p>
 			</section>
 
@@ -388,16 +350,16 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<ol class="big-list">
 					<li>
-						<strong>Row-Banked On-Chip Memory.</strong> A custom memory architecture that
+						Row-Banked On-Chip Memory. A custom memory architecture that
 						exposes a parallel read bus, allowing the SAD engine to fetch one byte from every
 						row of the frame simultaneously.
 					</li>
 					<li>
-						<strong>Radial Undistortion Pass.</strong> An in-place rectification pipeline that
+						Radial Undistortion Pass. An in-place rectification pipeline that
 						corrects lens distortion before matching begins.
 					</li>
 					<li>
-						<strong>Parallel Block-Matching Engine.</strong> A 12-way parallel SAD compute unit
+						Parallel Block-Matching Engine. A 12-way parallel SAD compute unit
 						that produces a dense disparity map, incorporating an SGM-inspired smoothness
 						penalty.
 					</li>
@@ -412,7 +374,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<Figure
 					src="/images/hardware-setup/stereo-rig.jpg"
 					alt="DE1-SoC board with dual-camera stereo rig and AV switcher"
-					caption="The physical rig. <strong>Top:</strong> Terasic DE1-SoC (Cyclone V), with USB, VGA, and the yellow/red/white RCA video inputs visible on the right edge. <strong>Center:</strong> the dual-camera stereo bracket — the two analog cameras are aimed parallel, with their fixed baseline setting the depth resolution of the system. <strong>Bottom-right:</strong> the eight-channel AV switcher we use as a video-input mux to route both camera feeds into the DE1-SoC's single Video-In subsystem."
+					caption="The physical rig. Top: Terasic DE1-SoC (Cyclone V), with USB, VGA, and the yellow/red/white RCA video inputs visible on the right edge. Center: the dual-camera stereo bracket, the two analog cameras are aimed parallel, with their fixed baseline setting the depth resolution of the system. Bottom-right: the eight-channel AV switcher we use as a video-input mux to route both camera feeds into the DE1-SoC's single Video-In subsystem."
 				/>
 				<Figure
 					src="/diagrams/rtl_data_path.svg"
@@ -440,27 +402,27 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					architecture that physically banks the frame along its Y-axis. Each of the 200 image
 					rows is stored in its own dedicated memory block. While write access is multiplexed
 					between the Video-In DMA and the HPS, we implemented a private, parallel read bus.
-					This allows the hardware to fetch <strong>an entire column of pixels — one byte from
-					every row — in a single clock cycle</strong>. This massive increase in read bandwidth
+					This allows the hardware to fetch an entire column of pixels, one byte from
+					every row, in a single clock cycle. This massive increase in read bandwidth
 					is what makes the 12-way parallel SAD economically reachable.
 				</p>
 				<p>Implementing this massive fan-in required specific architectural optimizations:</p>
 				<ul>
 					<li>
-						<strong>Direct Memory Instantiation.</strong> Relying on standard inference for the
+						Direct Memory Instantiation. Relying on standard inference for the
 						memory blocks proved unreliable across different coding styles, leading to internal
 						synthesis errors. We explicitly instantiated dual-port RAM primitives for each row
 						to ensure stability.
 					</li>
 					<li>
-						<strong>Two-Stage Read-Data Multiplexing.</strong> The 200-way multiplexer required
+						Two-Stage Read-Data Multiplexing. The 200-way multiplexer required
 						for the read bus created a severe routing hotspot. We resolved this by splitting it
 						into a registered 16-way intra-group multiplexer followed by a 13-way inter-group
 						multiplexer. This added a cycle of latency but dropped placement and routing
 						complexity by an order of magnitude.
 					</li>
 					<li>
-						<strong>Global Write Arbiter.</strong> Rather than replicating write logic 200
+						Global Write Arbiter. Rather than replicating write logic 200
 						times, a single arbiter broadcasts the winning write data and address to every row,
 						with per-row logic gating only the byte enables. This saved over 3,000 ALMs of
 						logic resources.
@@ -479,7 +441,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					Block matching only works if corresponding features lie on the same horizontal
 					scanline in both images. Raw cameras with cheap wide-angle lenses don't give you that
-					for free — straight lines in the world bend, and the two cameras' lenses don't match
+					for free, straight lines in the world bend, and the two cameras' lenses don't match
 					each other exactly. The analog front end on the DE1-SoC also clips about 40 pixels
 					off each side of every captured frame before the left/right split, so each camera's
 					true optical center doesn't sit at the geometric center of its cropped half. All of
@@ -494,12 +456,12 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				/>
 				<p>
 					Because the two cameras' optical centers don't match and aren't symmetric about the
-					split, the final RTL carries <strong>two completely independent per-camera
-					calibrations</strong>: a separate radial scale table for each side, plus a separate
+					split, the final RTL carries two completely independent per-camera
+					calibrations: a separate radial scale table for each side, plus a separate
 					destination-side optical center and source-side optical center per side. The pipeline
 					selects which calibration to use based on which half of the frame the current
 					destination pixel falls in. The offline calibration work that produces those tables
-					and centers is described in the <a href="#software-prep">Software Preprocessing</a>
+					and centers is described in the <a href="#software-pathfinding">Software Pathfinding</a>
 					section.
 				</p>
 				<p>
@@ -514,8 +476,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<h3>The 11-stage Radial Mapper</h3>
 				<p>
 					The radial mapper is the hardware that consumes the per-camera calibration. It uses
-					an <strong>11-stage fixed-point pipeline</strong>: it consumes one destination pixel
-					per cycle and emits the corresponding source coordinate eleven cycles later —
+					an 11-stage fixed-point pipeline: it consumes one destination pixel
+					per cycle and emits the corresponding source coordinate eleven cycles later,
 					calculating the vector to the image center, applying a radial coefficient,
 					interpolating from the calibration lookup table, and applying center offsets.
 				</p>
@@ -531,55 +493,55 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<ol class="fsm-list">
 					<li>
-						<strong>ST_IDLE.</strong> Latch the destination coordinate, decide whether the
+						ST_IDLE. Latch the destination coordinate, decide whether the
 						pixel lives in the left or right half of the side-by-side frame, and load the four
-						per-side calibration constants — destination lens center (C<sub>x</sub>, C<sub>y</sub>)
-						and source lens center (C<sub>src,x</sub>, C<sub>src,y</sub>).
+						per-side calibration constants, destination lens center (C<sub>x</sub>, C<sub>y</sub>)
+						and source lens center (C<sub>src, x</sub>, C<sub>src, y</sub>).
 					</li>
 					<li>
-						<strong>ST_VEC.</strong> Subtract the destination center to get a Q8 offset vector
+						ST_VEC. Subtract the destination center to get a Q8 offset vector
 						(<code>dx, dy</code>) pointing from the lens center to the pixel.
 					</li>
 					<li>
-						<strong>ST_R2.</strong> Square each component and sum them to get r², the squared
+						ST_R2. Square each component and sum them to get r², the squared
 						radial distance from the lens center.
 					</li>
 					<li>
-						<strong>ST_POS.</strong> Multiply r² by the constant 92 to produce a 32-bit Q16 LUT
+						ST_POS. Multiply r² by the constant 92 to produce a 32-bit Q16 LUT
 						position, whose upper bits are the LUT index and whose lower sixteen bits are the
 						interpolation fraction between adjacent table entries.
 					</li>
 					<li>
-						<strong>ST_LUT.</strong> Read the two LUT entries flanking that index, s₀ =
+						ST_LUT. Read the two LUT entries flanking that index, s₀ =
 						LUT[idx] and s₁ = LUT[idx+1], clamping to the last entry past the end of the table.
 					</li>
 					<li>
-						<strong>ST_INTERP.</strong> Compute the difference (s₁ − s₀) and multiply it by the
+						ST_INTERP. Compute the difference (s₁ − s₀) and multiply it by the
 						saved fraction, giving the partial slope-times-distance term of a linear
 						interpolation.
 					</li>
 					<li>
-						<strong>ST_SCALE.</strong> Add that interpolated correction back onto s₀ (with
+						ST_SCALE. Add that interpolated correction back onto s₀ (with
 						round-to-nearest) to finish the interpolation and produce a smooth Q15 scale factor
 						for this exact radius.
 					</li>
 					<li>
-						<strong>ST_MUL.</strong> Multiply the original (<code>dx, dy</code>) vector by that
+						ST_MUL. Multiply the original (<code>dx, dy</code>) vector by that
 						scale, stretching or shrinking it radially to the source-side geometry.
 					</li>
 					<li>
-						<strong>ST_OFFSET.</strong> Re-anchor the scaled vector on the source-side lens
-						center by adding (C<sub>src,x</sub>, C<sub>src,y</sub>), producing the candidate
+						ST_OFFSET. Re-anchor the scaled vector on the source-side lens
+						center by adding (C<sub>src, x</sub>, C<sub>src, y</sub>), producing the candidate
 						source coordinate in Q8 fixed-point.
 					</li>
 					<li>
-						<strong>ST_CHECK.</strong> Round the Q8 coordinate to integer pixels, apply the
+						ST_CHECK. Round the Q8 coordinate to integer pixels, apply the
 						right-half offset of 319 if appropriate, bounds-check against the captured-frame
 						size, and drive the output registers <code>src_x</code>, <code>src_y</code>, and
 						<code>valid</code>.
 					</li>
 					<li>
-						<strong>ST_DONE.</strong> Pulse <code>done</code>, drop <code>busy</code>, and
+						ST_DONE. Pulse <code>done</code>, drop <code>busy</code>, and
 						return to <code>ST_IDLE</code>, ready to accept the next destination pixel.
 					</li>
 				</ol>
@@ -598,13 +560,13 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<ol>
 					<li>
-						The on-chip SRAM is only about <strong>200 KB</strong>, which is just barely
+						The on-chip SRAM is only about 200 KB, which is just barely
 						enough to hold one 640×288 grayscale frame. There is not enough room for both a
 						raw copy and a rectified copy, so the rectified frame has to overwrite the raw
 						frame in the same memory, byte for byte.
 					</li>
 					<li>
-						The Video-In subsystem's DMA is <strong>autonomous</strong>: it streams freshly
+						The Video-In subsystem's DMA is autonomous: it streams freshly
 						captured PAL frames into the SRAM continuously on its own clock, without
 						coordinating with anything else on the chip.
 					</li>
@@ -618,7 +580,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					pixel (<code>src_x, src_y</code>) it came from in the captured frame, so we read that
 					raw byte out of SRAM and stash a rectified byte back into SRAM at the destination
 					position. The catch is that the lens distortion makes the mapper's source row drift by
-					up to about <strong>twelve rows above or below the destination row</strong>. So while
+					up to about twelve rows above or below the destination row. So while
 					we are working on rectified row 60, the mapper might still ask us to read raw row 50
 					as a source pixel. If we had already overwritten raw row 50 with its rectified version
 					several rows earlier, we would now be reading our own rectified output as input, which
@@ -640,7 +602,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					slot 12. Once we finish row 13 the ring is full, so before we put row 13 into slot 0
 					we first drain the old contents of slot 0 (rectified row 0) into SRAM row 0. At that
 					moment we are past row 13, the worst-case source row we could still need is row 0,
-					and we are already done with it — so raw row 0 is safe to overwrite. The ring is, in
+					and we are already done with it, so raw row 0 is safe to overwrite. The ring is, in
 					essence, a <code>K</code>-row delay line that guarantees the safety margin holds for
 					every raw row.
 				</p>
@@ -652,9 +614,9 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					Video-In DMA, left to itself, would just keep writing fresh raw frames into the SRAM
 					all the way through rectification and matching, randomly clobbering rectified rows we
 					just produced and feeding the SAD matcher a mix of rectified and raw bytes. To stop
-					that, the design holds a <strong>write-lock</strong> on the SRAM's s1 port for the
+					that, the design holds a write-lock on the SRAM's s1 port for the
 					entire rectify-then-match window, which makes the DMA's writes silently fail. That
-					lock is essential for SAD to see a consistent frame — but it also means that while
+					lock is essential for SAD to see a consistent frame, but it also means that while
 					the lock is held, no new frames are getting captured.
 				</p>
 				<p>
@@ -668,23 +630,23 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				/>
 				<ul>
 					<li>
-						<strong>WAIT.</strong> The lock is released for ~50 ms — comfortably longer than
-						one 40-ms PAL frame — so the autonomous Video-In DMA is guaranteed to lay down at
+						WAIT. The lock is released for ~50 ms, comfortably longer than
+						one 40-ms PAL frame, so the autonomous Video-In DMA is guaranteed to lay down at
 						least one fresh capture.
 					</li>
 					<li>
-						<strong>FILL.</strong> The lock re-asserts. The radial mapper walks every
+						FILL. The lock re-asserts. The radial mapper walks every
 						destination pixel in raster order, raw bytes come out of SRAM, rectified bytes go
 						into the ring, and the ring's oldest slot continuously drains back into SRAM in
 						place.
 					</li>
 					<li>
-						<strong>DRAIN.</strong> The last thirteen rectified rows still sitting in the ring
+						DRAIN. The last thirteen rectified rows still sitting in the ring
 						after FILL ends are flushed to their matching SRAM rows, leaving SRAM holding a
 						fully rectified frame.
 					</li>
 					<li>
-						<strong>COMPUTE.</strong> The SRAM is still locked, and the parallel SAD engine
+						COMPUTE. The SRAM is still locked, and the parallel SAD engine
 						sweeps the rectified frame, streaming disparities straight to the VGA framebuffer.
 						When it completes, the cycle returns to WAIT.
 					</li>
@@ -692,8 +654,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					Both the ring buffer and the WAIT phase are forced moves once you commit to fitting
 					only one frame on chip and sharing that frame with an autonomous capture path. The
-					full rectification subsystem — calibration coefficients, mapper FSM, ring buffer, and
-					four-phase scheduler — exists so that the SAD engine in the next section can simply
+					full rectification subsystem, calibration coefficients, mapper FSM, ring buffer, and
+					four-phase scheduler, exists so that the SAD engine in the next section can simply
 					assume a clean, rectified frame is sitting in SRAM whenever COMPUTE fires.
 				</p>
 			</section>
@@ -705,7 +667,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					With a rectified frame sitting in the row-banked SRAM, the block matcher is the
 					engine that actually computes disparities. The choice of SAD as the cost function,
 					the max-disparity bound, and the SGM penalty formulation were all locked in during
-					the Python sweep work — see the <a href="#software-prep">Software Preprocessing</a>
+					the Python sweep work, see the <a href="#software-pathfinding">Software Pathfinding</a>
 					section for that pathfinding. The synthesized RTL block size (5×5) is set by the
 					ALM budget rather than by the sweep result; see
 					<a href="#results">Resource Utilization</a> for that trade-off.
@@ -718,29 +680,29 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<ul>
 					<li>
-						<strong>Striping.</strong> The 200-row frame is divided into 12 horizontal stripes.
+						Striping. The 200-row frame is divided into 12 horizontal stripes.
 						Each stripe is assigned its own dedicated SAD engine with a private sliding window.
 						All 12 engines are clocked together, evaluating one disparity hypothesis at 12
 						different vertical positions simultaneously.
 					</li>
 					<li>
-						<strong>Column Prefetch.</strong> A three-state handshake interface sits between
+						Column Prefetch. A three-state handshake interface sits between
 						the main engine and the SRAM. It translates stripe requests into parallel memory
 						reads, latching full columns for both the reference and search images.
 					</li>
 					<li>
-						<strong>Sliding Window.</strong> To optimally reuse data read from memory, each
+						Sliding Window. To optimally reuse data read from memory, each
 						stripe utilizes a shift register file for its reference block. As the window shifts
 						right across the image, it only needs to insert the freshly-prefetched column,
 						keeping the rest of the block stable and eliminating redundant reads.
 					</li>
 					<li>
-						<strong>Outer FSM.</strong> The control logic manages three nested loops: sweeping
+						Outer FSM. The control logic manages three nested loops: sweeping
 						the disparity hypothesis up to the maximum limit, sliding the reference block along
 						the X-axis, and shifting the windows down the Y-axis to cover the full stripe.
 					</li>
 					<li>
-						<strong>1-Directional SGM.</strong> We integrated our adapted SGM algorithm
+						1-Directional SGM. We integrated our adapted SGM algorithm
 						directly into the hardware. For each disparity hypothesis, the engine calculates a
 						penalized cost: the raw SAD value plus a smoothness penalty. If the hypothesis
 						differs from the adjacent pixel's best disparity by one, a small penalty is
@@ -788,19 +750,19 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					configurable parameters:
 				</p>
 				<ul>
-					<li><strong>maxd</strong> — the maximum disparity value which is checked.</li>
-					<li><strong>mind</strong> — the minimum disparity value which is checked.</li>
-					<li><strong>P1</strong> — the penalty assigned to a disparity value one away from the previous value.</li>
-					<li><strong>P2</strong> — the penalty assigned to a disparity value more than one away from the previous value.</li>
-					<li><strong>edge</strong> — enable the Altera Edge Detection IP.</li>
+					<li>maxd, the maximum disparity value which is checked.</li>
+					<li>mind, the minimum disparity value which is checked.</li>
+					<li>P1, the penalty assigned to a disparity value one away from the previous value.</li>
+					<li>P2, the penalty assigned to a disparity value more than one away from the previous value.</li>
+					<li>edge, enable the Altera Edge Detection IP.</li>
 				</ul>
 
 				<h3>Software Control Interface</h3>
 				<p>
 					Communication between the ARM processor and the FPGA is handled through Parallel I/O
 					(PIO) ports via the Lightweight HPS-to-FPGA bridge. The C program running on the ARM
-					processor maps the physical hardware addresses — including the bridge, VGA buffers,
-					and SRAM — into virtual memory using Linux's <code>/dev/mem</code> interface.
+					processor maps the physical hardware addresses, including the bridge, VGA buffers,
+					and SRAM, into virtual memory using Linux's <code>/dev/mem</code> interface.
 				</p>
 				<p>
 					Because the FPGA-side PIOs are strictly output-only from the processor's perspective,
@@ -813,8 +775,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					The REPL accepts terminal commands over SSH, allowing the user to adjust hardware
 					parameters on the fly. Through this interface, users can dynamically tune the
 					semi-global matching penalties, alter maximum and minimum disparity bounds, or toggle
-					edge detection. The software sanitizes user input — such as clamping negative values
-					— and pushes the updates to the hardware registers, altering the FPGA's behavior on
+					edge detection. The software sanitizes user input, such as clamping negative values,
+					and pushes the updates to the hardware registers, altering the FPGA's behavior on
 					the very next frame.
 				</p>
 
@@ -822,8 +784,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					To evaluate the hardware's performance, we integrated a custom frame-capture utility
 					directly into the control software. When triggered via the REPL, the software reads
-					the SDRAM-backed VGA framebuffer and <strong>constructs a complete, uncompressed PNG
-					file entirely from scratch</strong>. We then copy these off the HPS using the
+					the SDRAM-backed VGA framebuffer and constructs a complete, uncompressed PNG
+					file entirely from scratch. We then copy these off the HPS using the
 					<code>scp</code> command.
 				</p>
 			</section>
@@ -834,14 +796,14 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Speed</h3>
 				<p>
-					We were able to synthesize our design with <strong>12 parallel SAD units</strong>
+					We were able to synthesize our design with 12 parallel SAD units
 					executing simultaneously. At this level of parallel computation, we found that the
 					framerate was ultimately bottlenecked by the undistortion pipeline. When the
 					pipeline is full, it drops frames from the video input subsystem. In practice,
 					with WAIT, un-pipelined rectification, and SAD compute running sequentially
-					against the SRAM lock, the cycle takes about <strong>150 ms per frame</strong>,
+					against the SRAM lock, the cycle takes about 150 ms per frame,
 					ultimately limiting the framerate with rectification enabled to roughly
-					<strong>7 FPS</strong>.
+					7 FPS.
 				</p>
 				<p>
 					With rectification disabled, we got worse results, since rectification is
@@ -852,7 +814,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					5 + stripe_height * 5</code> computations per frame. For our setup, this was
 					approximately 463,000 cycles. At the achieved clock frequency of 50 MHz, this
 					meant that a single frame was computed in 9.3 ms, corresponding with a frame rate
-					of about <strong>108 FPS</strong>, significantly exceeding the 25 FPS framerate
+					of about 108 FPS, significantly exceeding the 25 FPS framerate
 					of the PAL video standard we were using. In retrospect, dedicating more hardware
 					resources and design effort to speeding up the rectification pipeline would have
 					made computing faster than the 25 FPS PAL cameras achievable. However, this also
@@ -879,18 +841,12 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					</div>
 				</div>
 
-				<p class="todo">
-					[TODO: Live-demo video clip — pan a hand or object in front of the rig and show the
-					disparity map updating at ~7 FPS. An overlaid FPS counter would make the speed claim
-					visible. Also worth a short scope/logic-analyzer trace showing the WAIT → FILL →
-					DRAIN → COMPUTE phase boundaries on the top-level FSM state lines.]
-				</p>
 
 				<h3>Accuracy</h3>
 				<p>
 					We found that the stereo vision system performed the best at a distance of
-					<strong>1–3 m</strong> from the camera setup, with a camera distance of
-					<strong>6 cm</strong>. At this distance, it is possible to differentiate objects
+					1–3 m from the camera setup, with a camera distance of
+					6 cm. At this distance, it is possible to differentiate objects
 					in the foreground from the background, with bodies and objects appearing as
 					light, monochrome silhouettes against a dark, noisy background. The vision system
 					is additionally able to pick up on gradients for objects which are angled towards
@@ -909,10 +865,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</p>
 				<p>
 					To make the smoothing benefit concrete, we swept the SGM penalty configuration on
-					the live FPGA pipeline against a fixed scene — a person holding a dark box in the
+					the live FPGA pipeline against a fixed scene, a person holding a dark box in the
 					lab. The top half of each VGA capture is the rectified stereo pair (left/right
 					cameras), and the bottom half is the disparity map the matcher emits. Looking at
-					the <strong>left half of each disparity map</strong> (the textured foreground) is
+					the left half of each disparity map (the textured foreground) is
 					the cleanest way to compare: the right half is dominated by the textureless wall
 					beyond the box, where SAD has no signal to match against and even SGM can't
 					recover the depth.
@@ -935,8 +891,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							/>
 						</button>
 						<figcaption>
-							<strong>No penalty</strong> (P1 = 0, P2 = 0). Raw SAD with no smoothing.
-							The box silhouette is recoverable but the disparity is grainy — every pixel
+							No penalty (P1 = 0, P2 = 0). Raw SAD with no smoothing.
+							The box silhouette is recoverable but the disparity is grainy, every pixel
 							argues independently and adjacent disparities jump around freely.
 						</figcaption>
 					</figure>
@@ -958,10 +914,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							/>
 						</button>
 						<figcaption>
-							<strong>P2 only</strong> (P1 = 0, P2 &gt; 0). Penalises only the
+							P2 only (P1 = 0, P2 &gt; 0). Penalises only the
 							|d<sub>p</sub> − d<sub>p−1</sub>| &gt; 1 case. Single-step disparity
 							drift is still free, so the foreground takes on a washed-out, stripey
-							look — the matcher avoids large jumps but accumulates small ones across
+							look, the matcher avoids large jumps but accumulates small ones across
 							the row.
 						</figcaption>
 					</figure>
@@ -983,9 +939,9 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							/>
 						</button>
 						<figcaption>
-							<strong>Both penalties</strong> (P1 &gt; 0, P2 &gt; 0). The full 1-D SGM
+							Both penalties (P1 &gt; 0, P2 &gt; 0). The full 1-D SGM
 							form. The box is the brightest, sharpest-edged region in any of the four
-							frames, and the person's body resolves cleanly behind it — small drifts
+							frames, and the person's body resolves cleanly behind it, small drifts
 							are now suppressed too, so within a real surface the disparity locks in.
 						</figcaption>
 					</figure>
@@ -997,7 +953,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-penalty/sgm-larger-penalties.jpg')}
 							data-alt="Larger penalties"
-							data-caption="Both penalties at larger magnitudes — over-smoothing."
+							data-caption="Both penalties at larger magnitudes, over-smoothing."
 							aria-label="Expand: larger P1 and P2 penalties"
 						>
 							<img
@@ -1007,7 +963,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							/>
 						</button>
 						<figcaption>
-							<strong>Larger P1 and P2.</strong> Same form as the previous panel but
+							Larger P1 and P2. Same form as the previous panel but
 							with the magnitudes turned up. The smoothness term starts to outvote the
 							SAD term, so structure that the matcher actually has evidence for gets
 							flattened into broad bands and the silhouette loses its crispness.
@@ -1016,7 +972,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				</div>
 				<p>
 					The takeaway matches what the cost function predicts: the SGM term is most
-					useful when both P1 and P2 are nonzero (panel 3) — P1 alone or P2 alone leaves
+					useful when both P1 and P2 are nonzero (panel 3), P1 alone or P2 alone leaves
 					the half it doesn't penalise free to drift, and pushing both magnitudes too high
 					(panel 4) starts erasing real depth structure. The values exposed at runtime
 					over the HPS REPL (<code>P1</code>, <code>P2</code>) let us pick the operating
@@ -1025,10 +981,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>
 					Holding the SGM penalties fixed (the panel-3 "both penalties" configuration above),
 					we then walked toward the camera rig to see how silhouette quality scales with
-					range. The five frames below are ordered from <strong>farthest</strong> on the left
-					to <strong>nearest</strong> on the right. Disparity is inversely proportional to
+					range. The five frames below are ordered from farthest on the left
+					to nearest on the right. Disparity is inversely proportional to
 					depth, so closer objects produce a larger pixel offset between the left and right
-					cameras and therefore appear <strong>brighter</strong> in the disparity map; far
+					cameras and therefore appear brighter in the disparity map; far
 					objects collapse toward the noise floor.
 				</p>
 				<div class="distance-grid">
@@ -1039,7 +995,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-distance/distance-1-farthest.jpg')}
 							data-alt="Farthest"
-							data-caption="Farthest — full body, low disparity, silhouette barely emerges from noise."
+							data-caption="Farthest, full body, low disparity, silhouette barely emerges from noise."
 							aria-label="Expand: farthest distance"
 						>
 							<img
@@ -1048,7 +1004,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 								loading="lazy"
 							/>
 						</button>
-						<figcaption><strong>1 — Farthest.</strong> Full-body person across the room. Disparity barely registers above the textured background.</figcaption>
+						<figcaption>1, Farthest. Full-body person across the room. Disparity barely registers above the textured background.</figcaption>
 					</figure>
 
 					<figure class="distance-cell">
@@ -1058,7 +1014,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-distance/distance-2.jpg')}
 							data-alt="Distance step 2"
-							data-caption="Closer — silhouette starts to brighten."
+							data-caption="Closer, silhouette starts to brighten."
 							aria-label="Expand: distance step 2"
 						>
 							<img
@@ -1067,7 +1023,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 								loading="lazy"
 							/>
 						</button>
-						<figcaption><strong>2.</strong> One step closer. The silhouette is starting to lift out of the background as a coherent brighter region.</figcaption>
+						<figcaption>2. One step closer. The silhouette is starting to lift out of the background as a coherent brighter region.</figcaption>
 					</figure>
 
 					<figure class="distance-cell">
@@ -1077,7 +1033,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-distance/distance-3.jpg')}
 							data-alt="Distance step 3"
-							data-caption="Mid-range — clear silhouette."
+							data-caption="Mid-range, clear silhouette."
 							aria-label="Expand: distance step 3"
 						>
 							<img
@@ -1086,7 +1042,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 								loading="lazy"
 							/>
 						</button>
-						<figcaption><strong>3.</strong> Mid-range. Torso and held object are clearly distinguishable from the chairs and floor behind them.</figcaption>
+						<figcaption>3. Mid-range. Torso and held object are clearly distinguishable from the chairs and floor behind them.</figcaption>
 					</figure>
 
 					<figure class="distance-cell">
@@ -1096,7 +1052,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-distance/distance-4.jpg')}
 							data-alt="Distance step 4"
-							data-caption="Close — high disparity, sharp silhouette."
+							data-caption="Close, high disparity, sharp silhouette."
 							aria-label="Expand: distance step 4"
 						>
 							<img
@@ -1105,7 +1061,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 								loading="lazy"
 							/>
 						</button>
-						<figcaption><strong>4.</strong> Close. The held object pops as the brightest region in the frame — high disparity, easily separable from background.</figcaption>
+						<figcaption>4. Close. The held object pops as the brightest region in the frame, high disparity, easily separable from background.</figcaption>
 					</figure>
 
 					<figure class="distance-cell">
@@ -1115,7 +1071,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 							data-lightbox
 							data-src={withBase('/images/variable-distance/distance-5-nearest.jpg')}
 							data-alt="Nearest"
-							data-caption="Nearest — disparity saturates."
+							data-caption="Nearest, disparity saturates."
 							aria-label="Expand: nearest distance"
 						>
 							<img
@@ -1124,12 +1080,12 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 								loading="lazy"
 							/>
 						</button>
-						<figcaption><strong>5 — Nearest.</strong> Arm's length. Disparity is high enough that fingers/arms separate cleanly; the matcher is operating in its sweet spot.</figcaption>
+						<figcaption>5, Nearest. Arm's length. Disparity is high enough that fingers/arms separate cleanly; the matcher is operating in its sweet spot.</figcaption>
 					</figure>
 				</div>
 				<p>
 					The progression matches the depth sensitivity the geometry predicts: with a
-					<strong>6 cm</strong> baseline and <code>max_disp = 32</code>, the matcher's
+					6 cm baseline and <code>max_disp = 32</code>, the matcher's
 					useful range tops out around 1–3 m. Beyond that, even a real depth step shifts the
 					target by less than a pixel between the two cameras, the SAD cost surface
 					flattens out, and the disparity map collapses into the textured-background noise
@@ -1139,7 +1095,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					The same experiment in motion: continuous walks back and forth in front of the
 					rig, captured as the disparity map updates frame-by-frame. The two clips below
 					are the same scene under different operating points and concretely show the
-					<strong>block-size ↔ worker-count trade-off</strong> the design analysis above
+					block-size ↔ worker-count trade-off the design analysis above
 					discusses.
 				</p>
 				<div class="video-grid">
@@ -1147,16 +1103,16 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 						<div class="video-frame">
 							<iframe
 								src="https://www.youtube-nocookie.com/embed/RlYz7NNzLFs?mute=1&rel=0&modestbranding=1&playsinline=1"
-								title="Live disparity map — 9×9 window, 3 SAD workers"
+								title="Live disparity map,9×9 window, 3 SAD workers"
 								loading="lazy"
 								allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 								allowfullscreen
 							></iframe>
 						</div>
 						<figcaption>
-							<strong>9×9 window, 3 SAD workers.</strong> The Python-sweep operating
+							9×9 window, 3 SAD workers. The Python-sweep operating
 							point. The bigger block produces a smoother, more spatially coherent
-							silhouette per frame, but the lower worker count drops the framerate —
+							silhouette per frame, but the lower worker count drops the framerate,
 							visible as a slower disparity-map update.
 						</figcaption>
 					</figure>
@@ -1165,19 +1121,19 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 						<div class="video-frame">
 							<iframe
 								src="https://www.youtube-nocookie.com/embed/ViyVhZbpIIE?mute=1&rel=0&modestbranding=1&playsinline=1"
-								title="Live disparity map — 5×5 window, 12 SAD workers, raised min disparity"
+								title="Live disparity map,5×5 window, 12 SAD workers, raised min disparity"
 								loading="lazy"
 								allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
 								allowfullscreen
 							></iframe>
 						</div>
 						<figcaption>
-							<strong>5×5 window, 12 SAD workers</strong>, with <code>mind</code>
+							5×5 window, 12 SAD workers, with <code>mind</code>
 							raised over the default. The shipped configuration. The smaller block
 							gives a noisier silhouette per frame, but four times more workers run
 							the SAD compute much faster. Lifting the minimum disparity narrows the
 							useful depth range, so the same physical motion sweeps through more of
-							the output range — gradient changes look more dramatic as the subject
+							the output range, gradient changes look more dramatic as the subject
 							walks back.
 						</figcaption>
 					</figure>
@@ -1185,8 +1141,8 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 				<h3>Resource Utilization</h3>
 				<p>
-					We were able to successfully compile our design with a <strong>block size of 5
-					and 12 parallel SAD workers</strong>. We found that the limiting resource on the
+					We were able to successfully compile our design with a block size of 5
+					and 12 parallel SAD workers. We found that the limiting resource on the
 					size of the design we could synthesize was the ALM usage needed to create larger
 					or greater numbers of SAD compute units, together with the routing closure of the
 					custom row-banked memory. Increasing the number of workers increases the ALM
@@ -1209,7 +1165,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					input, and a parallel, asynchronous interface to be read from by the compute
 					unit. This effectively halved our M10K utilization. Importantly, it allowed us
 					to use a separate M10K unit for each row of each image, which allowed for
-					maximum data parallelism. This memory block required many (<strong>13,268</strong>)
+					maximum data parallelism. This memory block required many (13,268)
 					ALMs, as the MMIO interface required muxing between 200 separate block RAMs
 					which are physically spread across the die. This also led to very long compile
 					times, as the fitter would struggle with this routing issue.
@@ -1220,24 +1176,24 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<Figure
 					src="/images/hardware-utilization/stereo-resource-utilization-summary.png"
 					alt="Quartus Fitter resource summary for the final SOF"
-					caption="Final fitter summary on the Cyclone V <code>5CSEMA5F31C6</code>: <strong>24,079 / 32,070 ALMs (75%)</strong>, 17,112 registers, <strong>237 / 397 RAM blocks (60%)</strong>, <strong>17 / 87 DSPs (20%)</strong>, and 1.88 / 4.07 Mbit of block memory used. The 75% ALM utilization is exactly what made adding more SAD workers a placement problem rather than a logic-availability problem."
+					caption="Final fitter summary on the Cyclone V <code>5CSEMA5F31C6</code>: 24,079 / 32,070 ALMs (75%), 17,112 registers, 237 / 397 RAM blocks (60%), 17 / 87 DSPs (20%), and 1.88 / 4.07 Mbit of block memory used. The 75% ALM utilization is exactly what made adding more SAD workers a placement problem rather than a logic-availability problem."
 				/>
 				<Figure
 					src="/images/hardware-utilization/stereo-resource-utilization-per-module.png"
 					alt="Per-module ALM, M10K, memory-bit, and DSP usage breakdown"
-					caption="Per-module utilization breakdown. The two costs the prose calls out are visible directly: <strong><code>mem_block_intf</code> consumes 13,268 ALMs</strong> on its own (the 200-way MMIO mux), and <strong><code>stereo_onchip_ram</code> uses 200 M10Ks</strong> — exactly one per image row, the condition that makes the parallel column-fetch work. <code>undistort_ring</code> takes the remaining 13 M10Ks (the K = 12 + 1 staging-ring slots), and <code>stereo_radial_mapper</code> uses 6 of the 17 total DSPs for the Q15 multiplier chain. The four runtime PIOs at the bottom (<code>pio_small_pen</code> = P1, <code>pio_big_pen</code> = P2, <code>pio_max_disp</code>, <code>pio_min_disp</code>) are the HPS REPL parameters."
+					caption="Per-module utilization breakdown. The two costs the prose calls out are visible directly: <code>mem_block_intf</code> consumes 13,268 ALMs on its own (the 200-way MMIO mux), and <code>stereo_onchip_ram</code> uses 200 M10Ks, exactly one per image row, the condition that makes the parallel column-fetch work. <code>undistort_ring</code> takes the remaining 13 M10Ks (the K = 12 + 1 staging-ring slots), and <code>stereo_radial_mapper</code> uses 6 of the 17 total DSPs for the Q15 multiplier chain. The four runtime PIOs at the bottom (<code>pio_small_pen</code> = P1, <code>pio_big_pen</code> = P2, <code>pio_max_disp</code>, <code>pio_min_disp</code>) are the HPS REPL parameters."
 				/>
 				<Figure
 					src="/images/hardware-utilization/stereo-chip-planner.png"
 					alt="Cyclone V chip planner showing logic placement density"
 					background="card"
-					caption="Chip Planner view of where the design landed on the Cyclone V fabric. The Hard Processor System block (ARM A9 / PLLs / DMA / Memory Controller) sits on the right and is independent of FPGA logic; the dense blue/purple regions to its left are the SAD engines, the row-banked memory mux, the radial mapper, and the SRAM controllers all packed into the fabric. The gaps and irregular shapes around them are what made fitting a 13th SAD worker unroutable — there's still <em>logic</em> budget left, but no contiguous <em>placement</em> budget."
+					caption="Chip Planner view of where the design landed on the Cyclone V fabric. The Hard Processor System block (ARM A9 / PLLs / DMA / Memory Controller) sits on the right and is independent of FPGA logic; the dense blue/purple regions to its left are the SAD engines, the row-banked memory mux, the radial mapper, and the SRAM controllers all packed into the fabric. The gaps and irregular shapes around them are what made fitting a 13th SAD worker unroutable, there's still <em>logic</em> budget left, but no contiguous <em>placement</em> budget."
 				/>
 
 				<h3>Safety and Usability</h3>
 				<p>
-					The system runs entirely on low-voltage lab hardware — the DE1-SoC board plus two
-					analog cameras and a VGA monitor — with no actuators, RF transmitters, lasers, or
+					The system runs entirely on low-voltage lab hardware, the DE1-SoC board plus two
+					analog cameras and a VGA monitor, with no actuators, RF transmitters, lasers, or
 					human-connected electronics. All parameter tuning is done over SSH through the REPL,
 					and the disparity map is rendered live to the VGA output so anyone in the room can
 					see whether a parameter change helped or hurt.
@@ -1313,12 +1269,10 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<h3>A. Required Permissions</h3>
 				<ul>
 					<li>
-						<strong>Course website report permission.</strong> [TODO: choose approve or
-						do-not-approve using the exact wording from the course page.]
+						We give permission for the report to be uploaded to the course website.
 					</li>
 					<li>
-						<strong>Course YouTube video permission.</strong> [TODO: choose approve or
-						do-not-approve using the exact wording from the course page.]
+						We give permission for the demo video to be uploaded to the course YouTube channel.
 					</li>
 				</ul>
 
@@ -1326,44 +1280,44 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 				<p>Key files in the final build:</p>
 				<ul class="code-list">
 					<li>
-						<code>computer_15_640_video_mod/verilog/DE1_SoC_Computer.v</code> — top-level
+						<code>computer_15_640_video_mod/verilog/DE1_SoC_Computer.v</code>, top-level
 						integration.
 					</li>
 					<li>
-						<code>block_match.sv</code>, <code>block_match_pkg.sv</code> — parameterized
+						<code>block_match.sv</code>, <code>block_match_pkg.sv</code>, parameterized
 						parallel SAD engine and shared parameter package.
 					</li>
 					<li>
-						<code>mem_block_intf_d.v</code> — active row-banked memory interface (the
+						<code>mem_block_intf_d.v</code>, active row-banked memory interface (the
 						<code>_d</code> variant, not the older snapshot).
 					</li>
 					<li>
-						<code>column_prefetch_parallel.sv</code> — parallel row-read column prefetch.
+						<code>column_prefetch_parallel.sv</code>, parallel row-read column prefetch.
 					</li>
 					<li>
-						<code>stereo_onchip_ram.sv</code> — custom Avalon-drop-in row-banked SRAM with
+						<code>stereo_onchip_ram.sv</code>, custom Avalon-drop-in row-banked SRAM with
 						side-door SAD conduit.
 					</li>
 					<li>
-						<code>stereo_radial_mapper_q15_pipe.v</code>, <code>radial_scale_lut_q15.vh</code>
-						— pipelined radial undistortion mapper and its calibration LUT.
+						<code>stereo_radial_mapper_q15_pipe.v</code>, <code>radial_scale_lut_q15.vh</code>,
+						pipelined radial undistortion mapper and its calibration LUT.
 					</li>
 					<li>
-						<code>undistort_ring.sv</code>, <code>rectification_map.sv</code> — staging ring and
+						<code>undistort_ring.sv</code>, <code>rectification_map.sv</code>, staging ring and
 						scheduler.
 					</li>
 					<li>
-						<code>stereo_c/</code> — HPS REPL, frame-capture utility, NEON SAD reference.
+						<code>stereo_c/</code>, HPS REPL, frame-capture utility, NEON SAD reference.
 					</li>
 					<li>
-						<code>sterio-vision-python/stereo_depth_system/methods.py</code> — Python matcher
+						<code>sterio-vision-python/stereo_depth_system/methods.py</code>, Python matcher
 						registry (SAD-L1/L2, Census+Hamming, vshift variants, OpenCV BM/SGBM golden).
 					</li>
 					<li>
-						<code>run_stereo_experiments.py</code> — sweep driver.
+						<code>run_stereo_experiments.py</code>, sweep driver.
 					</li>
 					<li>
-						<code>stereo_rtl_test/</code> — Icarus Verilog image testbench.
+						<code>stereo_rtl_test/</code>, Icarus Verilog image testbench.
 					</li>
 				</ul>
 
@@ -1404,7 +1358,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 					achievable, and how, very quickly. It also accelerated the process of writing
 					RTL by catching and fixing bugs and writing useful testbenches. However, in
 					some places it made overly complicated and poorly architected solutions
-					possible — solutions we wouldn't attempt to write on our own. In particular,
+					possible, solutions we wouldn't attempt to write on our own. In particular,
 					the RTL for the rectification pipeline, which was significantly AI-generated,
 					was needlessly complex and served as a major performance bottleneck. Although
 					the solution was correct, it was incredibly difficult to optimize and modify.
@@ -1432,7 +1386,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 
 			<footer class="page-footer">
 				<p>
-					Cornell University · ECE 5760 — Advanced Microcontroller Design and System-on-Chip ·
+					Cornell University · ECE 5760, Advanced Microcontroller Design and System-on-Chip ·
 					Spring 2026
 				</p>
 				<p class="small">Daniel · Demetrios · Ezra</p>
@@ -1603,16 +1557,6 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		font-size: 0.82em;
 	}
 
-	.todo {
-		padding: 10px 14px;
-		background: rgba(240, 198, 116, 0.08);
-		border: 1px dashed rgba(240, 198, 116, 0.4);
-		border-radius: 6px;
-		color: #f0c674;
-		font-size: 0.9rem;
-		font-family: 'JetBrains Mono', monospace;
-	}
-
 	/* Shared cell styling for both comparison grids. */
 	.penalty-cell,
 	.distance-cell {
@@ -1688,7 +1632,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 	.distance-cell:nth-child(4) { grid-column: 2 / span 2; grid-row: 2; }
 	.distance-cell:nth-child(5) { grid-column: 4 / span 2; grid-row: 2; }
 
-	/* Tablet: drop to 2 columns and let the 5th tile span the bottom — no orphan. */
+	/* Tablet: drop to 2 columns and let the 5th tile span the bottom, no orphan. */
 	@media (max-width: 900px) {
 		.distance-grid {
 			grid-template-columns: repeat(2, 1fr);
@@ -1722,48 +1666,7 @@ const animationUrl = withBase('/animations/mem_block_intf.html');
 		display: block;
 	}
 
-	/* Loud caveat callout for the demo video — warning palette, deliberately hard to scroll past. */
-	.disclaimer {
-		position: relative;
-		margin: 1.4em auto;
-		max-width: var(--reading-width);
-		padding: 18px 22px 18px 26px;
-		background: rgba(231, 90, 62, 0.12);
-		border: 1px solid rgba(231, 90, 62, 0.55);
-		border-left: 6px solid #e75a3e;
-		border-radius: 6px;
-		color: var(--text);
-		font-size: 1rem;
-		line-height: 1.6;
-		box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
-	}
-
-	.disclaimer::before {
-		content: 'Heads up';
-		display: inline-block;
-		margin: 0 10px 8px 0;
-		padding: 3px 10px 4px;
-		background: #e75a3e;
-		color: #ffffff;
-		font-family: 'JetBrains Mono', monospace;
-		font-size: 0.72rem;
-		font-weight: 700;
-		text-transform: uppercase;
-		letter-spacing: 0.08em;
-		border-radius: 3px;
-		vertical-align: middle;
-	}
-
-	.disclaimer strong:first-of-type {
-		display: block;
-		margin-bottom: 4px;
-	}
-
-	.disclaimer strong {
-		color: #e75a3e;
-	}
-
-	/* Side-by-side YouTube comparison — sits in the same 1040px column the grids use. */
+	/* Side-by-side YouTube comparison, sits in the same 1040px column the grids use. */
 	.video-grid {
 		display: grid;
 		grid-template-columns: repeat(2, 1fr);
